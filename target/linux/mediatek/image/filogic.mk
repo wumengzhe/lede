@@ -1462,6 +1462,20 @@ define Device/wirelesstag_zx7981pd-mod
 endef
 TARGET_DEVICES += wirelesstag_zx7981pd-mod
 
+define Device/teralink_tl3020
+  DEVICE_VENDOR := Teralink
+  DEVICE_MODEL := TL3020
+  DEVICE_DTS := mt7981b-teralink-tl3020
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += teralink_tl3020
+
 define Device/tplink_wma301
   DEVICE_VENDOR := TP-Link
   DEVICE_MODEL := WMA301
