@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/*
+ * Copyright (C) 2026 Yuzhii0718 <admin@yuzhii0718.eu.org>
+ */
+
+#include "mt7981b-sn-r1-common.dtsi"
+
+/ {
+	model = "SN-R1 LongLife";
+	compatible = "sn,r1-longlife", "mediatek,mt7981";
+};
+
+/*
+ * The LongLife revision ships a slower eMMC part.  Our U-Boot
+ * (mt7981_sn_r1-longlife_defconfig) clocks it at 26 MHz in legacy mode,
+ * so do not advertise high speed here either.
+ */
+&mmc0 {
+	max-frequency = <26000000>;
+};

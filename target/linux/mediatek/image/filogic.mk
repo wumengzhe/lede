@@ -1173,6 +1173,20 @@ define Device/sn_r1
 endef
 TARGET_DEVICES += sn_r1
 
+define Device/sn_r1-longlife
+  DEVICE_VENDOR := SN
+  DEVICE_MODEL := R1
+  DEVICE_VARIANT := LongLife
+  DEVICE_DTS := mt7981b-sn-r1-longlife
+  DEVICE_DTS_DIR := ../dts
+  KERNEL := kernel-bin | lzma | fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 f2fsck mkf2fs
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += sn_r1-longlife
+
 define Device/honor_fur-602
   DEVICE_VENDOR := Honor
   DEVICE_MODEL := FUR-602

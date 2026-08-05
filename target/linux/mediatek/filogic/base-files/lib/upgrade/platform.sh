@@ -62,7 +62,8 @@ platform_do_upgrade() {
 	jdcloud,re-cs-05|\
 	philips,hy3000|\
 	sl,3000-emmc|\
-	sn,r1)
+	sn,r1|\
+	sn,r1-longlife)
 		CI_KERNPART="kernel"
 		CI_ROOTPART="rootfs"
 		emmc_do_upgrade "$1"
@@ -132,7 +133,8 @@ platform_copy_config() {
 	jdcloud,re-cs-05|\
 	philips,hy3000|\
 	sl,3000-emmc|\
-	sn,r1)
+	sn,r1|\
+	sn,r1-longlife)
 		emmc_copy_config
 		;;
 	esac
