@@ -1359,6 +1359,23 @@ define Device/newland_nl-wr9103
 endef
 TARGET_DEVICES += newland_nl-wr9103
 
+define Device/ruijie_rg-x30e
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X30E
+  DEVICE_DTS := mt7981b-ruijie-rg-x30e
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 114688k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x30e
+
 define Device/ruijie_rg-x30e-pro
   DEVICE_VENDOR := Ruijie
   DEVICE_MODEL := RG-X30E
