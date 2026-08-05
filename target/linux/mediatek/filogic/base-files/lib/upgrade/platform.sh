@@ -46,6 +46,7 @@ platform_do_upgrade() {
 		esac
 		;;
 	Airpi,emmc-16g|\
+	aigo,s21|\
 	bt,r320|\
 	clx,s20p|\
 	cmcc,rax3000m-emmc|\
@@ -115,6 +116,7 @@ platform_copy_config() {
 		esac
 		;;
 	Airpi,emmc-16g|\
+	aigo,s21|\
 	bt,r320|\
 	clx,s20p|\
 	cmcc,rax3000m-emmc|\

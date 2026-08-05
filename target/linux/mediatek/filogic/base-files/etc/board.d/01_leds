@@ -13,6 +13,10 @@ Airpi,emmc-16g)
 abt,asr3000)
 	ucidef_set_led_netdev "wan" "WAN" "green:wan" "eth1"
 	;;
+aigo,s21)
+	ucidef_set_led_netdev "wan" "WAN" "green:status" "eth1"
+	ucidef_set_led_netdev "wlan2g" "WLAN2G" "white:status" "phy0-ap0"
+	;;
 bananapi,bpi-r3-mini)
 	ucidef_set_led_netdev "lan1" "LAN" "mdio-bus:0e:amber:lan" "eth0" "link tx rx"
 	ucidef_set_led_netdev "lan2" "LAN" "mdio-bus:0e:green:lan" "eth0" "link_2500 link_1000 link_100"

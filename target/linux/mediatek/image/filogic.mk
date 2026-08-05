@@ -1065,6 +1065,19 @@ TARGET_DEVICES += xiaomi_redmi-router-ax6000
 
 # ======== A. 已移植机型 (来源: padavanonly / Yuzhii0718) ========
 
+define Device/aigo_s21
+  DEVICE_VENDOR := Aigo
+  DEVICE_MODEL := S21
+  DEVICE_DTS := mt7981b-aigo-s21
+  DEVICE_DTS_DIR := ../dts
+  KERNEL := kernel-bin | lzma | fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware blkid blockdev fdisk f2fsck mkf2fs automount kmod-mmc
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += aigo_s21
+
 define Device/airpi_ap3000m
   DEVICE_VENDOR := Airpi
   DEVICE_MODEL := AP3000M
