@@ -122,7 +122,6 @@
 			partition@0 {
 				label = "BL2";
 				reg = <0x0000000 0x0100000>;
-				read-only;
 			};
 
 			partition@100000 {
@@ -133,13 +132,11 @@
 			factory: partition@180000 {
 				label = "Factory";
 				reg = <0x0180000 0x0200000>;
-				read-only;
 			};
 
 			partition@380000 {
 				label = "FIP";
 				reg = <0x0380000 0x0200000>;
-				read-only;
 			};
 
 			/*
@@ -162,7 +159,6 @@
 			partition@2680000 {
 				label = "config2";
 				reg = <0x2680000 0x0100000>;
-				read-only;
 			};
 
 			partition@2780000 {

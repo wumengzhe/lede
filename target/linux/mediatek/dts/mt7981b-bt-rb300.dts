@@ -176,7 +176,6 @@
 			partition@0 {
 				label = "BL2";
 				reg = <0x00000 0x0100000>;
-				read-only;
 			};
 
 			partition@100000 {
@@ -187,7 +186,6 @@
 			partition@180000 {
 				label = "Factory";
 				reg = <0x180000 0x0200000>;
-				read-only;
 
 				nvmem-layout {
 					compatible = "fixed-layout";
@@ -215,7 +213,6 @@
 			partition@380000 {
 				label = "FIP";
 				reg = <0x380000 0x0200000>;
-				read-only;
 			};
 
 			partition@580000 {
