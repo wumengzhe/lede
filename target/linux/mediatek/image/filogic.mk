@@ -604,7 +604,9 @@ define Device/h3c_magic-nx30-pro
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  IMAGE_SIZE := 65536k
+  # smallest chip is 128 MiB, ubi starts at 56 MiB -> 72 MiB raw, keep a
+  # margin for the NMBM bad block reserve
+  IMAGE_SIZE := 71680k
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
 endef
