@@ -12,18 +12,29 @@ mediatek_setup_interfaces()
 	cmcc,rax3000m*|\
 	cmcc,xr30-nand|\
 	cmcc,xr30-emmc|\
+	creatlentem,clt-r30b1|\
 	h3c,magic-nx30-pro|\
+	honor,fur-602|\
+	huasifei,wh3000r-nand|\
 	imou,lc-hx3001|\
 	konka,komi-a31|\
-	nokia,ea0326gmp)
+	newland,nl-wr8103|\
+	newland,nl-wr9103|\
+	nokia,ea0326gmp|\
+	ruijie,rg-x60|\
+	ruijie,rg-x60-new|\
+	zbtlink,zbt-z8103ax-c)
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" eth1
 		;;
 	asus,tuf-ax4200|\
 	huasifei,ws3009|\
+	jdcloud,re-cp-03|\
 	jdcloud,re-cs-05|\
 	netcore,n60|\
 	netcore,n60-pro|\
-	ruijie,rg-x60-pro)
+	ruijie,ew-6000gx-pro|\
+	ruijie,rg-x60-pro|\
+	zyxel,ex5700-telenor)
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" eth1
 		;;
 	asus,tuf-ax6000|\
@@ -36,10 +47,17 @@ mediatek_setup_interfaces()
 	bananapi,bpi-r3)
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4 sfp2" "eth1 wan"
 		;;
+	Airpi,emmc-16g|\
 	bananapi,bpi-r3-mini|\
 	huasifei,wh3000-emmc|\
 	huasifei,wh3000-pro)
 		ucidef_set_interfaces_lan_wan eth0 eth1
+		;;
+	bt,rb300)
+		ucidef_set_interfaces_lan_wan "lan0 lan1 lan2 lan3" wan
+		;;
+	clx,s20p)
+		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4 lan5 lan6" eth1
 		;;
 	bananapi,bpi-r4|\
 	bananapi,bpi-r4-2g5|\
@@ -49,14 +67,24 @@ mediatek_setup_interfaces()
 	bananapi,bpi-r4-lite)
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4 sfp" "eth1"
 		;;
+	bt,r320|\
 	cetron,ct3003*|\
 	cmcc,a10*|\
 	fzs,5gcpe-p3|\
 	jcg,q30-pro|\
+	livinet,li320|\
+	livinet,zr-3020|\
+	philips,hy3000|\
 	qihoo,360t7|\
-	tenbay,wr3000k)
+	ruijie,rg-x30e-pro|\
+	sl,3000-emmc|\
+	tenbay,wr3000k|\
+	tplink,wma301|\
+	tplink,wma301-ubootmod)
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" wan
 		;;
+	comfast,cf-wr632ax|\
+	comfast,cf-wr632ax-ubootmod|\
 	cudy,tr3000*|\
 	glinet,gl-mt2500|\
 	glinet,gl-mt3000|\
@@ -85,9 +113,13 @@ mediatek_setup_interfaces()
 	tplink,tl-xdr6086)
 		ucidef_set_interfaces_lan_wan "lan1 lan2" eth1
 		;;
+	wirelesstag,zx7981pd|\
+	wirelesstag,zx7981pd-ubootmod)
+		ucidef_set_interfaces_lan_wan "lan1 lan2" wan
+		;;
 	xiaomi,mi-router-wr30u|\
 	xiaomi,mi-router-ax3000t|\
-	xiaomi,redmi-router-ax6000)
+	xiaomi,redmi-router-ax6000*)
 		ucidef_set_interfaces_lan_wan "lan2 lan3 lan4" wan
 		;;
 	*)
