@@ -142,25 +142,32 @@
 				read-only;
 			};
 
+			/*
+			 * 保留分区（backup / zrsave / config2）统一前移到 ubi 之前，
+			 * 让 ubi 成为最后一个分区并声明到 512MB 末尾。
+			 * 内核 mtdpart 会把越界的 ubi 自动截断到真实闪存末尾，
+			 * UBI 再用剩余 PEB 建卷，因此同一份固件可通吃 128/256/512MB。
+			 * 原布局把这三个分区放在 ubi 之后，撑满后会与 ubi 重叠。
+			 */
 			partition@580000 {
-				label = "ubi";
-				reg = <0x0580000 0x1fa80000>;
-			};
-
-			partition@4580000 {
 				label = "backup";
-				reg = <0x4580000 0x2000000>;
+				reg = <0x0580000 0x2000000>;
 			};
 
-			partition@6580000 {
+			partition@2580000 {
 				label = "zrsave";
-				reg = <0x6580000 0x0100000>;
+				reg = <0x2580000 0x0100000>;
 			};
 
-			partition@6680000 {
+			partition@2680000 {
 				label = "config2";
-				reg = <0x6680000 0x0100000>;
+				reg = <0x2680000 0x0100000>;
 				read-only;
+			};
+
+			partition@2780000 {
+				label = "ubi";
+				reg = <0x2780000 0x1d880000>;
 			};
 		};
 	};
