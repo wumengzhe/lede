@@ -890,6 +890,8 @@ define Device/jcg_q30-pro
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += jcg_q30-pro
