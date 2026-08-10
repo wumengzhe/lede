@@ -851,6 +851,20 @@ define Device/huasifei_ws3006
 endef
 TARGET_DEVICES += huasifei_ws3006
 
+define Device/huasifei_ws3006-large
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3006 (Large Flash)
+  DEVICE_DTS := mt7981b-huasifei-ws3006-large
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3006-large
+
 define Device/huasifei_ws3009
   DEVICE_VENDOR := Huasifei
   DEVICE_MODEL := WS3009
@@ -865,6 +879,20 @@ define Device/huasifei_ws3009
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += huasifei_ws3009
+
+define Device/huasifei_ws3009-large
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3009 (Large Flash)
+  DEVICE_DTS := mt7981b-huasifei-ws3009-large
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3009-large
 
 define Device/imou_lc-hx3001
   DEVICE_VENDOR := IMOU
@@ -889,9 +917,10 @@ define Device/jcg_q30-pro
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 114688k
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGES += factory.bin
-  IMAGE/factory.bin := append-ubi | check-size $$(IMAGE_SIZE)
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += jcg_q30-pro
@@ -1323,6 +1352,20 @@ define Device/tenbay_wr3000k
 endef
 TARGET_DEVICES += tenbay_wr3000k
 
+define Device/tenbay_wr3000k-large
+  DEVICE_VENDOR := Tenbay
+  DEVICE_MODEL := WR3000K (Large Flash)
+  DEVICE_DTS := mt7981b-tenbay-wr3000k-large
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tenbay_wr3000k-large
+
 define Device/tenda_be12-pro
   DEVICE_VENDOR := Tenda
   DEVICE_MODEL := BE12 Pro
@@ -1337,6 +1380,21 @@ define Device/tenda_be12-pro
   IMAGE/sysupgrade.bin := append-kernel | tenda-mkdualimageheader | sysupgrade-tar kernel=$$$$@ | append-metadata
 endef
 TARGET_DEVICES += tenda_be12-pro
+
+define Device/tenda_be12-pro-large
+  DEVICE_VENDOR := Tenda
+  DEVICE_MODEL := BE12 Pro (Large Flash)
+  DEVICE_DTS := mt7987a-tenda-be12-pro-large
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := mt7987-2p5g-phy-firmware airoha-en8811h-firmware \
+	kmod-phy-airoha-en8811h kmod-phy-mediatek-2p5g kmod-mt7992-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_LOADADDR := 0x40000000
+  IMAGE/sysupgrade.bin := append-kernel | tenda-mkdualimageheader | sysupgrade-tar kernel=$$$$@ | append-metadata
+endef
+TARGET_DEVICES += tenda_be12-pro-large
 
 define Device/teralink_tl3020
   DEVICE_VENDOR := Teralink
