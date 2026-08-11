@@ -189,7 +189,7 @@ define Device/abt_asr3000-256m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 256512k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -206,7 +206,7 @@ define Device/abt_asr3000-512m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 518656k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -282,7 +282,7 @@ define Device/asus_tuf-ax4200-256m
   DEVICE_DTS := mt7986a-asus-tuf-ax4200-256m
   DEVICE_DTS_DIR := ../dts
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 258048k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -295,7 +295,7 @@ define Device/asus_tuf-ax4200-512m
   DEVICE_DTS := mt7986a-asus-tuf-ax4200-512m
   DEVICE_DTS_DIR := ../dts
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 520192k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -340,7 +340,7 @@ define Device/asus_tuf-ax6000-256m
   DEVICE_DTS := mt7986a-asus-tuf-ax6000-256m
   DEVICE_DTS_DIR := ../dts
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 258048k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -353,7 +353,7 @@ define Device/asus_tuf-ax6000-512m
   DEVICE_DTS := mt7986a-asus-tuf-ax6000-512m
   DEVICE_DTS_DIR := ../dts
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 520192k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -596,7 +596,7 @@ define Device/cetron_ct3003-mod-256m
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  IMAGE_SIZE := 256512k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -613,7 +613,7 @@ define Device/cetron_ct3003-mod-512m
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  IMAGE_SIZE := 518656k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -692,7 +692,7 @@ define Device/cmcc_a10-mod-256m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 256512k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -709,7 +709,7 @@ define Device/cmcc_a10-mod-512m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 518656k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -774,7 +774,7 @@ define Device/cmcc_rax3000m-nand-256m
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  IMAGE_SIZE := 256512k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -791,7 +791,7 @@ define Device/cmcc_rax3000m-nand-512m
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  IMAGE_SIZE := 518656k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -856,7 +856,7 @@ define Device/cmcc_xr30-nand-256m
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  IMAGE_SIZE := 256512k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -873,7 +873,7 @@ define Device/cmcc_xr30-nand-512m
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  IMAGE_SIZE := 518656k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -979,7 +979,7 @@ define Device/cudy_tr3000-mod-256m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 256256k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -996,7 +996,7 @@ define Device/cudy_tr3000-mod-512m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 518400k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1065,7 +1065,7 @@ define Device/cudy_tr3000-v1-256m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 256256k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1082,7 +1082,7 @@ define Device/cudy_tr3000-v1-512m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 518400k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1134,7 +1134,7 @@ define Device/fzs_5gcpe-p3-256m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
-  IMAGE_SIZE := 256512k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1151,7 +1151,7 @@ define Device/fzs_5gcpe-p3-512m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
-  IMAGE_SIZE := 518656k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1215,7 +1215,7 @@ define Device/glinet_gl-mt3000-256m
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  IMAGE_SIZE := 256256k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1232,7 +1232,7 @@ define Device/glinet_gl-mt3000-512m
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  IMAGE_SIZE := 518400k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1363,7 +1363,7 @@ define Device/hf_m7986r1-nand-256m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7921e kmod-usb-net-rndis kmod-usb-serial-option
-  IMAGE_SIZE := 256512k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1380,7 +1380,7 @@ define Device/hf_m7986r1-nand-512m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7921e kmod-usb-net-rndis kmod-usb-serial-option
-  IMAGE_SIZE := 518656k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1564,7 +1564,7 @@ define Device/imou_lc-hx3001-256m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 256512k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1581,7 +1581,7 @@ define Device/imou_lc-hx3001-512m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 518656k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1731,7 +1731,7 @@ define Device/konka_komi-a31-256m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 256512k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1748,7 +1748,7 @@ define Device/konka_komi-a31-512m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 518656k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1926,7 +1926,7 @@ define Device/netcore_n60-256m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 256512k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1943,7 +1943,7 @@ define Device/netcore_n60-512m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 518656k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1995,7 +1995,7 @@ define Device/netcore_n60-pro-256m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 256512k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2012,7 +2012,7 @@ define Device/netcore_n60-pro-512m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 518656k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2092,7 +2092,7 @@ define Device/nokia_ea0326gmp-256m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 227840k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2109,7 +2109,7 @@ define Device/nokia_ea0326gmp-512m
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 489984k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2163,7 +2163,7 @@ define Device/openembed_som7981-256m
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  IMAGE_SIZE := 256512k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2180,7 +2180,7 @@ define Device/openembed_som7981-512m
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  IMAGE_SIZE := 518656k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2329,7 +2329,7 @@ define Device/ruijie_rg-x60-pro-256m
   DEVICE_DTS := mt7986a-ruijie-rg-x60-pro-256m
   DEVICE_DTS_DIR := ../dts
   DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 255488k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2342,7 +2342,7 @@ define Device/ruijie_rg-x60-pro-512m
   DEVICE_DTS := mt7986a-ruijie-rg-x60-pro-512m
   DEVICE_DTS_DIR := ../dts
   DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 517632k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2510,7 +2510,7 @@ define Device/tplink_tl-xtr8488-256m
   DEVICE_DTS := mt7986a-tplink-tl-xtr8488-256m
   DEVICE_DTS_DIR := ../dts
   DEVICE_PACKAGES += kmod-mt7915-firmware
-  IMAGE_SIZE := 256512k
+  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2522,7 +2522,7 @@ define Device/tplink_tl-xtr8488-512m
   DEVICE_DTS := mt7986a-tplink-tl-xtr8488-512m
   DEVICE_DTS_DIR := ../dts
   DEVICE_PACKAGES += kmod-mt7915-firmware
-  IMAGE_SIZE := 518656k
+  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata

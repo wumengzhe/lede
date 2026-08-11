@@ -180,7 +180,7 @@
 
 			partition@580000 {
 				label = "ubi";
-				reg = <0x580000 0xfa80000>;
+				reg = <0x580000 0xEA80000>;
 			};
 		};
 	};

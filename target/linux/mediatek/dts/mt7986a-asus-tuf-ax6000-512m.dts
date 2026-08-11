@@ -245,7 +245,7 @@
 			};
 
 			partition@400000 {
-				reg = <0x400000 0x1fc00000>;
+				reg = <0x400000 0x1DA80000>;
 				label = "UBI_DEV";
 			};
 		};
