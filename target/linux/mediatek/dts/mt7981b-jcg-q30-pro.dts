@@ -47,8 +47,7 @@
 
 		led_status_blue: blue {
 			label = "blue:status";
-			gpios = <&pio 13 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "default-on";
+			gpios = <&pio 13 GPIO_ACTIVE_LOW>;
 		};
 	};
 };
