@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+
+/dts-v1/;
+#include "mt7981b-cmcc-a10.dts"
+
+/ {
+	model = "CMCC A10 (U-Boot mod)";
+	compatible = "cmcc,a10-mod", "mediatek,mt7981";
+};
+
+&spi0 {
+	spi_nand@0 {
+		partitions {
+			/*
+			 * 自制 U-Boot：原厂保留区（backup / zrsave / config2）全部取消，
+			 * ubi 自 0x580000 一路声明到 512MiB 边界。
+			 * 内核 mtdpart 会把越界部分自动截断到真实闪存末尾，
+			 * UBI 再用剩余 PEB 建卷，因此同一份固件可通吃 128/256/512MB。
+			 */
+			partition@580000 {
+				label = "ubi";
+				reg = <0x580000 0x1fa80000>;
+			};
+
+			/delete-node/ partition@2580000;
+			/delete-node/ partition@2680000;
+			/delete-node/ partition@2780000;
+		};
+	};
+};
