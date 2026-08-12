@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+
+/dts-v1/;
+#include "mt7981b-huasifei-ws3006.dts"
+
+/ {
+	model = "Huasifei WS3006 (Large Flash)";
+	compatible = "huasifei,ws3006-large", "huasifei,ws3006", "mediatek,mt7981";
+};
+
+&spi0 {
+	flash@0 {
+		partitions {
+			/*
+			 * Large-flash layout (256M / 512M retrofit chips).
+			 *
+			 * The ubi START offset is deliberately KEPT at 0x580000: this board
+			 * boots its stock u-boot, which locates the ubi volume at a
+			 * hard-coded offset -- moving it would brick the device.
+			 *
+			 * Dropped trailing partitions: config (512K stock config blob, unused by OpenWrt).
+			 * ubi then spans to the 512MiB boundary; UBI truncates itself to
+			 * the real chip size, so one image covers both 256M and 512M.
+			 */
+			partition@580000 {
+				label = "ubi";
+				reg = <0x580000 0x1da80000>;
+			};
+
+			/delete-node/ partition@7380000;
+		};
+	};
+};

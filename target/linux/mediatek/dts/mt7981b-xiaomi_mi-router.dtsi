@@ -344,7 +344,7 @@
 			 * real chip size, so the 128 MiB units keep working
 			 * and bigger ones get every remaining PEB.
 			 */
-			partition@640000 {
+			ubi: partition@640000 {
 				label = "ubi";
 				reg = <0x0640000 0x1f9c0000>;
 			};

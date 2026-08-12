@@ -184,12 +184,13 @@ define Device/abt_asr3000-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7981b-abt-asr3000-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += abt,asr3000
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 240128k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -201,12 +202,13 @@ define Device/abt_asr3000-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7981b-abt-asr3000-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += abt,asr3000
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 485888k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -218,12 +220,13 @@ define Device/abt_asr3000-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7981b-abt-asr3000-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += abt,asr3000
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 518656k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -281,8 +284,15 @@ define Device/asus_tuf-ax4200-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7986a-asus-tuf-ax4200-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += asus,tuf-ax4200
+  DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 240128k
+  IMAGE_SIZE := 241664k
+  IMAGES := sysupgrade.bin
+  KERNEL := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -294,8 +304,15 @@ define Device/asus_tuf-ax4200-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7986a-asus-tuf-ax4200-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += asus,tuf-ax4200
+  DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 485888k
+  IMAGE_SIZE := 487424k
+  IMAGES := sysupgrade.bin
+  KERNEL := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -307,8 +324,15 @@ define Device/asus_tuf-ax4200-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7986a-asus-tuf-ax4200-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += asus,tuf-ax4200
+  DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
   IMAGE_SIZE := 520192k
+  IMAGES := sysupgrade.bin
+  KERNEL := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -339,8 +363,15 @@ define Device/asus_tuf-ax6000-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7986a-asus-tuf-ax6000-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += asus,tuf-ax6000
+  DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 240128k
+  IMAGE_SIZE := 241664k
+  IMAGES := sysupgrade.bin
+  KERNEL := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -352,8 +383,15 @@ define Device/asus_tuf-ax6000-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7986a-asus-tuf-ax6000-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += asus,tuf-ax6000
+  DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 485888k
+  IMAGE_SIZE := 487424k
+  IMAGES := sysupgrade.bin
+  KERNEL := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -365,8 +403,15 @@ define Device/asus_tuf-ax6000-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7986a-asus-tuf-ax6000-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += asus,tuf-ax6000
+  DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
   IMAGE_SIZE := 520192k
+  IMAGES := sysupgrade.bin
+  KERNEL := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -550,6 +595,60 @@ define Device/bt_rb300
 endef
 TARGET_DEVICES += bt_rb300
 
+define Device/bt_rb300-256m
+  DEVICE_VENDOR := BT
+  DEVICE_MODEL := RB300
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-bt-rb300-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += bt,rb300
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 240128k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += bt_rb300-256m
+define Device/bt_rb300-512m
+  DEVICE_VENDOR := BT
+  DEVICE_MODEL := RB300
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-bt-rb300-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += bt,rb300
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 485888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += bt_rb300-512m
+define Device/bt_rb300-auto
+  DEVICE_VENDOR := BT
+  DEVICE_MODEL := RB300
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-bt-rb300-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += bt,rb300
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 518656k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += bt_rb300-auto
 define Device/cetron_ct3003
   DEVICE_VENDOR := Cetron
   DEVICE_MODEL := CT3003
@@ -567,6 +666,63 @@ define Device/cetron_ct3003
 endef
 TARGET_DEVICES += cetron_ct3003
 
+define Device/cetron_ct3003-256m
+  DEVICE_VENDOR := Cetron
+  DEVICE_MODEL := CT3003
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-cetron-ct3003-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += mediatek,mt7981-spim-snand-rfb
+  SUPPORTED_DEVICES += cetron,ct3003
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 240128k
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  IMAGES += factory.bin
+  IMAGE/factory.bin := $$(IMAGE/sysupgrade.bin) | cetron-header rd30 CT3003
+endef
+TARGET_DEVICES += cetron_ct3003-256m
+define Device/cetron_ct3003-512m
+  DEVICE_VENDOR := Cetron
+  DEVICE_MODEL := CT3003
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-cetron-ct3003-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += mediatek,mt7981-spim-snand-rfb
+  SUPPORTED_DEVICES += cetron,ct3003
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 485888k
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  IMAGES += factory.bin
+  IMAGE/factory.bin := $$(IMAGE/sysupgrade.bin) | cetron-header rd30 CT3003
+endef
+TARGET_DEVICES += cetron_ct3003-512m
+define Device/cetron_ct3003-auto
+  DEVICE_VENDOR := Cetron
+  DEVICE_MODEL := CT3003
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-cetron-ct3003-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += mediatek,mt7981-spim-snand-rfb
+  SUPPORTED_DEVICES += cetron,ct3003
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 518656k
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  IMAGES += factory.bin
+  IMAGE/factory.bin := $$(IMAGE/sysupgrade.bin) | cetron-header rd30 CT3003
+endef
+TARGET_DEVICES += cetron_ct3003-auto
 define Device/cetron_ct3003-mod
   DEVICE_VENDOR := Cetron
   DEVICE_MODEL := CT3003 (U-Boot mod)
@@ -591,6 +747,7 @@ define Device/cetron_ct3003-mod-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7981b-cetron-ct3003-mod-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cetron,ct3003-mod
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
@@ -608,6 +765,7 @@ define Device/cetron_ct3003-mod-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7981b-cetron-ct3003-mod-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cetron,ct3003-mod
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
@@ -625,6 +783,7 @@ define Device/cetron_ct3003-mod-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7981b-cetron-ct3003-mod-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cetron,ct3003-mod
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
@@ -663,6 +822,63 @@ define Device/cmcc_a10
 endef
 TARGET_DEVICES += cmcc_a10
 
+define Device/cmcc_a10-256m
+  DEVICE_VENDOR := CMCC
+  DEVICE_MODEL := A10
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-cmcc-a10-256m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += mediatek,mt7981-spim-snand-rfb
+  SUPPORTED_DEVICES += cmcc,a10
+  IMAGE_SIZE := 205312k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+endef
+TARGET_DEVICES += cmcc_a10-256m
+define Device/cmcc_a10-512m
+  DEVICE_VENDOR := CMCC
+  DEVICE_MODEL := A10
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-cmcc-a10-512m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += mediatek,mt7981-spim-snand-rfb
+  SUPPORTED_DEVICES += cmcc,a10
+  IMAGE_SIZE := 451072k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+endef
+TARGET_DEVICES += cmcc_a10-512m
+define Device/cmcc_a10-auto
+  DEVICE_VENDOR := CMCC
+  DEVICE_MODEL := A10
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-cmcc-a10-auto
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += mediatek,mt7981-spim-snand-rfb
+  SUPPORTED_DEVICES += cmcc,a10
+  IMAGE_SIZE := 483840k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+endef
+TARGET_DEVICES += cmcc_a10-auto
 define Device/cmcc_a10-mod
   DEVICE_VENDOR := CMCC
   DEVICE_MODEL := A10 (U-Boot mod)
@@ -687,15 +903,16 @@ define Device/cmcc_a10-mod-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7981b-cmcc-a10-mod-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cmcc,a10-mod
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
 endef
 TARGET_DEVICES += cmcc_a10-mod-256m
 define Device/cmcc_a10-mod-512m
@@ -704,15 +921,16 @@ define Device/cmcc_a10-mod-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7981b-cmcc-a10-mod-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cmcc,a10-mod
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
 endef
 TARGET_DEVICES += cmcc_a10-mod-512m
 define Device/cmcc_a10-mod-auto
@@ -721,15 +939,16 @@ define Device/cmcc_a10-mod-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7981b-cmcc-a10-mod-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cmcc,a10-mod
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 518656k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
 endef
 TARGET_DEVICES += cmcc_a10-mod-auto
 define Device/cmcc_rax3000m-emmc
@@ -769,12 +988,13 @@ define Device/cmcc_rax3000m-nand-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7981b-cmcc-rax3000m-nand-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cmcc,rax3000m-nand
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
-  KERNEL_IN_UBI := 1
   IMAGE_SIZE := 240128k
+  KERNEL_IN_UBI := 1
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -786,12 +1006,13 @@ define Device/cmcc_rax3000m-nand-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7981b-cmcc-rax3000m-nand-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cmcc,rax3000m-nand
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
-  KERNEL_IN_UBI := 1
   IMAGE_SIZE := 485888k
+  KERNEL_IN_UBI := 1
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -803,12 +1024,13 @@ define Device/cmcc_rax3000m-nand-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7981b-cmcc-rax3000m-nand-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cmcc,rax3000m-nand
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
-  KERNEL_IN_UBI := 1
   IMAGE_SIZE := 518656k
+  KERNEL_IN_UBI := 1
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -848,15 +1070,16 @@ TARGET_DEVICES += cmcc_xr30-nand
 define Device/cmcc_xr30-nand-256m
   DEVICE_VENDOR := CMCC
   DEVICE_MODEL := XR30 NAND
-  DEVICE_VARIANT := NAND 256M
+  DEVICE_VARIANT := U-Boot mod, NAND 256M
   DEVICE_DTS := mt7981b-cmcc-xr30-nand-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cmcc,xr30-nand
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
-  KERNEL_IN_UBI := 1
   IMAGE_SIZE := 240128k
+  KERNEL_IN_UBI := 1
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -865,15 +1088,16 @@ TARGET_DEVICES += cmcc_xr30-nand-256m
 define Device/cmcc_xr30-nand-512m
   DEVICE_VENDOR := CMCC
   DEVICE_MODEL := XR30 NAND
-  DEVICE_VARIANT := NAND 512M
+  DEVICE_VARIANT := U-Boot mod, NAND 512M
   DEVICE_DTS := mt7981b-cmcc-xr30-nand-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cmcc,xr30-nand
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
-  KERNEL_IN_UBI := 1
   IMAGE_SIZE := 485888k
+  KERNEL_IN_UBI := 1
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -882,15 +1106,16 @@ TARGET_DEVICES += cmcc_xr30-nand-512m
 define Device/cmcc_xr30-nand-auto
   DEVICE_VENDOR := CMCC
   DEVICE_MODEL := XR30 NAND
-  DEVICE_VARIANT := NAND (auto)
+  DEVICE_VARIANT := U-Boot mod, NAND (auto)
   DEVICE_DTS := mt7981b-cmcc-xr30-nand-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cmcc,xr30-nand
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
-  KERNEL_IN_UBI := 1
   IMAGE_SIZE := 518656k
+  KERNEL_IN_UBI := 1
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -912,6 +1137,63 @@ define Device/comfast_cf-wr632ax
 endef
 TARGET_DEVICES += comfast_cf-wr632ax
 
+define Device/comfast_cf-wr632ax-256m
+  DEVICE_VENDOR := COMFAST
+  DEVICE_MODEL := CF-WR632AX
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-comfast-cf-wr632ax-256m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 240128k
+  SUPPORTED_DEVICES += cf-wr632ax
+  SUPPORTED_DEVICES += comfast,cf-wr632ax
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-hwmon-pwmfan kmod-usb3 automount
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += comfast_cf-wr632ax-256m
+define Device/comfast_cf-wr632ax-512m
+  DEVICE_VENDOR := COMFAST
+  DEVICE_MODEL := CF-WR632AX
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-comfast-cf-wr632ax-512m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 485888k
+  SUPPORTED_DEVICES += cf-wr632ax
+  SUPPORTED_DEVICES += comfast,cf-wr632ax
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-hwmon-pwmfan kmod-usb3 automount
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += comfast_cf-wr632ax-512m
+define Device/comfast_cf-wr632ax-auto
+  DEVICE_VENDOR := COMFAST
+  DEVICE_MODEL := CF-WR632AX
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-comfast-cf-wr632ax-auto
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 518656k
+  SUPPORTED_DEVICES += cf-wr632ax
+  SUPPORTED_DEVICES += comfast,cf-wr632ax
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-hwmon-pwmfan kmod-usb3 automount
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += comfast_cf-wr632ax-auto
 define Device/comfast_cf-wr632ax-mod
   DEVICE_VENDOR := COMFAST
   DEVICE_MODEL := CF-WR632AX
@@ -928,6 +1210,60 @@ define Device/comfast_cf-wr632ax-mod
 endef
 TARGET_DEVICES += comfast_cf-wr632ax-mod
 
+define Device/comfast_cf-wr632ax-mod-256m
+  DEVICE_VENDOR := COMFAST
+  DEVICE_MODEL := CF-WR632AX
+  DEVICE_VARIANT := U-Boot mod, NAND 256M
+  DEVICE_DTS := mt7981b-comfast-cf-wr632ax-ubootmod-256m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += comfast,cf-wr632ax-ubootmod
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-hwmon-pwmfan kmod-usb3 automount
+  IMAGE_SIZE := 240128k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += comfast_cf-wr632ax-mod-256m
+define Device/comfast_cf-wr632ax-mod-512m
+  DEVICE_VENDOR := COMFAST
+  DEVICE_MODEL := CF-WR632AX
+  DEVICE_VARIANT := U-Boot mod, NAND 512M
+  DEVICE_DTS := mt7981b-comfast-cf-wr632ax-ubootmod-512m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += comfast,cf-wr632ax-ubootmod
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-hwmon-pwmfan kmod-usb3 automount
+  IMAGE_SIZE := 485888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += comfast_cf-wr632ax-mod-512m
+define Device/comfast_cf-wr632ax-mod-auto
+  DEVICE_VENDOR := COMFAST
+  DEVICE_MODEL := CF-WR632AX
+  DEVICE_VARIANT := U-Boot mod, NAND (auto)
+  DEVICE_DTS := mt7981b-comfast-cf-wr632ax-ubootmod-auto
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += comfast,cf-wr632ax-ubootmod
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-hwmon-pwmfan kmod-usb3 automount
+  IMAGE_SIZE := 518656k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += comfast_cf-wr632ax-mod-auto
 define Device/creatlentem_clt-r30b1
   DEVICE_VENDOR := CreatLentem
   DEVICE_MODEL := CLT-R30B1
@@ -950,6 +1286,90 @@ define Device/creatlentem_clt-r30b1
 endef
 TARGET_DEVICES += creatlentem_clt-r30b1
 
+define Device/creatlentem_clt-r30b1-256m
+  DEVICE_VENDOR := CreatLentem
+  DEVICE_MODEL := CLT-R30B1
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-creatlentem-clt-r30b1-256m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 207360k
+  SUPPORTED_DEVICES += mediatek,mt7981-spim-snand-rfb
+  SUPPORTED_DEVICES += creatlentem,clt-r30b1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  DEVICE_ALT0_VENDOR := EDUP
+  DEVICE_ALT0_MODEL := EP-RT2980
+  DEVICE_ALT0_VARIANT := NAND 256M
+  DEVICE_ALT1_VENDOR := Dragonglass
+  DEVICE_ALT1_MODEL := DGX21
+  DEVICE_ALT1_VARIANT := NAND 256M
+  DEVICE_ALT2_VENDOR := Livinet
+  DEVICE_ALT2_MODEL := Li228
+  DEVICE_ALT2_VARIANT := NAND 256M
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += creatlentem_clt-r30b1-256m
+define Device/creatlentem_clt-r30b1-512m
+  DEVICE_VENDOR := CreatLentem
+  DEVICE_MODEL := CLT-R30B1
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-creatlentem-clt-r30b1-512m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 453120k
+  SUPPORTED_DEVICES += mediatek,mt7981-spim-snand-rfb
+  SUPPORTED_DEVICES += creatlentem,clt-r30b1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  DEVICE_ALT0_VENDOR := EDUP
+  DEVICE_ALT0_MODEL := EP-RT2980
+  DEVICE_ALT0_VARIANT := NAND 512M
+  DEVICE_ALT1_VENDOR := Dragonglass
+  DEVICE_ALT1_MODEL := DGX21
+  DEVICE_ALT1_VARIANT := NAND 512M
+  DEVICE_ALT2_VENDOR := Livinet
+  DEVICE_ALT2_MODEL := Li228
+  DEVICE_ALT2_VARIANT := NAND 512M
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += creatlentem_clt-r30b1-512m
+define Device/creatlentem_clt-r30b1-auto
+  DEVICE_VENDOR := CreatLentem
+  DEVICE_MODEL := CLT-R30B1
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-creatlentem-clt-r30b1-auto
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 485888k
+  SUPPORTED_DEVICES += mediatek,mt7981-spim-snand-rfb
+  SUPPORTED_DEVICES += creatlentem,clt-r30b1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  DEVICE_ALT0_VENDOR := EDUP
+  DEVICE_ALT0_MODEL := EP-RT2980
+  DEVICE_ALT0_VARIANT := NAND (auto)
+  DEVICE_ALT1_VENDOR := Dragonglass
+  DEVICE_ALT1_MODEL := DGX21
+  DEVICE_ALT1_VARIANT := NAND (auto)
+  DEVICE_ALT2_VENDOR := Livinet
+  DEVICE_ALT2_MODEL := Li228
+  DEVICE_ALT2_VARIANT := NAND (auto)
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += creatlentem_clt-r30b1-auto
 define Device/cudy_tr3000-mod
   DEVICE_VENDOR := Cudy
   DEVICE_MODEL := TR3000
@@ -971,52 +1391,55 @@ TARGET_DEVICES += cudy_tr3000-mod
 define Device/cudy_tr3000-mod-256m
   DEVICE_VENDOR := Cudy
   DEVICE_MODEL := TR3000
-  DEVICE_VARIANT := NAND 256M
+  DEVICE_VARIANT := U-Boot mod, NAND 256M
   DEVICE_DTS := mt7981b-cudy-tr3000-mod-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cudy,tr3000-mod
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 240128k
+  IMAGE_SIZE := 239872k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
 endef
 TARGET_DEVICES += cudy_tr3000-mod-256m
 define Device/cudy_tr3000-mod-512m
   DEVICE_VENDOR := Cudy
   DEVICE_MODEL := TR3000
-  DEVICE_VARIANT := NAND 512M
+  DEVICE_VARIANT := U-Boot mod, NAND 512M
   DEVICE_DTS := mt7981b-cudy-tr3000-mod-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cudy,tr3000-mod
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 485888k
+  IMAGE_SIZE := 485632k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
 endef
 TARGET_DEVICES += cudy_tr3000-mod-512m
 define Device/cudy_tr3000-mod-auto
   DEVICE_VENDOR := Cudy
   DEVICE_MODEL := TR3000
-  DEVICE_VARIANT := NAND (auto)
+  DEVICE_VARIANT := U-Boot mod, NAND (auto)
   DEVICE_DTS := mt7981b-cudy-tr3000-mod-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cudy,tr3000-mod
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 518400k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
 endef
 TARGET_DEVICES += cudy_tr3000-mod-auto
 define Device/cudy_tr3000-256mb-v1
@@ -1035,6 +1458,63 @@ define Device/cudy_tr3000-256mb-v1
 endef
 TARGET_DEVICES += cudy_tr3000-256mb-v1
 
+define Device/cudy_tr3000-256mb-v1-256m
+  DEVICE_VENDOR := Cudy
+  DEVICE_MODEL := TR3000
+  DEVICE_VARIANT := 256mb v1, NAND 256M
+  DEVICE_DTS := mt7981b-cudy-tr3000-256mb-v1-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += R103
+  SUPPORTED_DEVICES += cudy,tr3000-256mb-v1
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 239872k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
+endef
+TARGET_DEVICES += cudy_tr3000-256mb-v1-256m
+define Device/cudy_tr3000-256mb-v1-512m
+  DEVICE_VENDOR := Cudy
+  DEVICE_MODEL := TR3000
+  DEVICE_VARIANT := 256mb v1, NAND 512M
+  DEVICE_DTS := mt7981b-cudy-tr3000-256mb-v1-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += R103
+  SUPPORTED_DEVICES += cudy,tr3000-256mb-v1
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 485632k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
+endef
+TARGET_DEVICES += cudy_tr3000-256mb-v1-512m
+define Device/cudy_tr3000-256mb-v1-auto
+  DEVICE_VENDOR := Cudy
+  DEVICE_MODEL := TR3000
+  DEVICE_VARIANT := 256mb v1, NAND (auto)
+  DEVICE_DTS := mt7981b-cudy-tr3000-256mb-v1-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += R103
+  SUPPORTED_DEVICES += cudy,tr3000-256mb-v1
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 518400k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
+endef
+TARGET_DEVICES += cudy_tr3000-256mb-v1-auto
 define Device/cudy_tr3000-v1
   DEVICE_VENDOR := Cudy
   DEVICE_MODEL := TR3000
@@ -1057,52 +1537,58 @@ TARGET_DEVICES += cudy_tr3000-v1
 define Device/cudy_tr3000-v1-256m
   DEVICE_VENDOR := Cudy
   DEVICE_MODEL := TR3000
-  DEVICE_VARIANT := NAND 256M
+  DEVICE_VARIANT := v1, NAND 256M
   DEVICE_DTS := mt7981b-cudy-tr3000-v1-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += R47
+  SUPPORTED_DEVICES += cudy,tr3000-v1
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
+  IMAGE_SIZE := 239872k
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
 endef
 TARGET_DEVICES += cudy_tr3000-v1-256m
 define Device/cudy_tr3000-v1-512m
   DEVICE_VENDOR := Cudy
   DEVICE_MODEL := TR3000
-  DEVICE_VARIANT := NAND 512M
+  DEVICE_VARIANT := v1, NAND 512M
   DEVICE_DTS := mt7981b-cudy-tr3000-v1-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += R47
+  SUPPORTED_DEVICES += cudy,tr3000-v1
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
+  IMAGE_SIZE := 485632k
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
 endef
 TARGET_DEVICES += cudy_tr3000-v1-512m
 define Device/cudy_tr3000-v1-auto
   DEVICE_VENDOR := Cudy
   DEVICE_MODEL := TR3000
-  DEVICE_VARIANT := NAND (auto)
+  DEVICE_VARIANT := v1, NAND (auto)
   DEVICE_DTS := mt7981b-cudy-tr3000-v1-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += R47
+  SUPPORTED_DEVICES += cudy,tr3000-v1
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
-  KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 518400k
+  KERNEL_IN_UBI := 1
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7981-firmware mt7981-wo-firmware
 endef
 TARGET_DEVICES += cudy_tr3000-v1-auto
 define Device/fzs_5gcpe-p3
@@ -1129,12 +1615,13 @@ define Device/fzs_5gcpe-p3-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7981b-fzs-5gcpe-p3-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += fzs,5gcpe-p3
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
   IMAGE_SIZE := 240128k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1146,12 +1633,13 @@ define Device/fzs_5gcpe-p3-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7981b-fzs-5gcpe-p3-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += fzs,5gcpe-p3
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
   IMAGE_SIZE := 485888k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1163,12 +1651,13 @@ define Device/fzs_5gcpe-p3-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7981b-fzs-5gcpe-p3-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += fzs,5gcpe-p3
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
   IMAGE_SIZE := 518656k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1210,12 +1699,13 @@ define Device/glinet_gl-mt3000-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7981b-glinet-gl-mt3000-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += glinet,gl-mt3000
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-hwmon-pwmfan kmod-usb3
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  IMAGE_SIZE := 240128k
+  IMAGE_SIZE := 239872k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1227,12 +1717,13 @@ define Device/glinet_gl-mt3000-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7981b-glinet-gl-mt3000-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += glinet,gl-mt3000
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-hwmon-pwmfan kmod-usb3
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  IMAGE_SIZE := 485888k
+  IMAGE_SIZE := 485632k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1244,6 +1735,7 @@ define Device/glinet_gl-mt3000-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7981b-glinet-gl-mt3000-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += glinet,gl-mt3000
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-hwmon-pwmfan kmod-usb3
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
@@ -1272,6 +1764,66 @@ define Device/glinet_gl-mt3600be
 endef
 TARGET_DEVICES += glinet_gl-mt3600be
 
+define Device/glinet_gl-mt3600be-256m
+  DEVICE_VENDOR := GL.iNet
+  DEVICE_MODEL := GL-MT3600BE
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7987a-glinet-gl-mt3600be-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += glinet,gl-mt3600be
+  DEVICE_PACKAGES := mt7987-2p5g-phy-firmware kmod-mt7990-firmware \
+	kmod-hwmon-pwmfan kmod-usb3
+  KERNEL_IN_UBI := 1
+  KERNEL_LOADADDR := 0x40000000
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 237568k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += glinet_gl-mt3600be-256m
+define Device/glinet_gl-mt3600be-512m
+  DEVICE_VENDOR := GL.iNet
+  DEVICE_MODEL := GL-MT3600BE
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7987a-glinet-gl-mt3600be-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += glinet,gl-mt3600be
+  DEVICE_PACKAGES := mt7987-2p5g-phy-firmware kmod-mt7990-firmware \
+	kmod-hwmon-pwmfan kmod-usb3
+  KERNEL_IN_UBI := 1
+  KERNEL_LOADADDR := 0x40000000
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 483328k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += glinet_gl-mt3600be-512m
+define Device/glinet_gl-mt3600be-auto
+  DEVICE_VENDOR := GL.iNet
+  DEVICE_MODEL := GL-MT3600BE
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7987a-glinet-gl-mt3600be-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += glinet,gl-mt3600be
+  DEVICE_PACKAGES := mt7987-2p5g-phy-firmware kmod-mt7990-firmware \
+	kmod-hwmon-pwmfan kmod-usb3
+  KERNEL_IN_UBI := 1
+  KERNEL_LOADADDR := 0x40000000
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 516096k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += glinet_gl-mt3600be-auto
 define Device/glinet_gl-mt6000
   DEVICE_VENDOR := GL.iNet
   DEVICE_MODEL := GL-MT6000
@@ -1319,6 +1871,66 @@ define Device/h3c_magic-nx30-pro
 endef
 TARGET_DEVICES += h3c_magic-nx30-pro
 
+define Device/h3c_magic-nx30-pro-256m
+  DEVICE_VENDOR := H3C
+  DEVICE_MODEL := Magic NX30 Pro
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-h3c-magic-nx30-pro-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += h3c,magic-nx30-pro
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  # smallest chip is 128 MiB, ubi starts at 56 MiB -> 72 MiB raw, keep a
+  # margin for the NMBM bad block reserve
+  IMAGE_SIZE := 188416k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+endef
+TARGET_DEVICES += h3c_magic-nx30-pro-256m
+define Device/h3c_magic-nx30-pro-512m
+  DEVICE_VENDOR := H3C
+  DEVICE_MODEL := Magic NX30 Pro
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-h3c-magic-nx30-pro-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += h3c,magic-nx30-pro
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  # smallest chip is 128 MiB, ubi starts at 56 MiB -> 72 MiB raw, keep a
+  # margin for the NMBM bad block reserve
+  IMAGE_SIZE := 434176k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+endef
+TARGET_DEVICES += h3c_magic-nx30-pro-512m
+define Device/h3c_magic-nx30-pro-auto
+  DEVICE_VENDOR := H3C
+  DEVICE_MODEL := Magic NX30 Pro
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-h3c-magic-nx30-pro-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += h3c,magic-nx30-pro
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  # smallest chip is 128 MiB, ubi starts at 56 MiB -> 72 MiB raw, keep a
+  # margin for the NMBM bad block reserve
+  IMAGE_SIZE := 466944k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+endef
+TARGET_DEVICES += h3c_magic-nx30-pro-auto
 define Device/hf_m7986r1-emmc
   DEVICE_VENDOR := HF
   DEVICE_MODEL := M7986R1 (eMMC)
@@ -1362,11 +1974,13 @@ define Device/hf_m7986r1-nand-256m
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7921e kmod-usb-net-rndis kmod-usb-serial-option
   IMAGE_SIZE := 240128k
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7921e kmod-usb-net-rndis kmod-usb-serial-option
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  SUPPORTED_DEVICES += HF-M7986R1
+  SUPPORTED_DEVICES += hf,m7986r1-nand
 endef
 TARGET_DEVICES += hf_m7986r1-nand-256m
 define Device/hf_m7986r1-nand-512m
@@ -1379,11 +1993,13 @@ define Device/hf_m7986r1-nand-512m
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7921e kmod-usb-net-rndis kmod-usb-serial-option
   IMAGE_SIZE := 485888k
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7921e kmod-usb-net-rndis kmod-usb-serial-option
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  SUPPORTED_DEVICES += HF-M7986R1
+  SUPPORTED_DEVICES += hf,m7986r1-nand
 endef
 TARGET_DEVICES += hf_m7986r1-nand-512m
 define Device/hf_m7986r1-nand-auto
@@ -1396,11 +2012,13 @@ define Device/hf_m7986r1-nand-auto
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7921e kmod-usb-net-rndis kmod-usb-serial-option
   IMAGE_SIZE := 518656k
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7921e kmod-usb-net-rndis kmod-usb-serial-option
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  SUPPORTED_DEVICES += HF-M7986R1
+  SUPPORTED_DEVICES += hf,m7986r1-nand
 endef
 TARGET_DEVICES += hf_m7986r1-nand-auto
 define Device/honor_fur-602
@@ -1417,6 +2035,60 @@ define Device/honor_fur-602
 endef
 TARGET_DEVICES += honor_fur-602
 
+define Device/honor_fur-602-256m
+  DEVICE_VENDOR := Honor
+  DEVICE_MODEL := FUR-602
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-honor-fur-602-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += honor,fur-602
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 240128k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += honor_fur-602-256m
+define Device/honor_fur-602-512m
+  DEVICE_VENDOR := Honor
+  DEVICE_MODEL := FUR-602
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-honor-fur-602-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += honor,fur-602
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 485888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += honor_fur-602-512m
+define Device/honor_fur-602-auto
+  DEVICE_VENDOR := Honor
+  DEVICE_MODEL := FUR-602
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-honor-fur-602-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += honor,fur-602
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 518656k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += honor_fur-602-auto
 define Device/huasifei_wh3000-emmc
   DEVICE_VENDOR := Huasifei
   DEVICE_MODEL := WH3000 eMMC
@@ -1460,6 +2132,60 @@ define Device/huasifei_wh3000r-nand
 endef
 TARGET_DEVICES += huasifei_wh3000r-nand
 
+define Device/huasifei_wh3000r-nand-256m
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WH3000R
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-huasifei-wh3000r-nand-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,wh3000r-nand
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 240128k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 automount
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_wh3000r-nand-256m
+define Device/huasifei_wh3000r-nand-512m
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WH3000R
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-huasifei-wh3000r-nand-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,wh3000r-nand
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 485888k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 automount
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_wh3000r-nand-512m
+define Device/huasifei_wh3000r-nand-auto
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WH3000R
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-huasifei-wh3000r-nand-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,wh3000r-nand
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 518656k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 automount
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_wh3000r-nand-auto
 define Device/huasifei_ws3006
   DEVICE_VENDOR := Huasifei
   DEVICE_MODEL := WS3006
@@ -1475,6 +2201,60 @@ define Device/huasifei_ws3006
 endef
 TARGET_DEVICES += huasifei_ws3006
 
+define Device/huasifei_ws3006-256m
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3006
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-huasifei-ws3006-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,ws3006
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 240128k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3006-256m
+define Device/huasifei_ws3006-512m
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3006
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-huasifei-ws3006-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,ws3006
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 485888k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3006-512m
+define Device/huasifei_ws3006-auto
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3006
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-huasifei-ws3006-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,ws3006
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 518656k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3006-auto
 define Device/huasifei_ws3006-large
   DEVICE_VENDOR := Huasifei
   DEVICE_MODEL := WS3006 (Large Flash)
@@ -1489,6 +2269,60 @@ define Device/huasifei_ws3006-large
 endef
 TARGET_DEVICES += huasifei_ws3006-large
 
+define Device/huasifei_ws3006-large-256m
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3006 (Large Flash)
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-huasifei-ws3006-large-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,ws3006-large
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 240128k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3006-large-256m
+define Device/huasifei_ws3006-large-512m
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3006 (Large Flash)
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-huasifei-ws3006-large-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,ws3006-large
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 485888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3006-large-512m
+define Device/huasifei_ws3006-large-auto
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3006 (Large Flash)
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-huasifei-ws3006-large-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,ws3006-large
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 518656k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3006-large-auto
 define Device/huasifei_ws3009
   DEVICE_VENDOR := Huasifei
   DEVICE_MODEL := WS3009
@@ -1504,6 +2338,60 @@ define Device/huasifei_ws3009
 endef
 TARGET_DEVICES += huasifei_ws3009
 
+define Device/huasifei_ws3009-256m
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3009
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-huasifei-ws3009-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,ws3009
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 240128k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3009-256m
+define Device/huasifei_ws3009-512m
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3009
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-huasifei-ws3009-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,ws3009
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 485888k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3009-512m
+define Device/huasifei_ws3009-auto
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3009
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-huasifei-ws3009-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,ws3009
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 518656k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3009-auto
 define Device/huasifei_ws3009-large
   DEVICE_VENDOR := Huasifei
   DEVICE_MODEL := WS3009 (Large Flash)
@@ -1518,6 +2406,60 @@ define Device/huasifei_ws3009-large
 endef
 TARGET_DEVICES += huasifei_ws3009-large
 
+define Device/huasifei_ws3009-large-256m
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3009 (Large Flash)
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-huasifei-ws3009-large-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,ws3009-large
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 240128k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3009-large-256m
+define Device/huasifei_ws3009-large-512m
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3009 (Large Flash)
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-huasifei-ws3009-large-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,ws3009-large
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 485888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3009-large-512m
+define Device/huasifei_ws3009-large-auto
+  DEVICE_VENDOR := Huasifei
+  DEVICE_MODEL := WS3009 (Large Flash)
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-huasifei-ws3009-large-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += huasifei,ws3009-large
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 518656k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += huasifei_ws3009-large-auto
 define Device/ikq_ikq6000
   DEVICE_VENDOR := IKQ
   DEVICE_MODEL := IKQ6000
@@ -1535,6 +2477,60 @@ define Device/ikq_ikq6000
 endef
 TARGET_DEVICES += ikq_ikq6000
 
+define Device/ikq_ikq6000-256m
+  DEVICE_VENDOR := IKQ
+  DEVICE_MODEL := IKQ6000
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7986a-ikq6000-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ikq,ikq6000
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 239104k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
+endef
+TARGET_DEVICES += ikq_ikq6000-256m
+define Device/ikq_ikq6000-512m
+  DEVICE_VENDOR := IKQ
+  DEVICE_MODEL := IKQ6000
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7986a-ikq6000-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ikq,ikq6000
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 484864k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
+endef
+TARGET_DEVICES += ikq_ikq6000-512m
+define Device/ikq_ikq6000-auto
+  DEVICE_VENDOR := IKQ
+  DEVICE_MODEL := IKQ6000
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7986a-ikq6000-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ikq,ikq6000
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 517632k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
+endef
+TARGET_DEVICES += ikq_ikq6000-auto
 define Device/imou_lc-hx3001
   DEVICE_VENDOR := IMOU
   DEVICE_MODEL := LC-HX3001
@@ -1559,12 +2555,13 @@ define Device/imou_lc-hx3001-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7981b-imou-lc-hx3001-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += imou,lc-hx3001
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 240128k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1576,12 +2573,13 @@ define Device/imou_lc-hx3001-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7981b-imou-lc-hx3001-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += imou,lc-hx3001
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 485888k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1593,12 +2591,13 @@ define Device/imou_lc-hx3001-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7981b-imou-lc-hx3001-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += imou,lc-hx3001
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 518656k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1628,12 +2627,13 @@ define Device/jcg_q30-pro-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7981b-jcg-q30-pro-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += jcg,q30-pro
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 518656k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1645,6 +2645,7 @@ define Device/jcg_q30-pro-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7981b-jcg-q30-pro-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += jcg,q30-pro
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
@@ -1663,6 +2664,7 @@ define Device/jcg_q30-pro-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7981b-jcg-q30-pro-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += jcg,q30-pro
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
@@ -1724,14 +2726,21 @@ define Device/konka_komi-a31-256m
   DEVICE_VENDOR := KONKA
   DEVICE_MODEL := KOMI A31
   DEVICE_VARIANT := NAND 256M
+  DEVICE_ALT0_VENDOR := E-life
+  DEVICE_ALT0_MODEL := ETR631-T
+  DEVICE_ALT0_VARIANT := NAND 256M
+  DEVICE_ALT1_VENDOR := E-life
+  DEVICE_ALT1_MODEL := ETR635-U
+  DEVICE_ALT1_VARIANT := NAND 256M
   DEVICE_DTS := mt7981b-konka-komi-a31-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += konka,komi-a31
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 240128k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1741,14 +2750,21 @@ define Device/konka_komi-a31-512m
   DEVICE_VENDOR := KONKA
   DEVICE_MODEL := KOMI A31
   DEVICE_VARIANT := NAND 512M
+  DEVICE_ALT0_VENDOR := E-life
+  DEVICE_ALT0_MODEL := ETR631-T
+  DEVICE_ALT0_VARIANT := NAND 512M
+  DEVICE_ALT1_VENDOR := E-life
+  DEVICE_ALT1_MODEL := ETR635-U
+  DEVICE_ALT1_VARIANT := NAND 512M
   DEVICE_DTS := mt7981b-konka-komi-a31-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += konka,komi-a31
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 485888k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1758,14 +2774,21 @@ define Device/konka_komi-a31-auto
   DEVICE_VENDOR := KONKA
   DEVICE_MODEL := KOMI A31
   DEVICE_VARIANT := NAND (auto)
+  DEVICE_ALT0_VENDOR := E-life
+  DEVICE_ALT0_MODEL := ETR631-T
+  DEVICE_ALT0_VARIANT := NAND (auto)
+  DEVICE_ALT1_VENDOR := E-life
+  DEVICE_ALT1_MODEL := ETR635-U
+  DEVICE_ALT1_VARIANT := NAND (auto)
   DEVICE_DTS := mt7981b-konka-komi-a31-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += konka,komi-a31
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 518656k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1786,6 +2809,63 @@ define Device/livinet_li320
 endef
 TARGET_DEVICES += livinet_li320
 
+define Device/livinet_li320-256m
+  DEVICE_VENDOR := Livinet
+  DEVICE_MODEL := Li320
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-livinet-li320-256m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += mediatek,mt7981-spim-snand-gsw-rfb
+  SUPPORTED_DEVICES += livinet,li320
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 238080k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += livinet_li320-256m
+define Device/livinet_li320-512m
+  DEVICE_VENDOR := Livinet
+  DEVICE_MODEL := Li320
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-livinet-li320-512m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += mediatek,mt7981-spim-snand-gsw-rfb
+  SUPPORTED_DEVICES += livinet,li320
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 483840k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += livinet_li320-512m
+define Device/livinet_li320-auto
+  DEVICE_VENDOR := Livinet
+  DEVICE_MODEL := Li320
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-livinet-li320-auto
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += mediatek,mt7981-spim-snand-gsw-rfb
+  SUPPORTED_DEVICES += livinet,li320
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 516608k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += livinet_li320-auto
 define Device/livinet_zr-3020
   DEVICE_VENDOR := Livinet
   DEVICE_MODEL := ZR-3020
@@ -1800,6 +2880,60 @@ define Device/livinet_zr-3020
 endef
 TARGET_DEVICES += livinet_zr-3020
 
+define Device/livinet_zr-3020-256m
+  DEVICE_VENDOR := Livinet
+  DEVICE_MODEL := ZR-3020
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-livinet-zr-3020-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += livinet,zr-3020
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 205312k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += livinet_zr-3020-256m
+define Device/livinet_zr-3020-512m
+  DEVICE_VENDOR := Livinet
+  DEVICE_MODEL := ZR-3020
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-livinet-zr-3020-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += livinet,zr-3020
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 451072k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += livinet_zr-3020-512m
+define Device/livinet_zr-3020-auto
+  DEVICE_VENDOR := Livinet
+  DEVICE_MODEL := ZR-3020
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-livinet-zr-3020-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += livinet,zr-3020
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 483840k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += livinet_zr-3020-auto
 define Device/mediatek_mt7988a-rfb
   DEVICE_VENDOR := MediaTek
   DEVICE_MODEL := MT7988A rfb
@@ -1921,12 +3055,13 @@ define Device/netcore_n60-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7986a-netcore-n60-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += netcore,n60
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGE_SIZE := 240128k
+  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1938,12 +3073,13 @@ define Device/netcore_n60-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7986a-netcore-n60-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += netcore,n60
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGE_SIZE := 485888k
+  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1955,12 +3091,13 @@ define Device/netcore_n60-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7986a-netcore-n60-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += netcore,n60
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGE_SIZE := 518656k
+  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -1990,12 +3127,13 @@ define Device/netcore_n60-pro-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7986a-netcore-n60-pro-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += netcore,n60-pro
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
   IMAGE_SIZE := 240128k
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2007,12 +3145,13 @@ define Device/netcore_n60-pro-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7986a-netcore-n60-pro-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += netcore,n60-pro
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
   IMAGE_SIZE := 485888k
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2024,12 +3163,13 @@ define Device/netcore_n60-pro-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7986a-netcore-n60-pro-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += netcore,n60-pro
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
   IMAGE_SIZE := 518656k
+  DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2049,6 +3189,60 @@ define Device/newland_nl-wr8103
 endef
 TARGET_DEVICES += newland_nl-wr8103
 
+define Device/newland_nl-wr8103-256m
+  DEVICE_VENDOR := Newland
+  DEVICE_MODEL := NL-WR8103
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-newland-nl-wr8103-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += newland,nl-wr8103
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 240128k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += newland_nl-wr8103-256m
+define Device/newland_nl-wr8103-512m
+  DEVICE_VENDOR := Newland
+  DEVICE_MODEL := NL-WR8103
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-newland-nl-wr8103-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += newland,nl-wr8103
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 485888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += newland_nl-wr8103-512m
+define Device/newland_nl-wr8103-auto
+  DEVICE_VENDOR := Newland
+  DEVICE_MODEL := NL-WR8103
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-newland-nl-wr8103-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += newland,nl-wr8103
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 518656k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += newland_nl-wr8103-auto
 define Device/newland_nl-wr9103
   DEVICE_VENDOR := Newland
   DEVICE_MODEL := NL-WR9103
@@ -2063,6 +3257,60 @@ define Device/newland_nl-wr9103
 endef
 TARGET_DEVICES += newland_nl-wr9103
 
+define Device/newland_nl-wr9103-256m
+  DEVICE_VENDOR := Newland
+  DEVICE_MODEL := NL-WR9103
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-newland-nl-wr9103-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += newland,nl-wr9103
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 240128k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += newland_nl-wr9103-256m
+define Device/newland_nl-wr9103-512m
+  DEVICE_VENDOR := Newland
+  DEVICE_MODEL := NL-WR9103
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-newland-nl-wr9103-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += newland,nl-wr9103
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 485888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += newland_nl-wr9103-512m
+define Device/newland_nl-wr9103-auto
+  DEVICE_VENDOR := Newland
+  DEVICE_MODEL := NL-WR9103
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-newland-nl-wr9103-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += newland,nl-wr9103
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 518656k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += newland_nl-wr9103-auto
 define Device/nokia_ea0326gmp
   DEVICE_VENDOR := Nokia
   DEVICE_MODEL := EA0326GMP
@@ -2087,12 +3335,13 @@ define Device/nokia_ea0326gmp-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7981b-nokia-ea0326gmp-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += nokia,ea0326gmp
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 211456k
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2104,12 +3353,13 @@ define Device/nokia_ea0326gmp-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7981b-nokia-ea0326gmp-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += nokia,ea0326gmp
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 457216k
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-  IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2121,12 +3371,13 @@ define Device/nokia_ea0326gmp-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7981b-nokia-ea0326gmp-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += nokia,ea0326gmp
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   KERNEL_IN_UBI := 1
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGE_SIZE := 489984k
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2158,12 +3409,15 @@ define Device/openembed_som7981-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7981b-openembed-som7981-256m
   DEVICE_DTS_DIR := ../dts
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 kmod-crypto-hw-atmel kmod-eeprom-at24 kmod-gpio-beeper kmod-rtc-pcf8563 kmod-usb-net-cdc-mbim kmod-usb-net-qmi-wwan kmod-usb-serial-option uqmi
+  SUPPORTED_DEVICES += openembed,som7981
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 \
+	kmod-crypto-hw-atmel kmod-eeprom-at24 kmod-gpio-beeper kmod-rtc-pcf8563 \
+	kmod-usb-net-cdc-mbim kmod-usb-net-qmi-wwan kmod-usb-serial-option uqmi
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
-  KERNEL_IN_UBI := 1
   IMAGE_SIZE := 240128k
+  KERNEL_IN_UBI := 1
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2175,12 +3429,15 @@ define Device/openembed_som7981-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7981b-openembed-som7981-512m
   DEVICE_DTS_DIR := ../dts
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 kmod-crypto-hw-atmel kmod-eeprom-at24 kmod-gpio-beeper kmod-rtc-pcf8563 kmod-usb-net-cdc-mbim kmod-usb-net-qmi-wwan kmod-usb-serial-option uqmi
+  SUPPORTED_DEVICES += openembed,som7981
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 \
+	kmod-crypto-hw-atmel kmod-eeprom-at24 kmod-gpio-beeper kmod-rtc-pcf8563 \
+	kmod-usb-net-cdc-mbim kmod-usb-net-qmi-wwan kmod-usb-serial-option uqmi
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
-  KERNEL_IN_UBI := 1
   IMAGE_SIZE := 485888k
+  KERNEL_IN_UBI := 1
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2192,12 +3449,15 @@ define Device/openembed_som7981-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7981b-openembed-som7981-auto
   DEVICE_DTS_DIR := ../dts
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 kmod-crypto-hw-atmel kmod-eeprom-at24 kmod-gpio-beeper kmod-rtc-pcf8563 kmod-usb-net-cdc-mbim kmod-usb-net-qmi-wwan kmod-usb-serial-option uqmi
+  SUPPORTED_DEVICES += openembed,som7981
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 \
+	kmod-crypto-hw-atmel kmod-eeprom-at24 kmod-gpio-beeper kmod-rtc-pcf8563 \
+	kmod-usb-net-cdc-mbim kmod-usb-net-qmi-wwan kmod-usb-serial-option uqmi
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
-  KERNEL_IN_UBI := 1
   IMAGE_SIZE := 518656k
+  KERNEL_IN_UBI := 1
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2230,6 +3490,60 @@ define Device/qihoo_360t7
 endef
 TARGET_DEVICES += qihoo_360t7
 
+define Device/qihoo_360t7-256m
+  DEVICE_VENDOR := Qihoo
+  DEVICE_MODEL := 360T7
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-qihoo-360t7-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += qihoo,360t7
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 231424k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += qihoo_360t7-256m
+define Device/qihoo_360t7-512m
+  DEVICE_VENDOR := Qihoo
+  DEVICE_MODEL := 360T7
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-qihoo-360t7-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += qihoo,360t7
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 477184k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += qihoo_360t7-512m
+define Device/qihoo_360t7-auto
+  DEVICE_VENDOR := Qihoo
+  DEVICE_MODEL := 360T7
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-qihoo-360t7-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += qihoo,360t7
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 509952k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += qihoo_360t7-auto
 define Device/ruijie_ew-6000gx-pro
   DEVICE_VENDOR := Ruijie
   DEVICE_MODEL := EW-6000GX-PRO
@@ -2244,6 +3558,60 @@ define Device/ruijie_ew-6000gx-pro
 endef
 TARGET_DEVICES += ruijie_ew-6000gx-pro
 
+define Device/ruijie_ew-6000gx-pro-256m
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := EW-6000GX-PRO
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7986a-ruijie-ew-6000gx-pro-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,ew-6000gx-pro
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
+  IMAGE_SIZE := 239104k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_ew-6000gx-pro-256m
+define Device/ruijie_ew-6000gx-pro-512m
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := EW-6000GX-PRO
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7986a-ruijie-ew-6000gx-pro-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,ew-6000gx-pro
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
+  IMAGE_SIZE := 484864k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_ew-6000gx-pro-512m
+define Device/ruijie_ew-6000gx-pro-auto
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := EW-6000GX-PRO
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7986a-ruijie-ew-6000gx-pro-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,ew-6000gx-pro
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
+  IMAGE_SIZE := 517632k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_ew-6000gx-pro-auto
 define Device/ruijie_rg-x30e
   DEVICE_VENDOR := Ruijie
   DEVICE_MODEL := RG-X30E
@@ -2261,6 +3629,60 @@ define Device/ruijie_rg-x30e
 endef
 TARGET_DEVICES += ruijie_rg-x30e
 
+define Device/ruijie_rg-x30e-256m
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X30E
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-ruijie-rg-x30e-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,rg-x30e
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 237056k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x30e-256m
+define Device/ruijie_rg-x30e-512m
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X30E
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-ruijie-rg-x30e-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,rg-x30e
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 482816k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x30e-512m
+define Device/ruijie_rg-x30e-auto
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X30E
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-ruijie-rg-x30e-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,rg-x30e
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 515584k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x30e-auto
 define Device/ruijie_rg-x30e-pro
   DEVICE_VENDOR := Ruijie
   DEVICE_MODEL := RG-X30E
@@ -2279,6 +3701,60 @@ define Device/ruijie_rg-x30e-pro
 endef
 TARGET_DEVICES += ruijie_rg-x30e-pro
 
+define Device/ruijie_rg-x30e-pro-256m
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X30E
+  DEVICE_VARIANT := Pro, NAND 256M
+  DEVICE_DTS := mt7981b-ruijie-rg-x30e-pro-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,rg-x30e-pro
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 237056k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x30e-pro-256m
+define Device/ruijie_rg-x30e-pro-512m
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X30E
+  DEVICE_VARIANT := Pro, NAND 512M
+  DEVICE_DTS := mt7981b-ruijie-rg-x30e-pro-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,rg-x30e-pro
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 482816k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x30e-pro-512m
+define Device/ruijie_rg-x30e-pro-auto
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X30E
+  DEVICE_VARIANT := Pro, NAND (auto)
+  DEVICE_DTS := mt7981b-ruijie-rg-x30e-pro-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,rg-x30e-pro
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 515584k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x30e-pro-auto
 define Device/ruijie_rg-x60
   DEVICE_VENDOR := Ruijie
   DEVICE_MODEL := RG-X60
@@ -2294,6 +3770,63 @@ define Device/ruijie_rg-x60
 endef
 TARGET_DEVICES += ruijie_rg-x60
 
+define Device/ruijie_rg-x60-256m
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X60
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-256m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += X60
+  SUPPORTED_DEVICES += ruijie,rg-x60
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware kmod-phy-airoha-en8811h
+  IMAGE_SIZE := 239104k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x60-256m
+define Device/ruijie_rg-x60-512m
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X60
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-512m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += X60
+  SUPPORTED_DEVICES += ruijie,rg-x60
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware kmod-phy-airoha-en8811h
+  IMAGE_SIZE := 484864k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x60-512m
+define Device/ruijie_rg-x60-auto
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X60
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-auto
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += X60
+  SUPPORTED_DEVICES += ruijie,rg-x60
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware kmod-phy-airoha-en8811h
+  IMAGE_SIZE := 517632k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x60-auto
 define Device/ruijie_rg-x60-new
   DEVICE_VENDOR := Ruijie
   DEVICE_MODEL := RG-X60
@@ -2309,6 +3842,60 @@ define Device/ruijie_rg-x60-new
 endef
 TARGET_DEVICES += ruijie_rg-x60-new
 
+define Device/ruijie_rg-x60-new-256m
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X60
+  DEVICE_VARIANT := New, NAND 256M
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-new-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,rg-x60-new
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
+  IMAGE_SIZE := 239104k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x60-new-256m
+define Device/ruijie_rg-x60-new-512m
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X60
+  DEVICE_VARIANT := New, NAND 512M
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-new-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,rg-x60-new
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
+  IMAGE_SIZE := 484864k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x60-new-512m
+define Device/ruijie_rg-x60-new-auto
+  DEVICE_VENDOR := Ruijie
+  DEVICE_MODEL := RG-X60
+  DEVICE_VARIANT := New, NAND (auto)
+  DEVICE_DTS := mt7986a-ruijie-rg-x60-new-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,rg-x60-new
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
+  IMAGE_SIZE := 517632k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += ruijie_rg-x60-new-auto
 define Device/ruijie_rg-x60-pro
   DEVICE_VENDOR := Ruijie
   DEVICE_MODEL := RG-X60 Pro
@@ -2328,8 +3915,9 @@ define Device/ruijie_rg-x60-pro-256m
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7986a-ruijie-rg-x60-pro-256m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,rg-x60-pro
   DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 240128k
+  IMAGE_SIZE := 239104k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2341,8 +3929,9 @@ define Device/ruijie_rg-x60-pro-512m
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7986a-ruijie-rg-x60-pro-512m
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,rg-x60-pro
   DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 485888k
+  IMAGE_SIZE := 484864k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -2354,6 +3943,7 @@ define Device/ruijie_rg-x60-pro-auto
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7986a-ruijie-rg-x60-pro-auto
   DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ruijie,rg-x60-pro
   DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGE_SIZE := 517632k
   IMAGES += factory.bin
@@ -2416,6 +4006,60 @@ define Device/tenbay_wr3000k
 endef
 TARGET_DEVICES += tenbay_wr3000k
 
+define Device/tenbay_wr3000k-256m
+  DEVICE_VENDOR := Tenbay
+  DEVICE_MODEL := WR3000K
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-tenbay-wr3000k-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tenbay,wr3000k
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 240128k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tenbay_wr3000k-256m
+define Device/tenbay_wr3000k-512m
+  DEVICE_VENDOR := Tenbay
+  DEVICE_MODEL := WR3000K
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-tenbay-wr3000k-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tenbay,wr3000k
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 485888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tenbay_wr3000k-512m
+define Device/tenbay_wr3000k-auto
+  DEVICE_VENDOR := Tenbay
+  DEVICE_MODEL := WR3000K
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-tenbay-wr3000k-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tenbay,wr3000k
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 518656k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tenbay_wr3000k-auto
 define Device/tenbay_wr3000k-large
   DEVICE_VENDOR := Tenbay
   DEVICE_MODEL := WR3000K (Large Flash)
@@ -2430,6 +4074,60 @@ define Device/tenbay_wr3000k-large
 endef
 TARGET_DEVICES += tenbay_wr3000k-large
 
+define Device/tenbay_wr3000k-large-256m
+  DEVICE_VENDOR := Tenbay
+  DEVICE_MODEL := WR3000K (Large Flash)
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-tenbay-wr3000k-large-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tenbay,wr3000k-large
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 240128k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tenbay_wr3000k-large-256m
+define Device/tenbay_wr3000k-large-512m
+  DEVICE_VENDOR := Tenbay
+  DEVICE_MODEL := WR3000K (Large Flash)
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-tenbay-wr3000k-large-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tenbay,wr3000k-large
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 485888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tenbay_wr3000k-large-512m
+define Device/tenbay_wr3000k-large-auto
+  DEVICE_VENDOR := Tenbay
+  DEVICE_MODEL := WR3000K (Large Flash)
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-tenbay-wr3000k-large-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tenbay,wr3000k-large
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 518656k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tenbay_wr3000k-large-auto
 define Device/tenda_be12-pro
   DEVICE_VENDOR := Tenda
   DEVICE_MODEL := BE12 Pro
@@ -2445,6 +4143,63 @@ define Device/tenda_be12-pro
 endef
 TARGET_DEVICES += tenda_be12-pro
 
+define Device/tenda_be12-pro-256m
+  DEVICE_VENDOR := Tenda
+  DEVICE_MODEL := BE12 Pro
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7987a-tenda-be12-pro-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tenda,be12-pro
+  DEVICE_PACKAGES := mt7987-2p5g-phy-firmware airoha-en8811h-firmware \
+	kmod-phy-airoha-en8811h kmod-phy-mediatek-2p5g kmod-mt7992-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_LOADADDR := 0x40000000
+  IMAGE_SIZE := 231936k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := append-kernel | tenda-mkdualimageheader | sysupgrade-tar kernel=$$$$@ | append-metadata
+endef
+TARGET_DEVICES += tenda_be12-pro-256m
+define Device/tenda_be12-pro-512m
+  DEVICE_VENDOR := Tenda
+  DEVICE_MODEL := BE12 Pro
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7987a-tenda-be12-pro-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tenda,be12-pro
+  DEVICE_PACKAGES := mt7987-2p5g-phy-firmware airoha-en8811h-firmware \
+	kmod-phy-airoha-en8811h kmod-phy-mediatek-2p5g kmod-mt7992-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_LOADADDR := 0x40000000
+  IMAGE_SIZE := 477696k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := append-kernel | tenda-mkdualimageheader | sysupgrade-tar kernel=$$$$@ | append-metadata
+endef
+TARGET_DEVICES += tenda_be12-pro-512m
+define Device/tenda_be12-pro-auto
+  DEVICE_VENDOR := Tenda
+  DEVICE_MODEL := BE12 Pro
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7987a-tenda-be12-pro-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tenda,be12-pro
+  DEVICE_PACKAGES := mt7987-2p5g-phy-firmware airoha-en8811h-firmware \
+	kmod-phy-airoha-en8811h kmod-phy-mediatek-2p5g kmod-mt7992-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_LOADADDR := 0x40000000
+  IMAGE_SIZE := 510464k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := append-kernel | tenda-mkdualimageheader | sysupgrade-tar kernel=$$$$@ | append-metadata
+endef
+TARGET_DEVICES += tenda_be12-pro-auto
 define Device/tenda_be12-pro-large
   DEVICE_VENDOR := Tenda
   DEVICE_MODEL := BE12 Pro (Large Flash)
@@ -2460,6 +4215,63 @@ define Device/tenda_be12-pro-large
 endef
 TARGET_DEVICES += tenda_be12-pro-large
 
+define Device/tenda_be12-pro-large-256m
+  DEVICE_VENDOR := Tenda
+  DEVICE_MODEL := BE12 Pro (Large Flash)
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7987a-tenda-be12-pro-large-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tenda,be12-pro-large
+  DEVICE_PACKAGES := mt7987-2p5g-phy-firmware airoha-en8811h-firmware \
+	kmod-phy-airoha-en8811h kmod-phy-mediatek-2p5g kmod-mt7992-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_LOADADDR := 0x40000000
+  IMAGE_SIZE := 231936k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := append-kernel | tenda-mkdualimageheader | sysupgrade-tar kernel=$$$$@ | append-metadata
+endef
+TARGET_DEVICES += tenda_be12-pro-large-256m
+define Device/tenda_be12-pro-large-512m
+  DEVICE_VENDOR := Tenda
+  DEVICE_MODEL := BE12 Pro (Large Flash)
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7987a-tenda-be12-pro-large-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tenda,be12-pro-large
+  DEVICE_PACKAGES := mt7987-2p5g-phy-firmware airoha-en8811h-firmware \
+	kmod-phy-airoha-en8811h kmod-phy-mediatek-2p5g kmod-mt7992-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_LOADADDR := 0x40000000
+  IMAGE_SIZE := 477696k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := append-kernel | tenda-mkdualimageheader | sysupgrade-tar kernel=$$$$@ | append-metadata
+endef
+TARGET_DEVICES += tenda_be12-pro-large-512m
+define Device/tenda_be12-pro-large-auto
+  DEVICE_VENDOR := Tenda
+  DEVICE_MODEL := BE12 Pro (Large Flash)
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7987a-tenda-be12-pro-large-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tenda,be12-pro-large
+  DEVICE_PACKAGES := mt7987-2p5g-phy-firmware airoha-en8811h-firmware \
+	kmod-phy-airoha-en8811h kmod-phy-mediatek-2p5g kmod-mt7992-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_LOADADDR := 0x40000000
+  IMAGE_SIZE := 510464k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := append-kernel | tenda-mkdualimageheader | sysupgrade-tar kernel=$$$$@ | append-metadata
+endef
+TARGET_DEVICES += tenda_be12-pro-large-auto
 define Device/teralink_tl3020
   DEVICE_VENDOR := Teralink
   DEVICE_MODEL := TL3020
@@ -2474,6 +4286,60 @@ define Device/teralink_tl3020
 endef
 TARGET_DEVICES += teralink_tl3020
 
+define Device/teralink_tl3020-256m
+  DEVICE_VENDOR := Teralink
+  DEVICE_MODEL := TL3020
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-teralink-tl3020-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += teralink,tl3020
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 239104k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += teralink_tl3020-256m
+define Device/teralink_tl3020-512m
+  DEVICE_VENDOR := Teralink
+  DEVICE_MODEL := TL3020
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-teralink-tl3020-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += teralink,tl3020
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 484864k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += teralink_tl3020-512m
+define Device/teralink_tl3020-auto
+  DEVICE_VENDOR := Teralink
+  DEVICE_MODEL := TL3020
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-teralink-tl3020-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += teralink,tl3020
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 517632k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += teralink_tl3020-auto
 define Device/tplink_tl-xdr4288
   DEVICE_MODEL := TL-XDR4288
   DEVICE_DTS := mt7986a-tplink-tl-xdr4288
@@ -2508,36 +4374,36 @@ define Device/tplink_tl-xtr8488-256m
   DEVICE_MODEL := TL-XTR8488
   DEVICE_VARIANT := NAND 256M
   DEVICE_DTS := mt7986a-tplink-tl-xtr8488-256m
-  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tplink,tl-xtr8488
   DEVICE_PACKAGES += kmod-mt7915-firmware
+  $(call Device/tplink_tl-common)
   IMAGE_SIZE := 240128k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += tplink_tl-xtr8488-256m
 define Device/tplink_tl-xtr8488-512m
   DEVICE_MODEL := TL-XTR8488
   DEVICE_VARIANT := NAND 512M
   DEVICE_DTS := mt7986a-tplink-tl-xtr8488-512m
-  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tplink,tl-xtr8488
   DEVICE_PACKAGES += kmod-mt7915-firmware
+  $(call Device/tplink_tl-common)
   IMAGE_SIZE := 485888k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += tplink_tl-xtr8488-512m
 define Device/tplink_tl-xtr8488-auto
   DEVICE_MODEL := TL-XTR8488
   DEVICE_VARIANT := NAND (auto)
   DEVICE_DTS := mt7986a-tplink-tl-xtr8488-auto
-  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += tplink,tl-xtr8488
   DEVICE_PACKAGES += kmod-mt7915-firmware
+  $(call Device/tplink_tl-common)
   IMAGE_SIZE := 518656k
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += tplink_tl-xtr8488-auto
 define Device/tplink_wma301
@@ -2557,6 +4423,60 @@ define Device/tplink_wma301
 endef
 TARGET_DEVICES += tplink_wma301
 
+define Device/tplink_wma301-256m
+  DEVICE_VENDOR := TP-Link
+  DEVICE_MODEL := WMA301
+  DEVICE_VARIANT := stock layout, NAND 256M
+  DEVICE_DTS := mt7981b-tplink-wma301-256m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 240128k
+  SUPPORTED_DEVICES += tplink,wma301
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tplink_wma301-256m
+define Device/tplink_wma301-512m
+  DEVICE_VENDOR := TP-Link
+  DEVICE_MODEL := WMA301
+  DEVICE_VARIANT := stock layout, NAND 512M
+  DEVICE_DTS := mt7981b-tplink-wma301-512m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 485888k
+  SUPPORTED_DEVICES += tplink,wma301
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tplink_wma301-512m
+define Device/tplink_wma301-auto
+  DEVICE_VENDOR := TP-Link
+  DEVICE_MODEL := WMA301
+  DEVICE_VARIANT := stock layout, NAND (auto)
+  DEVICE_DTS := mt7981b-tplink-wma301-auto
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 518656k
+  SUPPORTED_DEVICES += tplink,wma301
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tplink_wma301-auto
 define Device/tplink_wma301-mod
   DEVICE_VENDOR := TP-Link
   DEVICE_MODEL := WMA301
@@ -2573,6 +4493,60 @@ define Device/tplink_wma301-mod
 endef
 TARGET_DEVICES += tplink_wma301-mod
 
+define Device/tplink_wma301-mod-256m
+  DEVICE_VENDOR := TP-Link
+  DEVICE_MODEL := WMA301
+  DEVICE_VARIANT := U-Boot mod, NAND 256M
+  DEVICE_DTS := mt7981b-tplink-wma301-ubootmod-256m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += tplink,wma301-ubootmod
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 240128k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tplink_wma301-mod-256m
+define Device/tplink_wma301-mod-512m
+  DEVICE_VENDOR := TP-Link
+  DEVICE_MODEL := WMA301
+  DEVICE_VARIANT := U-Boot mod, NAND 512M
+  DEVICE_DTS := mt7981b-tplink-wma301-ubootmod-512m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += tplink,wma301-ubootmod
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 485888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tplink_wma301-mod-512m
+define Device/tplink_wma301-mod-auto
+  DEVICE_VENDOR := TP-Link
+  DEVICE_MODEL := WMA301
+  DEVICE_VARIANT := U-Boot mod, NAND (auto)
+  DEVICE_DTS := mt7981b-tplink-wma301-ubootmod-auto
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += tplink,wma301-ubootmod
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 518656k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += tplink_wma301-mod-auto
 define Device/wirelesstag_zx7981pd
   DEVICE_VENDOR := Wireless-Tag
   DEVICE_MODEL := ZX7981PD
@@ -2593,6 +4567,72 @@ define Device/wirelesstag_zx7981pd
 endef
 TARGET_DEVICES += wirelesstag_zx7981pd
 
+define Device/wirelesstag_zx7981pd-256m
+  DEVICE_VENDOR := Wireless-Tag
+  DEVICE_MODEL := ZX7981PD
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-wirelesstag-zx7981pd-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += wirelesstag,zx7981pd
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 181376k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
+  DEVICE_ALT0_VENDOR := SmartPanle
+  DEVICE_ALT0_MODEL := ZX7981PD
+  DEVICE_ALT0_VARIANT := NAND 256M
+  DEVICE_DTS_LOADADDR := 0x44000000
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += wirelesstag_zx7981pd-256m
+define Device/wirelesstag_zx7981pd-512m
+  DEVICE_VENDOR := Wireless-Tag
+  DEVICE_MODEL := ZX7981PD
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-wirelesstag-zx7981pd-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += wirelesstag,zx7981pd
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 427136k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
+  DEVICE_ALT0_VENDOR := SmartPanle
+  DEVICE_ALT0_MODEL := ZX7981PD
+  DEVICE_ALT0_VARIANT := NAND 512M
+  DEVICE_DTS_LOADADDR := 0x44000000
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += wirelesstag_zx7981pd-512m
+define Device/wirelesstag_zx7981pd-auto
+  DEVICE_VENDOR := Wireless-Tag
+  DEVICE_MODEL := ZX7981PD
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-wirelesstag-zx7981pd-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += wirelesstag,zx7981pd
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 459904k
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
+  DEVICE_ALT0_VENDOR := SmartPanle
+  DEVICE_ALT0_MODEL := ZX7981PD
+  DEVICE_ALT0_VARIANT := NAND (auto)
+  DEVICE_DTS_LOADADDR := 0x44000000
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += wirelesstag_zx7981pd-auto
 define Device/wirelesstag_zx7981pd-mod
   DEVICE_VENDOR := Wireless-Tag
   DEVICE_MODEL := ZX7981PD
@@ -2612,6 +4652,69 @@ define Device/wirelesstag_zx7981pd-mod
 endef
 TARGET_DEVICES += wirelesstag_zx7981pd-mod
 
+define Device/wirelesstag_zx7981pd-mod-256m
+  DEVICE_VENDOR := Wireless-Tag
+  DEVICE_MODEL := ZX7981PD
+  DEVICE_VARIANT := U-Boot mod, NAND 256M
+  DEVICE_DTS := mt7981b-wirelesstag-zx7981pd-ubootmod-256m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += wirelesstag,zx7981pd-ubootmod
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
+  DEVICE_ALT0_VENDOR := SmartPanle
+  DEVICE_ALT0_MODEL := ZX7981PD
+  DEVICE_ALT0_VARIANT := U-Boot mod, NAND 256M
+  IMAGE_SIZE := 238720k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += wirelesstag_zx7981pd-mod-256m
+define Device/wirelesstag_zx7981pd-mod-512m
+  DEVICE_VENDOR := Wireless-Tag
+  DEVICE_MODEL := ZX7981PD
+  DEVICE_VARIANT := U-Boot mod, NAND 512M
+  DEVICE_DTS := mt7981b-wirelesstag-zx7981pd-ubootmod-512m
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += wirelesstag,zx7981pd-ubootmod
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
+  DEVICE_ALT0_VENDOR := SmartPanle
+  DEVICE_ALT0_MODEL := ZX7981PD
+  DEVICE_ALT0_VARIANT := U-Boot mod, NAND 512M
+  IMAGE_SIZE := 484480k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += wirelesstag_zx7981pd-mod-512m
+define Device/wirelesstag_zx7981pd-mod-auto
+  DEVICE_VENDOR := Wireless-Tag
+  DEVICE_MODEL := ZX7981PD
+  DEVICE_VARIANT := U-Boot mod, NAND (auto)
+  DEVICE_DTS := mt7981b-wirelesstag-zx7981pd-ubootmod-auto
+  DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  SUPPORTED_DEVICES += wirelesstag,zx7981pd-ubootmod
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
+  DEVICE_ALT0_VENDOR := SmartPanle
+  DEVICE_ALT0_MODEL := ZX7981PD
+  DEVICE_ALT0_VARIANT := U-Boot mod, NAND (auto)
+  IMAGE_SIZE := 517248k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += wirelesstag_zx7981pd-mod-auto
 define Device/xiaomi_mi-router-ax3000t
   DEVICE_VENDOR := Xiaomi
   DEVICE_MODEL := Mi Router AX3000T
@@ -2626,6 +4729,60 @@ define Device/xiaomi_mi-router-ax3000t
 endef
 TARGET_DEVICES += xiaomi_mi-router-ax3000t
 
+define Device/xiaomi_mi-router-ax3000t-256m
+  DEVICE_VENDOR := Xiaomi
+  DEVICE_MODEL := Mi Router AX3000T
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-xiaomi-ax3000t-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += xiaomi,mi-router-ax3000t
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 239360k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += xiaomi_mi-router-ax3000t-256m
+define Device/xiaomi_mi-router-ax3000t-512m
+  DEVICE_VENDOR := Xiaomi
+  DEVICE_MODEL := Mi Router AX3000T
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-xiaomi-ax3000t-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += xiaomi,mi-router-ax3000t
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 485120k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += xiaomi_mi-router-ax3000t-512m
+define Device/xiaomi_mi-router-ax3000t-auto
+  DEVICE_VENDOR := Xiaomi
+  DEVICE_MODEL := Mi Router AX3000T
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-xiaomi-ax3000t-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += xiaomi,mi-router-ax3000t
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 517888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += xiaomi_mi-router-ax3000t-auto
 define Device/xiaomi_mi-router-wr30u
   DEVICE_VENDOR := Xiaomi
   DEVICE_MODEL := Mi Router WR30U
@@ -2640,6 +4797,60 @@ define Device/xiaomi_mi-router-wr30u
 endef
 TARGET_DEVICES += xiaomi_mi-router-wr30u
 
+define Device/xiaomi_mi-router-wr30u-256m
+  DEVICE_VENDOR := Xiaomi
+  DEVICE_MODEL := Mi Router WR30U
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-xiaomi-wr30u-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += xiaomi,mi-router-wr30u
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 239360k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += xiaomi_mi-router-wr30u-256m
+define Device/xiaomi_mi-router-wr30u-512m
+  DEVICE_VENDOR := Xiaomi
+  DEVICE_MODEL := Mi Router WR30U
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-xiaomi-wr30u-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += xiaomi,mi-router-wr30u
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 485120k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += xiaomi_mi-router-wr30u-512m
+define Device/xiaomi_mi-router-wr30u-auto
+  DEVICE_VENDOR := Xiaomi
+  DEVICE_MODEL := Mi Router WR30U
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-xiaomi-wr30u-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += xiaomi,mi-router-wr30u
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 517888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += xiaomi_mi-router-wr30u-auto
 define Device/xiaomi_redmi-router-ax6000
   DEVICE_VENDOR := Xiaomi
   DEVICE_MODEL := Redmi Router AX6000
@@ -2654,6 +4865,60 @@ define Device/xiaomi_redmi-router-ax6000
 endef
 TARGET_DEVICES += xiaomi_redmi-router-ax6000
 
+define Device/xiaomi_redmi-router-ax6000-256m
+  DEVICE_VENDOR := Xiaomi
+  DEVICE_MODEL := Redmi Router AX6000
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7986a-xiaomi-redmi-router-ax6000-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += xiaomi,redmi-router-ax6000
+  DEVICE_PACKAGES := kmod-leds-ws2812b kmod-mt7986-firmware mt7986-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 239616k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += xiaomi_redmi-router-ax6000-256m
+define Device/xiaomi_redmi-router-ax6000-512m
+  DEVICE_VENDOR := Xiaomi
+  DEVICE_MODEL := Redmi Router AX6000
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7986a-xiaomi-redmi-router-ax6000-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += xiaomi,redmi-router-ax6000
+  DEVICE_PACKAGES := kmod-leds-ws2812b kmod-mt7986-firmware mt7986-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 485376k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += xiaomi_redmi-router-ax6000-512m
+define Device/xiaomi_redmi-router-ax6000-auto
+  DEVICE_VENDOR := Xiaomi
+  DEVICE_MODEL := Redmi Router AX6000
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7986a-xiaomi-redmi-router-ax6000-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += xiaomi,redmi-router-ax6000
+  DEVICE_PACKAGES := kmod-leds-ws2812b kmod-mt7986-firmware mt7986-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 518144k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += xiaomi_redmi-router-ax6000-auto
 define Device/zbtlink_zbt-z8103ax-c
   DEVICE_VENDOR := Zbtlink
   DEVICE_MODEL := Z8103AX-C
@@ -2668,6 +4933,60 @@ define Device/zbtlink_zbt-z8103ax-c
 endef
 TARGET_DEVICES += zbtlink_zbt-z8103ax-c
 
+define Device/zbtlink_zbt-z8103ax-c-256m
+  DEVICE_VENDOR := Zbtlink
+  DEVICE_MODEL := Z8103AX-C
+  DEVICE_VARIANT := NAND 256M
+  DEVICE_DTS := mt7981b-zbtlink-zbt-z8103ax-c-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += zbtlink,zbt-z8103ax-c
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 240128k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += zbtlink_zbt-z8103ax-c-256m
+define Device/zbtlink_zbt-z8103ax-c-512m
+  DEVICE_VENDOR := Zbtlink
+  DEVICE_MODEL := Z8103AX-C
+  DEVICE_VARIANT := NAND 512M
+  DEVICE_DTS := mt7981b-zbtlink-zbt-z8103ax-c-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += zbtlink,zbt-z8103ax-c
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 485888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += zbtlink_zbt-z8103ax-c-512m
+define Device/zbtlink_zbt-z8103ax-c-auto
+  DEVICE_VENDOR := Zbtlink
+  DEVICE_MODEL := Z8103AX-C
+  DEVICE_VARIANT := NAND (auto)
+  DEVICE_DTS := mt7981b-zbtlink-zbt-z8103ax-c-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += zbtlink,zbt-z8103ax-c
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware
+  IMAGE_SIZE := 518656k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += zbtlink_zbt-z8103ax-c-auto
 define Device/zyxel_ex5700-telenor
   DEVICE_VENDOR := Zyxel
   DEVICE_MODEL := EX5700
@@ -2682,3 +5001,58 @@ define Device/zyxel_ex5700-telenor
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += zyxel_ex5700-telenor
+
+define Device/zyxel_ex5700-telenor-256m
+  DEVICE_VENDOR := Zyxel
+  DEVICE_MODEL := EX5700
+  DEVICE_VARIANT := Telenor, NAND 256M
+  DEVICE_DTS := mt7986a-zyxel-ex5700-telenor-256m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += zyxel,ex5700-telenor
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
+  IMAGE_SIZE := 240128k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += zyxel_ex5700-telenor-256m
+define Device/zyxel_ex5700-telenor-512m
+  DEVICE_VENDOR := Zyxel
+  DEVICE_MODEL := EX5700
+  DEVICE_VARIANT := Telenor, NAND 512M
+  DEVICE_DTS := mt7986a-zyxel-ex5700-telenor-512m
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += zyxel,ex5700-telenor
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
+  IMAGE_SIZE := 485888k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += zyxel_ex5700-telenor-512m
+define Device/zyxel_ex5700-telenor-auto
+  DEVICE_VENDOR := Zyxel
+  DEVICE_MODEL := EX5700
+  DEVICE_VARIANT := Telenor, NAND (auto)
+  DEVICE_DTS := mt7986a-zyxel-ex5700-telenor-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += zyxel,ex5700-telenor
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
+  IMAGE_SIZE := 518656k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += zyxel_ex5700-telenor-auto

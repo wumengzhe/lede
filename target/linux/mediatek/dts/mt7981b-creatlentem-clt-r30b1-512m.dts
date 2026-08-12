@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+
+#include "mt7981b-creatlentem-clt-r30b1-common.dtsi"
+
+/ {
+	model = "CreatLentem CLT-R30B1";
+	compatible = "creatlentem,clt-r30b1", "mediatek,mt7981";
+};
+
+&spi_nand {
+	mediatek,nmbm;
+	mediatek,bmt-max-ratio = <1>;
+	mediatek,bmt-max-reserved-blocks = <64>;
+};
+
+/*
+ * ubi 为末尾分区，声明到 512MiB 边界。
+ * 128M/256M 颗粒上内核 mtdpart 会自动截断到实体末尾，
+ * UBI 再把剩余 PEB 全部划给 rootfs_data —— 一个固件通吃三种容量。
+ */
+&ubi {
+	reg = <0x2580000 0x1ba80000>;
+};

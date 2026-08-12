@@ -18,7 +18,7 @@
 			 */
 			partition@5c0000 {
 				label = "ubi";
-				reg = <0x5c0000 0xEA80000>;
+				reg = <0x5c0000 0xea40000>;
 			};
 		};
 	};

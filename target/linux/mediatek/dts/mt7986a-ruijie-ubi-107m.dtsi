@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0 OR MIT)
 
 &partitions {
-	partition@680000 {
+	ubi: partition@680000 {
 		label = "ubi";
 		reg = <0x680000 0x1f980000>;
 	};

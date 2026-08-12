@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+
+/dts-v1/;
+#include "mt7986a-ruijie-rg-x60-new.dtsi"
+#include "mt7986a-ruijie-ubi-107m.dtsi"
+
+/ {
+	compatible = "ruijie,rg-x60-new", "mediatek,mt7986a";
+	model = "Ruijie RG-X60 New";
+};
+
+&ubi {
+	reg = <0x680000 0x1f980000>;
+};
