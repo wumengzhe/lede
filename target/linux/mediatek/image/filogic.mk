@@ -265,6 +265,11 @@ define Device/asus_tuf-ax4200
   DEVICE_VARIANT := NAND (factory)
   DEVICE_DTS := mt7986a-asus-tuf-ax4200
   DEVICE_DTS_DIR := ../dts
+  IMAGE_SIZE := 258048k
+  KERNEL_IN_UBI := 1
+  PAGESIZE := 2048
+  BLOCKSIZE := 128k
+  UBINIZE_OPTS := -E 5
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES := sysupgrade.bin
@@ -272,6 +277,8 @@ define Device/asus_tuf-ax4200
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
   KERNEL_INITRAMFS := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += asus_tuf-ax4200
@@ -283,14 +290,20 @@ define Device/asus_tuf-ax4200-256m
   DEVICE_DTS := mt7986a-asus-tuf-ax4200-256m
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += asus,tuf-ax4200
+  IMAGE_SIZE := 241664k
+  KERNEL_IN_UBI := 1
+  PAGESIZE := 2048
+  BLOCKSIZE := 128k
+  UBINIZE_OPTS := -E 5
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 241664k
   IMAGES := sysupgrade.bin
   KERNEL := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
   KERNEL_INITRAMFS := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += asus_tuf-ax4200-256m
@@ -301,14 +314,20 @@ define Device/asus_tuf-ax4200-512m
   DEVICE_DTS := mt7986a-asus-tuf-ax4200-512m
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += asus,tuf-ax4200
+  IMAGE_SIZE := 487424k
+  KERNEL_IN_UBI := 1
+  PAGESIZE := 2048
+  BLOCKSIZE := 128k
+  UBINIZE_OPTS := -E 5
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 487424k
   IMAGES := sysupgrade.bin
   KERNEL := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
   KERNEL_INITRAMFS := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += asus_tuf-ax4200-512m
@@ -319,14 +338,20 @@ define Device/asus_tuf-ax4200-auto
   DEVICE_DTS := mt7986a-asus-tuf-ax4200-auto
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += asus,tuf-ax4200
+  IMAGE_SIZE := 520192k
+  KERNEL_IN_UBI := 1
+  PAGESIZE := 2048
+  BLOCKSIZE := 128k
+  UBINIZE_OPTS := -E 5
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 520192k
   IMAGES := sysupgrade.bin
   KERNEL := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
   KERNEL_INITRAMFS := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += asus_tuf-ax4200-auto
@@ -336,6 +361,11 @@ define Device/asus_tuf-ax6000
   DEVICE_VARIANT := NAND (factory)
   DEVICE_DTS := mt7986a-asus-tuf-ax6000
   DEVICE_DTS_DIR := ../dts
+  IMAGE_SIZE := 258048k
+  KERNEL_IN_UBI := 1
+  PAGESIZE := 2048
+  BLOCKSIZE := 128k
+  UBINIZE_OPTS := -E 5
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES := sysupgrade.bin
@@ -343,6 +373,8 @@ define Device/asus_tuf-ax6000
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
   KERNEL_INITRAMFS := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += asus_tuf-ax6000
@@ -354,14 +386,20 @@ define Device/asus_tuf-ax6000-256m
   DEVICE_DTS := mt7986a-asus-tuf-ax6000-256m
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += asus,tuf-ax6000
+  IMAGE_SIZE := 241664k
+  KERNEL_IN_UBI := 1
+  PAGESIZE := 2048
+  BLOCKSIZE := 128k
+  UBINIZE_OPTS := -E 5
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 241664k
   IMAGES := sysupgrade.bin
   KERNEL := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
   KERNEL_INITRAMFS := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += asus_tuf-ax6000-256m
@@ -372,14 +410,20 @@ define Device/asus_tuf-ax6000-512m
   DEVICE_DTS := mt7986a-asus-tuf-ax6000-512m
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += asus,tuf-ax6000
+  IMAGE_SIZE := 487424k
+  KERNEL_IN_UBI := 1
+  PAGESIZE := 2048
+  BLOCKSIZE := 128k
+  UBINIZE_OPTS := -E 5
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 487424k
   IMAGES := sysupgrade.bin
   KERNEL := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
   KERNEL_INITRAMFS := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += asus_tuf-ax6000-512m
@@ -390,14 +434,20 @@ define Device/asus_tuf-ax6000-auto
   DEVICE_DTS := mt7986a-asus-tuf-ax6000-auto
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += asus,tuf-ax6000
+  IMAGE_SIZE := 520192k
+  KERNEL_IN_UBI := 1
+  PAGESIZE := 2048
+  BLOCKSIZE := 128k
+  UBINIZE_OPTS := -E 5
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 520192k
   IMAGES := sysupgrade.bin
   KERNEL := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
   KERNEL_INITRAMFS := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 64k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += asus_tuf-ax6000-auto
@@ -3886,7 +3936,14 @@ define Device/ruijie_rg-x60-pro
   DEVICE_VARIANT := NAND (factory)
   DEVICE_DTS := mt7986a-ruijie-rg-x60-pro
   DEVICE_DTS_DIR := ../dts
+  IMAGE_SIZE := 64512k
+  KERNEL_IN_UBI := 1
+  PAGESIZE := 2048
+  BLOCKSIZE := 128k
+  UBINIZE_OPTS := -E 5
   DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += ruijie_rg-x60-pro
@@ -3898,8 +3955,14 @@ define Device/ruijie_rg-x60-pro-256m
   DEVICE_DTS := mt7986a-ruijie-rg-x60-pro-256m
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += ruijie,rg-x60-pro
-  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGE_SIZE := 239104k
+  KERNEL_IN_UBI := 1
+  PAGESIZE := 2048
+  BLOCKSIZE := 128k
+  UBINIZE_OPTS := -E 5
+  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += ruijie_rg-x60-pro-256m
@@ -3910,8 +3973,14 @@ define Device/ruijie_rg-x60-pro-512m
   DEVICE_DTS := mt7986a-ruijie-rg-x60-pro-512m
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += ruijie,rg-x60-pro
-  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGE_SIZE := 484864k
+  KERNEL_IN_UBI := 1
+  PAGESIZE := 2048
+  BLOCKSIZE := 128k
+  UBINIZE_OPTS := -E 5
+  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += ruijie_rg-x60-pro-512m
@@ -3922,8 +3991,14 @@ define Device/ruijie_rg-x60-pro-auto
   DEVICE_DTS := mt7986a-ruijie-rg-x60-pro-auto
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += ruijie,rg-x60-pro
-  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGE_SIZE := 517632k
+  KERNEL_IN_UBI := 1
+  PAGESIZE := 2048
+  BLOCKSIZE := 128k
+  UBINIZE_OPTS := -E 5
+  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += ruijie_rg-x60-pro-auto
