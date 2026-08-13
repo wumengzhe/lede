@@ -265,6 +265,11 @@ define Device/asus_tuf-ax4200
   DEVICE_VARIANT := NAND (factory)
   DEVICE_DTS := mt7986a-asus-tuf-ax4200
   DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 258048k
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES := sysupgrade.bin
@@ -285,9 +290,13 @@ define Device/asus_tuf-ax4200-256m
   DEVICE_DTS := mt7986a-asus-tuf-ax4200-256m
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += asus,tuf-ax4200
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 241664k
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 241664k
   IMAGES := sysupgrade.bin
   KERNEL := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
@@ -305,9 +314,13 @@ define Device/asus_tuf-ax4200-512m
   DEVICE_DTS := mt7986a-asus-tuf-ax4200-512m
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += asus,tuf-ax4200
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 487424k
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 487424k
   IMAGES := sysupgrade.bin
   KERNEL := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
@@ -325,9 +338,13 @@ define Device/asus_tuf-ax4200-auto
   DEVICE_DTS := mt7986a-asus-tuf-ax4200-auto
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += asus,tuf-ax4200
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 520192k
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 520192k
   IMAGES := sysupgrade.bin
   KERNEL := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
@@ -344,6 +361,11 @@ define Device/asus_tuf-ax6000
   DEVICE_VARIANT := NAND (factory)
   DEVICE_DTS := mt7986a-asus-tuf-ax6000
   DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 258048k
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES := sysupgrade.bin
@@ -364,9 +386,13 @@ define Device/asus_tuf-ax6000-256m
   DEVICE_DTS := mt7986a-asus-tuf-ax6000-256m
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += asus,tuf-ax6000
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 241664k
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 241664k
   IMAGES := sysupgrade.bin
   KERNEL := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
@@ -384,9 +410,13 @@ define Device/asus_tuf-ax6000-512m
   DEVICE_DTS := mt7986a-asus-tuf-ax6000-512m
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += asus,tuf-ax6000
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 487424k
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 487424k
   IMAGES := sysupgrade.bin
   KERNEL := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
@@ -404,9 +434,13 @@ define Device/asus_tuf-ax6000-auto
   DEVICE_DTS := mt7986a-asus-tuf-ax6000-auto
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += asus,tuf-ax6000
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 520192k
   DEVICE_DTS_LOADADDR := 0x47000000
   DEVICE_PACKAGES := kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware
-  IMAGE_SIZE := 520192k
   IMAGES := sysupgrade.bin
   KERNEL := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
@@ -3902,6 +3936,11 @@ define Device/ruijie_rg-x60-pro
   DEVICE_VARIANT := NAND (factory)
   DEVICE_DTS := mt7986a-ruijie-rg-x60-pro
   DEVICE_DTS_DIR := ../dts
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 64512k
   DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
@@ -3916,8 +3955,12 @@ define Device/ruijie_rg-x60-pro-256m
   DEVICE_DTS := mt7986a-ruijie-rg-x60-pro-256m
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += ruijie,rg-x60-pro
-  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
   IMAGE_SIZE := 239104k
+  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -3930,8 +3973,12 @@ define Device/ruijie_rg-x60-pro-512m
   DEVICE_DTS := mt7986a-ruijie-rg-x60-pro-512m
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += ruijie,rg-x60-pro
-  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
   IMAGE_SIZE := 484864k
+  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
@@ -3944,8 +3991,12 @@ define Device/ruijie_rg-x60-pro-auto
   DEVICE_DTS := mt7986a-ruijie-rg-x60-pro-auto
   DEVICE_DTS_DIR := ../dts
   SUPPORTED_DEVICES += ruijie,rg-x60-pro
-  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
   IMAGE_SIZE := 517632k
+  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
   IMAGES += factory.bin
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
