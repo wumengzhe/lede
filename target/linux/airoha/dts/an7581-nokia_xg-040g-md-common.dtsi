@@ -8,6 +8,15 @@
 #include "an758x-nokia_xg-040g-common.dtsi"
 
 / {
+	chosen {
+		/* Factory UBI boot args from an7581-xg-040g-md.dts. UBI block 0
+		 * (rootfs) is squashfs+ro and preinit runs from there; the
+		 * factory nvram lies on the same NAND, so ubi.mtd must point at
+		 * it before rootfs can be assembled. */
+		bootargs-append = " ubi.mtd=rootfs,2048 rootfstype=squashfs"
+				  " loglevel=8 ubi.block=0,rootfs ro"
+				  " init=/etc/preinit";
+	};
 	gpio-keys {
 		compatible = "gpio-keys";
 
@@ -150,21 +159,21 @@
 	gswp2_led0_pins: gswp2-led0-pins {
 		mux {
 			function = "phy2_led0";
-			pins = "gpio44";
+			pins = "gpio34";
 		};
 	};
 
 	gswp3_led0_pins: gswp3-led0-pins {
 		mux {
 			function = "phy3_led0";
-			pins = "gpio45";
+			pins = "gpio35";
 		};
 	};
 
 	gswp4_led0_pins: gswp4-led0-pins {
 		mux {
 			function = "phy4_led0";
-			pins = "gpio46";
+			pins = "gpio42";
 		};
 	};
 };
@@ -172,7 +181,7 @@
 &mdio {
 	/* Airoha EN8811 2.5Gbps phy */
 	en8811: ethernet-phy@f {
-		compatible = "ethernet-phy-ieee802.3-c45";
+		compatible = "ethernet-phy-id03a2.a411", "ethernet-phy-ieee802.3-c45";
 		reg = <0xf>;
 
 		reset-gpios = <&en7581_pinctrl 31 GPIO_ACTIVE_LOW>;
@@ -205,6 +214,18 @@
 	status = "okay";
 
 	label = "lan2";
+};
+
+&gsw_port3 {
+	status = "okay";
+
+	label = "lan3";
+};
+
+&gsw_port4 {
+	status = "okay";
+
+	label = "lan4";
 };
 
 &gsw_phy2 {
