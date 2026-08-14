@@ -1,0 +1,160 @@
+--- a/drivers/net/ethernet/airoha/airoha_npu.c
++++ b/drivers/net/ethernet/airoha/airoha_npu.c
+@@ -255,6 +255,21 @@
+ 	regmap_update_bits(npu->regmap, REG_CR_MBQ8_CTRL(3),
+ 			   MBOX_MSG_STATUS | MBOX_MSG_DONE, MBOX_MSG_DONE);
+ 
++	/* The NPU raises this interrupt for every unsolicited event,
++	 * including OMCI/XPON indications from the XPON-HAL. Forward to
++	 * the registered consumer; the exact mailbox payload layout is
++	 * defined by Airoha's proprietary XPON-HAL and is read by the
++	 * kmod-airoha-pon callback.
++	 */
++	{
++		unsigned long flags;
++
++		spin_lock_irqsave(&xpon_ind_lock, flags);
++		if (xpon_ind_cb)
++			xpon_ind_cb(xpon_ind_priv);
++		spin_unlock_irqrestore(&xpon_ind_lock, flags);
++	}
++
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -554,6 +569,62 @@
+ static void airoha_npu_wlan_irq_disable(struct airoha_npu *npu, int q)
+ {
+ 	regmap_clear_bits(npu->regmap, REG_IRQ_RXDONE(q), NPU_IRQ_RX_MASK(q));
++}
++
++/* XPON / OMCI transport toward the on-die NPU XPON-HAL firmware.
++ *
++ * The Airoha NPU firmware bundles an XPON-HAL that terminates the
++ * optical link (serdes training, GTC framing, OMCI extraction).
++ * Linux reaches it through the same NPU mailbox (MBQ0) used for
++ * PPE/wlan, selected by the 4-bit mailbox function id
++ * (MBOX_MSG_FUNC_ID, GENMASK(14,11)). The exact func_id the
++ * firmware's XPON-HAL listens on is part of Airoha's proprietary
++ * xpon_bsp and is supplied by the consumer (kmod-airoha-pon) at
++ * call time, since it is not published.
++ *
++ * airoha_npu_xpon_msg_send() pushes a raw OMCI/G.988 message (or
++ * any XPON-HAL command) to the firmware. airoha_npu_xpon_
++ * register_ind() lets a consumer receive unsolicited indications:
++ * the NPU raises the mailbox interrupt (airoha_npu_mbox_handler)
++ * for every event, and the registered callback performs the
++ * payload read defined by Airoha's proprietary XPON-HAL.
++ */
++static airoha_npu_xpon_ind_cb xpon_ind_cb;
++static void *xpon_ind_priv;
++static DEFINE_SPINLOCK(xpon_ind_lock);
++
++int airoha_npu_xpon_register_ind(struct airoha_npu *npu,
++				 airoha_npu_xpon_ind_cb cb, void *priv)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&xpon_ind_lock, flags);
++	xpon_ind_cb = cb;
++	xpon_ind_priv = priv;
++	spin_unlock_irqrestore(&xpon_ind_lock, flags);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(airoha_npu_xpon_register_ind);
++
++static int airoha_npu_xpon_msg_send(struct airoha_npu *npu, u8 func_id,
++					const void *data, int len, gfp_t gfp)
++{
++	void *buf;
++	int err;
++
++	if (!npu || func_id > 15 || len <= 0)
++		return -EINVAL;
++
++	buf = kzalloc(len, gfp);
++	if (!buf)
++		return -ENOMEM;
++
++	memcpy(buf, data, len);
++	err = airoha_npu_send_msg(npu, func_id, buf, len);
++	kfree(buf);
++
++	return err;
+ }
+ 
+ struct airoha_npu *airoha_npu_get(struct device *dev)
+@@ -681,6 +752,7 @@
+ 	npu->ops.wlan_get_irq_status = airoha_npu_wlan_irq_status_get;
+ 	npu->ops.wlan_enable_irq = airoha_npu_wlan_irq_enable;
+ 	npu->ops.wlan_disable_irq = airoha_npu_wlan_irq_disable;
++	npu->ops.xpon_send_msg = airoha_npu_xpon_msg_send;
+ 
+ 	npu->regmap = devm_regmap_init_mmio(dev, base, &regmap_config);
+ 	if (IS_ERR(npu->regmap))
+--- a/include/linux/soc/airoha/airoha_offload.h
++++ b/include/linux/soc/airoha/airoha_offload.h
+@@ -8,6 +8,10 @@
+ 
+ #include <linux/spinlock.h>
+ #include <linux/workqueue.h>
++
++/* Callback type for unsolicited XPON/OMCI indications coming from the
++ * NPU XPON-HAL firmware (see airoha_npu_xpon_register_ind). */
++typedef void (*airoha_npu_xpon_ind_cb)(void *priv);
+ 
+ enum {
+ 	PPE_CPU_REASON_HIT_UNBIND_RATE_REACHED = 0x0f,
+@@ -203,6 +207,8 @@
+ 		u32 (*wlan_get_irq_status)(struct airoha_npu *npu, int q);
+ 		void (*wlan_enable_irq)(struct airoha_npu *npu, int q);
+ 		void (*wlan_disable_irq)(struct airoha_npu *npu, int q);
++		int (*xpon_send_msg)(struct airoha_npu *npu, u8 func_id,
++				     const void *data, int len, gfp_t gfp);
+ 	} ops;
+ #endif
+ };
+@@ -210,6 +216,8 @@
+ #if (IS_BUILTIN(CONFIG_NET_AIROHA_NPU) || IS_MODULE(CONFIG_NET_AIROHA_NPU))
+ struct airoha_npu *airoha_npu_get(struct device *dev);
+ void airoha_npu_put(struct airoha_npu *npu);
++int airoha_npu_xpon_register_ind(struct airoha_npu *npu,
++				 airoha_npu_xpon_ind_cb cb, void *priv);
+ 
+ static inline int airoha_npu_wlan_init_reserved_memory(struct airoha_npu *npu)
+ {
+@@ -257,6 +265,13 @@
+ {
+ 	npu->ops.wlan_disable_irq(npu, q);
+ }
++
++static inline int airoha_npu_xpon_send_msg(struct airoha_npu *npu,
++					u8 func_id, const void *data,
++					int len, gfp_t gfp)
++{
++	return npu->ops.xpon_send_msg(npu, func_id, data, len, gfp);
++}
+ #else
+ static inline struct airoha_npu *airoha_npu_get(struct device *dev)
+ {
+@@ -311,6 +326,19 @@
+ static inline void airoha_npu_wlan_disable_irq(struct airoha_npu *npu, int q)
+ {
+ }
++
++static inline int airoha_npu_xpon_send_msg(struct airoha_npu *npu,
++					u8 func_id, const void *data,
++					int len, gfp_t gfp)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int airoha_npu_xpon_register_ind(struct airoha_npu *npu,
++					airoha_npu_xpon_ind_cb cb, void *priv)
++{
++	return -EOPNOTSUPP;
++}
+ #endif
+ 
+ #endif /* AIROHA_OFFLOAD_H */

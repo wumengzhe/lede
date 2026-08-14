@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# SPDX-License-Identifier: GPL-2.0
+#
+# Airoha AN7581 PON (XGS-PON ONT) integration for the Nokia Bell XG-040G-MD.
+#
+# Hardware side:
+#   - The SoC DTS (an7581.dtsi) exposes the XPON MAC/PCS as
+#     `pon_pcs: pcs@1fa08000` (compatible "airoha,an7581-pcs-pon"), wired into
+#     &eth via `pcs = <&pon_pcs>`. It is enabled by CONFIG_PCS_AIROHA_AN7581=y
+#     (present in an7581/config-6.12).
+#   - The PON *data* plane is the gdm2 MAC (`&gdm2`, named `pon0` via
+#     `openwrt,netdev-name` in the board DTS). The upstream airoha_eth driver
+#     therefore presents the PON port as the `pon0` network device.
+#   - The XPON HAL firmware lives in the Airoha NPU blob
+#     (airoha-en7581-npu-firmware, pulled in via an7581/target.mk).
+#
+# What this script does:
+#   - Detects the in-tree PON management stack (package `pon-manager`: the `pon`
+#     netifd proto handler /lib/netifd/proto/pon.sh, /etc/config/pon
+#     provisioning, the ponmgr daemon (OMCI G.988 codec + PLOAM FSM) and the
+#     ponctl CLI) and wires `pon0` as the WAN interface, binding the PON status
+#     LED to it.
+#   - The kernel management-plane driver kmod-airoha-pon (bound to the
+#     `airoha,pon` DT node) implements the generic-netlink ABI in pon_abi.h,
+#     controls the BOSA laser enable/disable GPIO and reports Rxsd/Txsd/TxFault.
+#     It does NOT create a netdev. Until that driver is built in, ponmgr runs
+#     userspace-only (UCI + netifd still work).
+
+. /lib/functions/uci-defaults.sh
+. /lib/functions/system.sh
+
+board_config_update
+
+board=$(board_name)
+
+case "$board" in
+nokia,xg-040g-md*)
+	# Has the vendor PON stack been built in? (proto handler or daemon)
+	if [ -e /lib/netifd/proto/pon.sh ] || [ -x /usr/sbin/pon ]; then
+		# Optical WAN via the Airoha PON stack (XGS-PON).
+		# `pon0` is the netdev created by kmod-airoha-pon; adjust the name
+		# here if your vendor build exposes a different interface.
+		ucidef_set_interface_wan 'pon0' 'pon'
+
+		# Bind the PON "online" GPIO status LED (green:wan_online, pin 20)
+		# to the pon0 netdev (link/tx/rx). The LED name follows the DT
+		# colour+function convention; adjust if your board renames it.
+		if command -v ucidef_set_led_netdev >/dev/null 2>&1; then
+			ucidef_set_led_netdev "pon" "green:wan_online" "pon0"
+		fi
+	else
+		logger -t airoha-pon \
+			"vendor PON stack (kmod-airoha-pon) not installed; PON left unconfigured"
+	fi
+	;;
+esac
+
+board_config_flush
+
+exit 0
