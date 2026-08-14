@@ -5,9 +5,10 @@
  * Responsibilities:
  *   - genl management plane with kmod-airoha-pon (GET_INFO / SET_ENABLE /
  *     SET_PROV), resolving the "airoha_pon" family at startup
- *   - OMCI frame plane: opens /dev/airoha_pon, ships G.988 messages via
- *     AIR_PON_SEND_OMCI (first message doubles as the func_id discovery
- *     probe on the real HAL backend) and drains indications on read()
+ *   - OMCI frame plane: opens /dev/airoha_pon and ships G.988 messages via
+ *     AIR_PON_SEND_OMCI (in hal_backend=sim they are echoed back so the
+ *     codec path is exercised end-to-end; on the real backend the driver
+ *     reports -EOPNOTSUPP until the OMCI register protocol is ported)
  *   - RTNL link monitor on `pon0` (gdm2/pon_pcs data plane)
  *   - UCI configuration (/etc/config/pon)
  *   - unix control socket for ponctl (/var/run/ponmgr.sock)

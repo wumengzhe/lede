@@ -14,36 +14,26 @@
  *       read() drains OMCI indications/alarms from the MAC. This is the
  *       transport that lets ponmgr actually talk OMCI with the OLT.
  *
- * The "engine" that terminates the optical link (trains the serdes, runs
- * GTC framing, does OMCI extraction) is the proprietary Airoha XPON HAL
- * running on the on-die NPU. It is selected with the `hal_backend` param:
+ * ARCHITECTURE (rev 2, corrected): the optical link is terminated by the
+ * on-die PON MAC / XPON PHY (registers at 0x1fa80000, an7581.dtsi pon_pcs
+ * block) - NOT by the NPU. Evidence from the stock image:
+ *   - xpon.ko / xpon_10g.ko contain zero NPU / mailbox references
+ *     (no mbq, no doorbell, no ioremap of 0x1e900000);
+ *   - npu.ko is the WiFi/PPE offload firmware loader (it requests
+ *     userfs/npu_rv32.bin + npu_data.bin), so those blobs are WiFi
+ *     firmware, not an XPON HAL;
+ *   - OMCI frames are pushed to the MAC by gwan_prepare_tx_message()
+ *     which builds a QDMA (queue-DMA) TX descriptor - see RE notes
+ *     Tools/re_notes_omci_mailbox.md.
  *
- *   hal_backend=sim   (default) synthesises a plausible O5 bring-up and
- *                     echoes OMCI so the whole userspace stack is exercisable
- *                     on real hardware without the proprietary firmware.
- *
- *   hal_backend=real  the PON MAC register init sequence (reverse-engineered
- *                     from stock xpon.ko, see pon_mac_seq.h) is replayed on
- *                     activation, and OMCI frames are shipped to the on-die
- *                     NPU XPON-HAL firmware - which is what actually trains
- *                     the serdes and terminates the optical link - through
- *                     the NPU mailbox transport added by airoha target patch
- *                     110-01 (airoha_npu_xpon_send_msg).
- *
- *                     The mailbox func_id the XPON-HAL listens on is not
- *                     published by Airoha, so it is *discovered at runtime*:
- *                     the firmware acknowledges mailbox messages, so an
- *                     unused id times out (-ETIMEDOUT) while the right one
- *                     returns 0. See hal_xpon_probe_func(). The resolved id
- *                     is readable at
- *                     /sys/module/airoha_pon/parameters/xpon_func_id_active
- *                     and can be pinned with xpon_func_id=<n>.
- *
- *                     Still open: the NPU->Linux OMCI *indication* payload
- *                     layout (proprietary xpon_bsp ABI). air_pon_xpon_ind()
- *                     receives the mailbox IRQ and wakes readers, but the
- *                     frame decode is not implemented - see the comment
- *                     there before adding it.
+ * hal_backend=1 (real) therefore programs the PON MAC registers directly
+ * (reverse-engineered init sequence, pon_mac_seq.h) and replays them on
+ * activation; the OMCI frame TX/RX register protocol (QDMA descriptor
+ * path of gwan_prepare_tx_message / gwan_process_rx_message) is the open
+ * RE item that remains before the link can carry OMCI end-to-end.
+ * hal_backend=0 (sim, default) synthesises an O1..O5 bring-up and echoes
+ * OMCI so the whole userspace stack is exercisable without a working
+ * optical path.
  */
 
 #include <linux/module.h>
@@ -71,13 +61,6 @@
 #include "pon_abi.h"
 #include "pon_mac_seq.h"
 
-/* NPU XPON-HAL transport API (added by airoha target patch
- * 110-01-net-airoha-npu-Add-XPON-OMCI-mailbox-transport-API.patch).
- * The on-die NPU firmware terminates the optical link; we reach its XPON-HAL
- * through this mailbox transport. CONFIG_NET_AIROHA_NPU is built-in on the
- * airoha target, so these symbols are always exported to this module. */
-#include <linux/soc/airoha/airoha_offload.h>
-
 /* PON MAC register base (an7581.dtsi pon_pcs block). All offsets in
  * pon_mac_seq.h are relative to this physical address. Mapped non-exclusively
  * because the upstream airoha_eth driver also pokes this region for pon_pcs.
@@ -98,43 +81,6 @@ static int backend_param = BACKEND_SIM;
 module_param_named(hal_backend, backend_param, int, 0444);
 MODULE_PARM_DESC(hal_backend, "0=sim (default), 1=real Airoha XPON HAL");
 
-/* NPU mailbox function id the firmware's XPON-HAL listens on for OMCI /
- * G.988 messages. Airoha does not publish this value (it lives in the
- * proprietary xpon_bsp), so by default we *discover* it at runtime instead
- * of guessing: see hal_xpon_probe_func(). Set the param to 0-15 to pin a
- * known id and skip probing. -1 = auto (default). */
-static int xpon_func_id = -1;
-module_param_named(xpon_func_id, xpon_func_id, int, 0444);
-MODULE_PARM_DESC(xpon_func_id,
-		 "NPU mailbox func_id for XPON-HAL OMCI: -1=auto-probe (default), 0-15=pin");
-
-/* The id that auto-probing settled on, exported read-only so userspace can
- * read it back from /sys/module/airoha_pon/parameters/xpon_func_id_active
- * and pin it on later boots. -1 = not resolved yet. */
-static int xpon_active_func = -1;
-module_param_named(xpon_func_id_active, xpon_active_func, int, 0444);
-MODULE_PARM_DESC(xpon_func_id_active,
-		 "read-only: NPU mailbox func_id auto-probing resolved to (-1 = none yet)");
-
-/* Candidate mailbox func_ids probed in this order when xpon_func_id = -1.
- *
- * The in-tree NPU driver's own enum (airoha_npu.c) is lifted from Airoha's
- * SDK and reads: WIFI=0, TUNNEL=1, NOTIFY=2, DBA=3, TR471=4, PPE=5. "DBA"
- * is Dynamic Bandwidth Allocation - a PON-only concept (upstream bandwidth
- * grants in G.987/G.9807 XGS-PON) - which is direct evidence that the NPU
- * firmware exposes PON functionality inside this very id space. So DBA is
- * tried first, then NOTIFY (generic event channel), then the ids the
- * in-tree driver never uses (6..15), where a proprietary XPON-HAL entry
- * point would sit.
- *
- * WIFI(0) and PPE(5) are deliberately never probed: they are owned by the
- * in-tree wlan / flow-offload datapaths and a stray message there could
- * disturb a working datapath. TUNNEL(1) and TR471(4) are tried last.
- */
-static const u8 xpon_func_candidates[] = {
-	3, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 1, 4,
-};
-
 /* ------------------------------------------------------------------ */
 /* Device / GPIO state                                                 */
 /* ------------------------------------------------------------------ */
@@ -142,7 +88,6 @@ static const u8 xpon_func_candidates[] = {
 struct air_pon {
 	struct device		*dev;
 	void __iomem		*mac_base;	/* PON MAC regs (real backend) */
-	struct airoha_npu	*npu;		/* NPU XPON-HAL handle (real backend) */
 	struct gpio_desc	*tx_disable;	/* active-low => laser on */
 	struct gpio_desc	*rx_sd;		/* loss-of-signal */
 	struct gpio_desc	*tx_sd;
@@ -191,97 +136,22 @@ static void ind_push(const struct air_pon_omci *m)
 /* HAL backend operations                                              */
 /* ------------------------------------------------------------------ */
 
-/* NPU XPON-HAL unsolicited-indication callback. Invoked from the shared NPU
- * mailbox IRQ (hard IRQ context, must not sleep). The NPU raises this
- * interrupt for every event coming from the XPON-HAL. The exact NPU->Linux
- * OMCI payload protocol (which mailbox queue / shared-memory region carries
- * the indication frame) is proprietary (Airoha xpon_bsp) and is still being
- * reverse-engineered; once captured, decode the frame here and enqueue it
- * with ind_push() so userspace receives it via /dev/airoha_pon read().
- * For now we wake the reader so the OMCI read() contract stays live and the
- * event is observable in the kernel log. */
-static void air_pon_xpon_ind(void *priv)
-{
-	struct air_pon *p = priv;
-
-	if (!p)
-		return;
-	dev_dbg(p->dev, "XPON indication from NPU (payload decode pending)\n");
-	wake_up_interruptible(&p->ind_wait);
-}
-
-/* Discover which NPU mailbox func_id the XPON-HAL answers on.
- *
- * This works because the mailbox handshake is *acknowledged* by the firmware:
- * airoha_npu_send_msg() polls MBOX_MSG_DONE for 100 ms and then checks the
- * MBOX_MSG_STATUS field, so an id nobody listens on returns -ETIMEDOUT and an
- * id that rejects the payload returns -EINVAL, while only a function that
- * actually consumed the message returns 0. That gives us a reliable runtime
- * oracle for a value Airoha never published.
- *
- * Worst case cost is ARRAY_SIZE(candidates) * 100 ms (~1.4 s), paid once, in
- * process context (ioctl), on the first OMCI transmission.
- *
- * Must be called from process context: the mailbox poll runs under
- * spin_lock_bh() inside the NPU driver.
- */
-static int hal_xpon_probe_func(struct air_pon *p, const struct air_pon_omci *m)
-{
-	int i, err = -ENODEV;
-
-	for (i = 0; i < (int)ARRAY_SIZE(xpon_func_candidates); i++) {
-		u8 fid = xpon_func_candidates[i];
-
-		err = airoha_npu_xpon_send_msg(p->npu, fid, m->msg, m->len,
-					       GFP_KERNEL);
-		if (!err) {
-			xpon_active_func = fid;
-			dev_info(p->dev,
-				 "XPON-HAL answers on NPU mailbox func_id %u (auto-probed); pin with xpon_func_id=%u\n",
-				 fid, fid);
-			return 0;
-		}
-		dev_dbg(p->dev, "XPON func_id %u probe: %d\n", fid, err);
-	}
-
-	dev_warn(p->dev,
-		 "no NPU mailbox func_id accepted OMCI (last err %d); XPON-HAL firmware may not be running\n",
-		 err);
-	return err;
-}
-
 /* Forward a raw OMCI message to the PON MAC. Returns 0 on success. */
 static int hal_send_omci(const struct air_pon_omci *m)
 {
 	struct air_pon *p = g_pon;
 
 	if (backend_param == BACKEND_REAL) {
-		/* Deliver the OMCI G.988 frame to the NPU XPON-HAL through the
-		 * shared NPU mailbox (MBQ0), routed by func_id. The on-die
-		 * firmware does the GTC framing + OMCI extraction; this just
-		 * ships the bytes. */
-		if (!p || !p->npu)
+		/* The stock xpon.ko ships OMCI frames to the MAC via the QDMA
+		 * (queue-DMA) TX path of gwan_prepare_tx_message() - see RE
+		 * notes Tools/re_notes_omci_mailbox.md. That descriptor/register
+		 * protocol is the remaining open RE item; until it is ported we
+		 * cannot push real OMCI frames, so report the failure explicitly
+		 * instead of faking success. The MAC init sequence (pon_mac_seq.h)
+		 * and laser/status management are already live on this path. */
+		if (!p || !p->mac_base)
 			return -ENODEV;
-
-		/* Explicitly pinned id: use it as-is. */
-		if (xpon_func_id >= 0) {
-			dev_dbg(p->dev, "hal_send_omci: %u bytes -> func_id %d (pinned)\n",
-				m->len, xpon_func_id);
-			return airoha_npu_xpon_send_msg(p->npu,
-							(u8)xpon_func_id,
-							m->msg, m->len,
-							GFP_KERNEL);
-		}
-
-		/* Auto mode: first OMCI doubles as the discovery probe, so the
-		 * message is delivered by the probe itself once it hits. */
-		if (xpon_active_func < 0)
-			return hal_xpon_probe_func(p, m);
-
-		dev_dbg(p->dev, "hal_send_omci: %u bytes -> func_id %d\n",
-			m->len, xpon_active_func);
-		return airoha_npu_xpon_send_msg(p->npu, (u8)xpon_active_func,
-						m->msg, m->len, GFP_KERNEL);
+		return -EOPNOTSUPP;
 	}
 	/* SIM: echo the message back as an indication so ponmgr sees a reply
 	 * and the userspace OMCI codec is exercised end-to-end. */
@@ -619,10 +489,8 @@ static int air_pon_probe(struct platform_device *pdev)
 		p->tx_disable_active = 1; /* Airoha BOSA: active-low */
 
 	/* Real backend: map the PON MAC register block so we can replay the
-	 * init sequence, and attach to the NPU XPON-HAL mailbox transport.
-	 * Non-exclusive ioremap (the airoha_eth pon_pcs driver also maps this
-	 * region). The NPU handle comes from the "airoha,npu" phandle on this
-	 * device tree node (see an7581-nokia_xg-040g-md-common.dtsi). */
+	 * init sequence. Non-exclusive ioremap (the airoha_eth pon_pcs driver
+	 * also maps this region). */
 	if (backend_param == BACKEND_REAL) {
 		p->mac_base = devm_ioremap(dev, PON_MAC_BASE_PHYS,
 					   PON_MAC_IOMAP_SIZE);
@@ -634,20 +502,6 @@ static int air_pon_probe(struct platform_device *pdev)
 		}
 		dev_info(dev, "PON MAC regs mapped @0x%lx (real backend)\n",
 			 PON_MAC_BASE_PHYS);
-
-		p->npu = airoha_npu_get(&pdev->dev);
-		if (IS_ERR(p->npu)) {
-			ret = PTR_ERR(p->npu);
-			p->npu = NULL;
-			/* -ENODEV means the NPU driver has not probed yet;
-			 * defer so we are retried once it is available. */
-			if (ret == -ENODEV)
-				ret = -EPROBE_DEFER;
-			else
-				dev_err(dev, "failed to get NPU handle: %d\n",
-					ret);
-			goto err_fifo;
-		}
 	}
 
 	p->laser = 0;
@@ -659,22 +513,9 @@ static int air_pon_probe(struct platform_device *pdev)
 	g_pon = p;
 	platform_set_drvdata(pdev, p);
 
-	/* Attach the NPU indication callback only now that g_pon and drvdata
-	 * are live: it fires from the shared NPU mailbox hard IRQ, which can
-	 * happen (PPE/wlan traffic on the same mailbox) before we finish
-	 * probing, so it must never observe a half-initialised device. */
-	if (p->npu) {
-		airoha_npu_xpon_register_ind(p->npu, air_pon_xpon_ind, p);
-		if (xpon_func_id >= 0)
-			dev_info(dev, "Airoha NPU XPON transport attached (func_id=%d, pinned)\n",
-				 xpon_func_id);
-		else
-			dev_info(dev, "Airoha NPU XPON transport attached (func_id auto-probed on first OMCI)\n");
-	}
-
 	ret = misc_register(&air_pon_misc);
 	if (ret)
-		goto err_ind;
+		goto err_dev;
 
 	ret = genl_register_family(&air_pon_genl_family);
 	if (ret)
@@ -686,17 +527,9 @@ static int air_pon_probe(struct platform_device *pdev)
 
 err_misc:
 	misc_deregister(&air_pon_misc);
-err_ind:
-	/* Detach the hard-IRQ callback *before* the device goes away, else the
-	 * next NPU mailbox interrupt would dereference freed memory. */
-	if (p->npu)
-		airoha_npu_xpon_register_ind(p->npu, NULL, NULL);
+err_dev:
 	g_pon = NULL;
 	platform_set_drvdata(pdev, NULL);
-	if (p->npu) {
-		airoha_npu_put(p->npu);
-		p->npu = NULL;
-	}
 err_fifo:
 	kfifo_free(&p->ind_fifo);
 	return ret;
@@ -706,11 +539,6 @@ static void air_pon_remove(struct platform_device *pdev)
 {
 	struct air_pon *p = platform_get_drvdata(pdev);
 
-	if (p->npu) {
-		airoha_npu_xpon_register_ind(p->npu, NULL, NULL);
-		airoha_npu_put(p->npu);
-		p->npu = NULL;
-	}
 	atomic_set(&p->stop, 1);
 	wake_up_interruptible(&p->ind_wait);
 	cancel_delayed_work_sync(&p->sim_work);

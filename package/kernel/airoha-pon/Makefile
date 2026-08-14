@@ -10,14 +10,18 @@
 #   - BOSA laser enable/disable GPIO + Rxsd/Txsd/TxFault board inputs
 # It does NOT create a netdev.
 #
-# The real optical synchronisation is performed by the Airoha NPU firmware
-# (XPON HAL). The `hal_backend` module param selects the engine:
+# The real optical synchronisation is performed by the on-die PON MAC /
+# XPON PHY (0x1fa80000), which this driver programs directly with the
+# reverse-engineered init sequence (pon_mac_seq.h). The `hal_backend`
+# module param selects the engine:
 #   0 = sim   synthesises O5 bring-up + echoes OMCI so the whole userspace
-#             stack is exercisable without the proprietary firmware
-#   1 = real  replays the reverse-engineered PON MAC init sequence and ships
-#             OMCI to the NPU XPON-HAL over the NPU mailbox transport added by
-#             target patch 110-01 (airoha_npu_xpon_send_msg). The mailbox
-#             func_id is auto-discovered at runtime, see the driver header.
+#             stack is exercisable without a working optical path
+#   1 = real  replays the PON MAC init sequence and drives the BOSA laser /
+#             status GPIOs. OMCI frame TX (the QDMA descriptor protocol of
+#             stock xpon.ko) is the remaining open RE item, reported as
+#             -EOPNOTSUPP until ported. NOTE: the NPU plays no role in PON
+#             (the stock npu.ko is a WiFi/PPE offload firmware loader), see
+#             Tools/re_notes_omci_mailbox.md (rev 2).
 # The shipped /etc/modprobe.d/airoha-pon.conf selects hal_backend=1, because
 # on an ONT the real path is the point; edit it to fall back to the simulator.
 

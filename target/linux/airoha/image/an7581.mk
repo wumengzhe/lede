@@ -56,15 +56,14 @@ define Device/airoha_an7581-bell-xg-040g-md
   # names airoha/en7581_npu_{rv32,data}.bin. Two packages ship those names:
   #   - airoha-en7581-npu-firmware  : upstream *network-offload* (PPE) blob,
   #     pulled in as a DEFAULT_PACKAGE by an7581/target.mk.
-  #   - airoha-xpon-npu-firmware    : the *XPON HAL* blob extracted from the
-  #     stock Nokia image - the engine that trains the optical serdes and does
-  #     GTC framing / OMCI, i.e. the only one that can bring the PON link up.
-  # Installing both would collide on the same two file paths, so the PPE-only
-  # default is explicitly removed here ("-pkg", handled by image.mk
-  # mkfs_packages_remove) and the XPON blob wins on this ONT. The stock blob
-  # is the ONT's own firmware, so it also carries the PPE HAL.
-  # kmod-airoha-pon reaches this firmware through the NPU mailbox (target
-  # patch 110-01), see below.
+  #   - airoha-xpon-npu-firmware    : the stock blob extracted from the Nokia
+  #     image (userfs/npu_rv32.bin + npu_data.bin). Both are WiFi/PPE offload
+  #     firmware (the stock npu.ko loader requests them); the PON optical link
+  #     is driven by the on-die PON MAC, NOT by the NPU - see
+  #     Tools/re_notes_omci_mailbox.md (rev 2). Installing both would collide
+  #     on the same two file paths, so the upstream default is explicitly
+  #     removed here ("-pkg", handled by image.mk mkfs_packages_remove) and
+  #     the stock blob - the firmware this ONT shipped with - wins.
   #
   # PON (XGS-PON ONT): the PON *data* plane is the SoC gdm2 MAC wired to the
   # internal pon_pcs, already enabled (CONFIG_PCS_AIROHA_AN7581=y); the

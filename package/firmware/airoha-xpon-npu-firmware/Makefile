@@ -1,17 +1,17 @@
 #
 # SPDX-License-Identifier: Proprietary
 #
-# airoha-xpon-npu-firmware - Airoha AN7581 XPON NPU (rv32) firmware asset
+# airoha-xpon-npu-firmware - Airoha AN7581 NPU (rv32) firmware asset
 #
 # Extracted from the stock Nokia Bell XG-040G-MD firmware
-# (userfs/npu_rv32.bin + userfs/npu_data.bin). This is the proprietary
-# Airoha XPON HAL that runs on the on-die NPU and drives the optical
-# serdes / GTC framing. It is required (together with a k6.12 XPON MAC
-# driver) to bring the PON link up.
+# (userfs/npu_rv32.bin + userfs/npu_data.bin). The on-die NPU runs a single
+# rv32 core; on this ONT that firmware is the WiFi/PPE offload HAL (the stock
+# npu.ko loader requests these exact blobs - it is NOT an XPON HAL; the PON
+# optical link is driven by the on-die PON MAC, see
+# Tools/re_notes_omci_mailbox.md rev 2).
 #
 # NOTE: proprietary vendor blob - for the device owner's personal use only,
-# NOT redistributable. The real PON bring-up also needs Airoha's k6.12
-# xpon_bsp (or an open reimplementation); see PON_REFACTOR_SUMMARY.md.
+# NOT redistributable.
 
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
@@ -28,7 +28,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/airoha-xpon-npu-firmware
   SECTION:=firmware
   CATEGORY:=Firmware
-  TITLE:=Airoha AN7581 XPON NPU firmware (extracted)
+  TITLE:=Airoha AN7581 NPU firmware (extracted, WiFi/PPE offload)
   DEPENDS:=@TARGET_airoha
   # The AN7581 has ONE NPU rv32 core, so only one firmware image can ever be
   # loaded, and the in-tree driver requests the fixed names
@@ -42,9 +42,11 @@ define Package/airoha-xpon-npu-firmware
 endef
 
 define Package/airoha-xpon-npu-firmware/description
-  Proprietary Airoha AN7581 XPON (XGS-PON/GPON) NPU rv32 firmware, extracted
-  from the stock Nokia Bell XG-040G-MD image. Placed at
-  /lib/firmware/airoha/ as the asset consumed by the XPON MAC driver.
+  Proprietary Airoha AN7581 NPU rv32 firmware, extracted from the stock
+  Nokia Bell XG-040G-MD image (userfs/npu_rv32.bin + npu_data.bin). Placed
+  at /lib/firmware/airoha/ as the asset consumed by the in-tree NPU driver
+  (airoha_npu.c). This is the WiFi/PPE offload firmware; the PON optical
+  link is driven by the on-die PON MAC, not by the NPU.
 endef
 
 define Build/Prepare

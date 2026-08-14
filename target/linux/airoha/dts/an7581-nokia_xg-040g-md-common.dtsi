@@ -120,11 +120,11 @@
 	 */
 	pon: pon {
 		compatible = "airoha,pon";
-		/* kmod-airoha-pon reaches the on-die NPU XPON-HAL (which
-		 * terminates the optical link) through the NPU mailbox transport;
-		 * this phandle lets the driver resolve the NPU handle via
-		 * airoha_npu_get(). */
-		airoha,npu = <&npu>;
+		/* The optical link is terminated by the on-die PON MAC / XPON PHY
+		 * (0x1fa80000 pon_pcs block), not by the NPU: the stock xpon.ko
+		 * has no NPU/mailbox references and npu.ko is a WiFi/PPE offload
+		 * firmware loader (see Tools/re_notes_omci_mailbox.md, rev 2).
+		 * kmod-airoha-pon therefore drives the MAC registers directly. */
 		tx-disable-gpios = <&en7581_pinctrl 38 GPIO_ACTIVE_LOW>;
 		tx-sd-gpios = <&en7581_pinctrl 37 GPIO_ACTIVE_HIGH>;
 		rx-sd-gpios = <&en7581_pinctrl 36 GPIO_ACTIVE_HIGH>;
