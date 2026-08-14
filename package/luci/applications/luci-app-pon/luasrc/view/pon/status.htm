@@ -1,0 +1,78 @@
+<%# SPDX-License-Identifier: Apache-2.0 -%>
+<%# luci-app-pon: PON status view -%>
+<%
+	local ponctl = function(args)
+		local f = io.popen("ponctl " .. args .. " 2>/dev/null")
+		if not f then return {} end
+		local out = f:read("*a") or ""
+		f:close()
+		local kv = {}
+		for line in out:gmatch("[^\n]+") do
+			local k, v = line:match("^(%w+)=(.*)$")
+			if k then kv[k] = v end
+		end
+		return kv
+	end
+
+	local st = ponctl("status")
+	local states = {
+		[0] = "No module",
+		[1] = "O1 (initial)",
+		[2] = "O2 (standby)",
+		[3] = "O3 (serial number)",
+		[4] = "O4 (ranging)",
+		[5] = "O5 (operation)",
+	}
+	local state_name = states[tonumber(st.state)] or "unknown"
+-%>
+
+<%+header%>
+
+<h2 name="content"><%:PON%></h2>
+
+<div class="cbi-map">
+	<div class="cbi-map-descr">
+		<%:XGS-PON optical network terminal status.%>
+	</div>
+	<fieldset class="cbi-section">
+		<legend><%:Status%></legend>
+		<div class="cbi-section-node">
+			<table class="cbi-section-table">
+				<tr class="cbi-section-table-titles">
+					<th class="cbi-section-table-cell"><%:Item%></th>
+					<th class="cbi-section-table-cell"><%:Value%></th>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:PON state%></td>
+					<td class="cbi-section-table-cell"><%=state_name%> (<%=st.state or "?"%>)</td>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:Laser%></td>
+					<td class="cbi-section-table-cell"><%=(st.laser == "1") and "on" or "off"%></td>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:RX power%></td>
+					<td class="cbi-section-table-cell"><%=st.rx_power%> dBm</td>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:LOS%></td>
+					<td class="cbi-section-table-cell"><%=(st.los == "1") and "yes" or "no"%></td>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:TX fault%></td>
+					<td class="cbi-section-table-cell"><%=(st.tx_fault == "1") and "yes" or "no"%></td>
+				</tr>
+			</table>
+		</div>
+		<div class="cbi-page-actions">
+			<form method="post" action="<%=url('admin/network/pon/activate')%>" style="display:inline">
+				<input class="cbi-button cbi-button-apply" type="submit" value="<%:Activate%>" />
+			</form>
+			<form method="post" action="<%=url('admin/network/pon/deactivate')%>" style="display:inline">
+				<input class="cbi-button cbi-button-reset" type="submit" value="<%:Deactivate%>" />
+			</form>
+		</div>
+	</fieldset>
+</div>
+
+<%+footer%>
