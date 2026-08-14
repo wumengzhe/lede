@@ -1581,3 +1581,21 @@ define Device/zyxel_ex5700-telenor
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += zyxel_ex5700-telenor
+
+define Device/ikq_ikq6000
+  DEVICE_VENDOR := IKQ
+  DEVICE_MODEL := IKQ6000
+  DEVICE_DTS := mt7986a-ikq6000-auto
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += ikq,ikq6000
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 517632k
+  KERNEL_IN_UBI := 1
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-mt7986-firmware mt7986-wo-firmware
+endef
+TARGET_DEVICES += ikq_ikq6000
