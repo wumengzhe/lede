@@ -16,7 +16,7 @@ end
 function index()
     entry({"admin", "network", "policyroute"},
         cbi("policyroute"),
-        _("Policy Route"), 60)
+        _("策略路由"), 60)
 
     entry({"admin", "network", "policyroute", "ifaces"}, call("action_ifaces")).leaf = true
     entry({"admin", "network", "policyroute", "devices"}, call("action_devices")).leaf = true

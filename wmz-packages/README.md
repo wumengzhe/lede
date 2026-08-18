@@ -30,7 +30,7 @@ cd /path/to/lede
 之后 `make menuconfig` → **LuCI → Applications** 里即可看到：
 
 - `luci-app-wuxuroute`  → 网络 → 无序路由配置
-- `luci-app-policyroute` → 网络 → Policy Route
+- `luci-app-policyroute` → 网络 → 策略路由
 
 ## 设计原则
 

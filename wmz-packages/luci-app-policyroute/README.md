@@ -46,12 +46,12 @@ OpenWrt **源地址策略路由**面板。按 **设备（MAC / IP / DHCP 主机�
 ## 用法
 
 1. `make menuconfig` → **LuCI → Applications → luci-app-policyroute**
-2. 网络 → **Policy Route**
-3. 勾选启用 → 在「Routing Rules」里增删规则：
-   - Source type：`MAC address` / `IP address` / `DHCP hostname`
-   - Source value：对应值
-   - Protocol / Dest port：可选，做服务级分流
-   - Egress interface：从自动枚举的出口里选
+2. 网络 → **策略路由**
+3. 勾选启用 → 在「路由规则」里增删规则：
+   - 源类型：`MAC 地址` / `IP 地址` / `DHCP 主机名`
+   - 源值：对应值
+   - 协议 / 目的端口：可选，做服务级分流
+   - 出口接口：从自动枚举的出口里选
 4. 保存并应用（自动下发 nftables + ip rule）。
 
 ## 依赖
