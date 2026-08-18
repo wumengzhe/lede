@@ -212,7 +212,8 @@ cmd_apply() {
         local tbl_info ours tid
         tbl_info=$(iface_table "$iface"); ours=${tbl_info##* }; tid=${tbl_info% *}
 
-        nft_rules="${nft_rules}    ${match} meta mark set 0x$(printf '%x' $mark)\n"
+        nft_rules="${nft_rules}
+    ${match} meta mark set 0x$(printf '%x' $mark)"
         ip rule add fwmark "0x$(printf '%x' $mark)" lookup "$tid" priority "$prio" 2>/dev/null || \
             log "failed to add ip rule for '$name'"
         echo "0x$(printf '%x' $mark) $tid $ours" >>"$STATE"
