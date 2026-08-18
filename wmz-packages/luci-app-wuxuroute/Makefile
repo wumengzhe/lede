@@ -7,7 +7,7 @@ PKG_MAINTAINER:=wumengzhe
 PKG_LICENSE:=MIT
 PKG_LICENSE_FILES:=LICENSE
 
-LUCI_TITLE:=Wuxu Route Config (MAC/Hostname randomizer)
+LUCI_TITLE:=无序路由配置（MAC/主机名随机）
 LUCI_DESCRIPTION:=Randomize WAN/LAN/WiFi MAC addresses, LAN IP and hostname. Optional auto-randomize on boot.
 LUCI_DEPENDS:=+luci-base +uci +coreutils
 LUCI_PKGARCH:=all
