@@ -1,0 +1,19 @@
+config policyroute 'config'
+	option enabled '0'
+
+# 一条规则 = 源（MAC/IP/主机名 + 可选协议/端口）→ 出口接口
+# src:    mac | ip | host
+# value:  MAC 地址 / IP 地址 / DHCP 主机名
+# proto:  ''（不限）| tcp | udp
+# dport:  目标端口（可选，服务级分流）
+# iface:  出口接口名（来自 list-ifaces，如 wan / wan1 / wg0 / tun0 / utun）
+# mark:   留空，由 apply 自动分配
+config rule
+#	option name '示例-店铺A'
+#	option src 'mac'
+#	option value 'AA:BB:CC:DD:EE:FF'
+#	option proto ''
+#	option dport ''
+#	option iface 'wg0'
+#	option enabled '0'
+#	option comment ''
