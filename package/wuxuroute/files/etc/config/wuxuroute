@@ -1,0 +1,8 @@
+config config 'config'
+	option auto_wan_mac '0'
+	option auto_lan_mac '0'
+	option auto_wifi2g_mac '0'
+	option auto_wifi5g_mac '0'
+	option auto_hostname '0'
+	option auto_lan_ip '0'
+	option lan_ip '192.168.2.1'
