@@ -1,14 +1,18 @@
 #!/bin/sh
-# wuxuroute - 快速配置工具（WAN/LAN/WiFi MAC、LAN IP、主机名）
+# wuxuroute - 无序路由配置工具（WAN/LAN/WiFi MAC、LAN IP、主机名）
 # 用法:
-#   wuxuroute random                  随机生成 4 个 MAC + 主机名（输出到 stdout）
-#   wuxuroute get                     读取当前值（wan_mac/lan_mac/wifi2g_mac/wifi5g_mac/lan_ip/hostname）
-#   wuxuroute apply [wan_mac] [lan_mac] [wifi2g_mac] [wifi5g_mac] [hostname] [lan_ip]
-#                                        把传入的值写入 network/wireless/system 并 reload（不重启）
-#   wuxuroute apply-and-restart        apply + 重启网络/无线
-#   wuxuroute apply-and-reboot         apply + 重启整个设备
-#   wuxuroute boot                     启动时按 /etc/config/wuxuroute 的 auto_* 选项自动执行
-#   wuxuroute factory-reset           清空/恢复默认
+#   wuxuroute random                           随机生成 4 个 MAC + 主机名（输出到 stdout）
+#   wuxuroute get                              读取当前值（含每个 WiFi SSID 的 MAC）
+#   wuxuroute list-wifi                        枚举所有 wifi-iface 段（idx|section|device|ssid|mac|ifname）
+#   wuxuroute status                           读取系统实际生效的 MAC（配置值 vs 实际值）
+#   wuxuroute gen-mac [--oui X:Y:Z]            生成随机 MAC；带 --oui 则伪装成该厂商前缀
+#   wuxuroute gen-hostname                     生成随机主机名
+#   wuxuroute apply --wan-mac .. --lan-mac .. --lan-ip .. --hostname .. [--wifi idx mac]... [--schedule N]
+#                                             把传入的值写入 network/wireless/system 并 reload（不重启）
+#   wuxuroute apply-and-reboot ...              apply + 3 秒后重启设备
+#   wuxuroute boot                             启动时按 /etc/config/wuxuroute 的 auto_* 选项自动执行
+#   wuxuroute factory-reset                    清空所有手动 macaddr（恢复出厂 MAC）
+#   wuxuroute schedule <0|1|2>                 设置定时自动更新（0 关 / 1 每天 / 2 每周）
 
 CONF=/etc/config/wuxuroute
 NETWORK=/etc/config/network
@@ -20,47 +24,40 @@ err() { logger -t wuxuroute -p err "$@"; echo "ERROR: $@" >&2; }
 
 # ---------- 工具函数 ----------
 
-# 读 N 字节 /dev/urandom 并转成连续 16 进制字符串（小写）
-# 用 od (busybox) + tr；fallback 走 hexdump
+# 生成连续 16 进制字符串（小写）
+# 用 shell 内建 $RANDOM，避免 /dev/urandom 经管道偶发少读的竞争问题。
 rand_hex() {
 	local n="${1:-4}"
+	local need=$((n * 2))
 	local out=""
-	# 优先 od
-	if command -v od >/dev/null 2>&1; then
-		out=$(head -c "$n" /dev/urandom 2>/dev/null | od -An -tx1 2>/dev/null | tr -d ' \n\t')
-		# 保留为 2*n 个字符
-		out=${out:0:$((n*2))}
-	fi
-	# fallback: hexdump
-	if [ -z "$out" ] || [ ${#out} -lt $((n*2)) ]; then
-		if command -v hexdump >/dev/null 2>&1; then
-			out=$(head -c "$n" /dev/urandom 2>/dev/null | hexdump -v -e '/1 "%02x"' 2>/dev/null)
-			out=${out:0:$((n*2))}
-		fi
-	fi
-	# fallback: dd + od
-	if [ -z "$out" ] || [ ${#out} -lt $((n*2)) ]; then
-		out=$(dd if=/dev/urandom bs=1 count="$n" 2>/dev/null | od -An -tx1 2>/dev/null | tr -d ' \n\t')
-		out=${out:0:$((n*2))}
-	fi
-	# 兜底：空字符串
-	echo "$out"
+	while [ ${#out} -lt $need ]; do
+		out="${out}$(printf '%08x' $(( (RANDOM << 16) ^ RANDOM )) )"
+	done
+	echo "${out:0:$need}"
 }
 
-# 随机生成单播 MAC（本地管理位 0x02 置位、组播位 0x01 清零）
+# 播种：尽量让每次运行 / 每次开机起点不同
+RANDOM=$(date +%s 2>/dev/null | tr -dc '0-9' | tail -c 5)$RANDOM 2>/dev/null || true
+
+# 随机生成 MAC
+# 不带参数：首字节 02（单播 + 本地管理位），避免与真实 MAC 冲突
+# 带 --oui X:Y:Z：保留厂商前缀前 3 字节，后 3 字节随机（看起来像该厂商设备）
 gen_mac() {
+	local oui=""
+	[ "$1" = "--oui" ] && oui="$2"
 	local rnd
 	rnd=$(rand_hex 4)
 	[ -z "$rnd" ] && rnd="00000000"
-	# 强转小写 + 补 0
 	rnd=$(printf '%-8s' "$rnd" | tr ' ' '0')
 	rnd=$(echo "$rnd" | tr '[:upper:]' '[:lower:]')
-	# 首字节固定 02（unicast + locally administered）
-	echo "02:00:${rnd:0:2}:${rnd:2:2}:${rnd:4:2}:${rnd:6:2}"
+	if [ -n "$oui" ]; then
+		echo "${oui}:${rnd:0:2}:${rnd:2:2}:${rnd:4:2}"
+	else
+		echo "02:00:${rnd:0:2}:${rnd:2:2}:${rnd:4:2}:${rnd:6:2}"
+	fi
 }
 
 gen_hostname() {
-	# 生成形如 PC-XXXXXX 的随机主机名
 	local rnd
 	rnd=$(rand_hex 3)
 	[ -z "$rnd" ] && rnd="000000"
@@ -69,55 +66,56 @@ gen_hostname() {
 	echo "PC-${rnd}"
 }
 
-# 取接口当前 MAC。优先 UCI 配置文件，其次 sysfs，最后 ifconfig
+# 取接口当前 MAC（逻辑名 wan/lan 会自动解析实际 netdev）
 get_iface_mac() {
 	local iface="$1"
-	local mac=""
+	local dev="$iface"
+	local real
+	real=$(uci -q get network.${iface}.device 2>/dev/null)
+	[ -z "$real" ] && real=$(uci -q get network.${iface}.ifname 2>/dev/null)
+	[ -n "$real" ] && dev="$real"
 
-	# 1) 从 /etc/config/network 的 ifname 取
-	if [ -n "$iface" ]; then
-		mac=$(uci -q get network.${iface}.macaddr)
-	fi
-	# 2) 从 sysfs 取
-	if [ -z "$mac" ] && [ -d "/sys/class/net/$iface" ]; then
-		mac=$(cat "/sys/class/net/$iface/address" 2>/dev/null)
-	fi
-	# 3) ifconfig 兜底
-	if [ -z "$mac" ] && command -v ifconfig >/dev/null 2>&1; then
-		mac=$(ifconfig "$iface" 2>/dev/null | awk '/HWaddr/ {print $NF; exit}')
-		mac=${mac:-$(ifconfig "$iface" 2>/dev/null | awk '/ether/ {print $2; exit}')}
+	local mac=""
+	mac=$(uci -q get network.${iface}.macaddr 2>/dev/null)
+	if [ -z "$mac" ] && [ -d "/sys/class/net/$dev" ]; then
+		mac=$(cat "/sys/class/net/$dev/address" 2>/dev/null)
 	fi
 	echo "$mac" | tr '[:upper:]' '[:lower:]'
 }
 
-# 取默认 WAN / LAN 接口名（来自 uci show network | head）
+# 取默认 WAN / LAN 逻辑接口名
 get_default_iface() {
-	local role="$1"  # wan | lan
+	local role="$1"
 	local ifname
-	ifname=$(uci -q get network.wan.device 2>/dev/null)
-	[ -z "$ifname" ] && ifname=$(uci -q get network.wan.ifname 2>/dev/null)
 	if [ "$role" = "wan" ]; then
+		ifname=$(uci -q get network.wan.device 2>/dev/null)
+		[ -z "$ifname" ] && ifname=$(uci -q get network.wan.ifname 2>/dev/null)
 		echo "${ifname:-wan}"
-		return
+	else
+		ifname=$(uci -q get network.lan.device 2>/dev/null)
+		[ -z "$ifname" ] && ifname=$(uci -q get network.lan.ifname 2>/dev/null)
+		echo "${ifname:-lan}"
 	fi
-	# lan
-	ifname=$(uci -q get network.lan.device 2>/dev/null)
-	[ -z "$ifname" ] && ifname=$(uci -q get network.lan.ifname 2>/dev/null)
-	echo "${ifname:-lan}"
 }
 
-# 取 wifi-iface 第一个 device 的 MAC（默认 radio0/1 2.4G/5G）
-get_wifi_radio_mac() {
-	local phy="$1"  # mt7981/mt7986 等可作前缀查找，这里用 phy 物理设备
-	[ -z "$phy" ] && phy=$(ls /sys/class/ieee80211/ 2>/dev/null | head -1)
-	[ -d "/sys/class/ieee80211/$phy" ] || { echo ""; return; }
-	cat "/sys/class/ieee80211/$phy/macaddress" 2>/dev/null | tr '[:upper:]' '[:lower:]'
+# 枚举所有 wifi-iface 段
+# 输出每行: idx|section_ref|device|ssid|macaddr|ifname
+wifi_list() {
+	local i=0 sec dev ssid mac ifn
+	for sec in $(uci show wireless 2>/dev/null | sed -n 's/^wireless\.\(@wifi-iface\[[0-9]*\]\)=wifi-iface$/\1/p' | sort -t'[' -k2 -n); do
+		dev=$(uci -q get wireless.${sec}.device 2>/dev/null)
+		ssid=$(uci -q get wireless.${sec}.ssid 2>/dev/null)
+		mac=$(uci -q get wireless.${sec}.macaddr 2>/dev/null)
+		ifn=$(uci -q get wireless.${sec}.ifname 2>/dev/null)
+		echo "$i|$sec|$dev|$ssid|$mac|$ifn"
+		i=$((i+1))
+	done
 }
 
 # 取当前 hostname
 get_hostname() {
 	uci -q get system.@system[0].hostname 2>/dev/null \
-		|| awk -F= '/^[[:space:]]*hostname[[:space:]]*=/ {gsub(/[\"'\'' ]/,"",$2); print $2; exit}' /etc/config/system \
+		|| awk -F= '/^[[:space:]]*hostname[[:space:]]*=/ {gsub(/["'\'' ]/,"",$2); print $2; exit}' /etc/config/system \
 		|| hostname
 }
 
@@ -125,44 +123,80 @@ get_lan_ip() {
 	uci -q get network.lan.ipaddr 2>/dev/null || echo "192.168.1.1"
 }
 
+# 解析一行 wifi_list 输出到局部变量
+parse_wifi_line() {
+	local line="$1"
+	local rest
+	_pwl_idx=${line%%|*};  rest=${line#*|}
+	_pwl_sec=${rest%%|*};  rest=${rest#*|}
+	_pwl_dev=${rest%%|*};  rest=${rest#*|}
+	_pwl_ssid=${rest%%|*}; rest=${rest#*|}
+	_pwl_mac=${rest%%|*};  rest=${rest#*|}
+	_pwl_ifn=${rest%%|*}
+}
+
 # ---------- 子命令 ----------
 
 cmd_random() {
-	# 只随机生成并打印
 	cat <<EOF
 wan_mac=$(gen_mac)
 lan_mac=$(gen_mac)
-wifi2g_mac=$(gen_mac)
-wifi5g_mac=$(gen_mac)
+wifi_mac_0=$(gen_mac)
+wifi_mac_1=$(gen_mac)
 lan_ip=$(get_lan_ip)
 hostname=$(gen_hostname)
 EOF
 }
 
 cmd_get() {
-	# 取当前值
 	local wan_if lan_if
 	wan_if=$(get_default_iface wan)
 	lan_if=$(get_default_iface lan)
-	local wmac0 wmac1
-	# 找两个物理 radio 的 MAC（mt7981 通常 phy0/phy1）
-	wmac0=$(ls /sys/class/ieee80211/ 2>/dev/null | sort | sed -n '1p')
-	wmac1=$(ls /sys/class/ieee80211/ 2>/dev/null | sort | sed -n '2p')
-	[ -n "$wmac0" ] && wmac0=$(cat "/sys/class/ieee80211/$wmac0/macaddress" 2>/dev/null | tr '[:upper:]' '[:lower:]')
-	[ -n "$wmac1" ] && wmac1=$(cat "/sys/class/ieee80211/$wmac1/macaddress" 2>/dev/null | tr '[:upper:]' '[:lower:]')
-	cat <<EOF
-wan_mac=$(get_iface_mac "$wan_if")
-lan_mac=$(get_iface_mac "$lan_if")
-wifi2g_mac=$wmac0
-wifi5g_mac=$wmac1
-lan_ip=$(get_lan_ip)
-hostname=$(get_hostname)
-EOF
+	echo "wan_mac=$(get_iface_mac "$wan_if")"
+	echo "lan_mac=$(get_iface_mac "$lan_if")"
+	echo "hostname=$(get_hostname)"
+	echo "lan_ip=$(get_lan_ip)"
+	local i=0 line
+	for line in $(wifi_list); do
+		parse_wifi_line "$line"
+		echo "wifi_${i}_ssid=${_pwl_ssid:-}"
+		echo "wifi_${i}_mac=${_pwl_mac:-}"
+		echo "wifi_${i}_device=${_pwl_dev:-}"
+		i=$((i+1))
+	done
+	echo "wifi_count=$i"
 }
 
-# 把值写入 UCI（不一定 reload，由调用方决定）
+cmd_list_wifi() {
+	wifi_list
+}
+
+cmd_status() {
+	echo "wan_mac=$(get_iface_mac "$(get_default_iface wan)")"
+	echo "lan_mac=$(get_iface_mac "$(get_default_iface lan)")"
+	echo "hostname=$(get_hostname)"
+	echo "lan_ip=$(get_lan_ip)"
+	local i=0 line
+	for line in $(wifi_list); do
+		parse_wifi_line "$line"
+		local eff="${_pwl_mac:-}"
+		if [ -z "$eff" ] && [ -n "$_pwl_ifn" ] && [ -d "/sys/class/net/$_pwl_ifn" ]; then
+			eff=$(cat "/sys/class/net/$_pwl_ifn/address" 2>/dev/null)
+		fi
+		echo "wifi_${i}_ssid=${_pwl_ssid:-}"
+		echo "wifi_${i}_device=${_pwl_dev:-}"
+		echo "wifi_${i}_config_mac=${_pwl_mac:-none}"
+		echo "wifi_${i}_effective_mac=${eff:-none}"
+		i=$((i+1))
+	done
+	echo "wifi_count=$i"
+}
+
+# 把值写入 UCI（不 reload，由调用方决定）
+# 参数: wan_mac lan_mac lan_ip hostname wifi_pairs
+#   wifi_pairs 形如 "0=AA:BB:..;1=CC:.."
 write_to_uci() {
-	local wan_mac="$1" lan_mac="$2" wifi2g_mac="$3" wifi5g_mac="$4" hostname="$5" lan_ip="$6"
+	local wan_mac="$1" lan_mac="$2" lan_ip="$3" hostname="$4" wifi_pairs="$5"
 
 	local wan_if lan_if
 	wan_if=$(get_default_iface wan)
@@ -171,37 +205,24 @@ write_to_uci() {
 	# 1) network
 	[ -n "$wan_mac" ] && uci set network.${wan_if}.macaddr="$wan_mac" 2>/dev/null
 	[ -n "$lan_mac" ] && uci set network.${lan_if}.macaddr="$lan_mac" 2>/dev/null
-	[ -n "$lan_ip" ] && uci set network.lan.ipaddr="$lan_ip"
-	[ -n "$lan_ip" ] && uci set network.lan.force_link='1' 2>/dev/null
+	if [ -n "$lan_ip" ]; then
+		uci set network.lan.ipaddr="$lan_ip"
+		uci set network.lan.force_link='1' 2>/dev/null
+	fi
 	uci commit network
 
-	# 2) wireless - 找所有 wifi-iface，按 section idx 改 macaddr
-	# 2.4G = 默认 path 中 band 2g 那个；5G = band 5g。简化处理：按 idx 顺序，前半 2.4G 后半 5G。
-	if [ -n "$wifi2g_mac" ] || [ -n "$wifi5g_mac" ]; then
-		local idx
-		# 默认 qca/mediatek mt798x 常见 layout: 第一个 wifi-iface = 2.4G，第二个 = 5G
-		idx=0
-		for iface in $(uci show wireless | grep '=wifi-iface$' | cut -d'=' -f1 | sort -t. -k2,2n); do
-			local n=${iface##*.}
-			local band
-			band=$(uci -q get wireless.${n}.band 2>/dev/null)
-			# 没显式 band 就用 hwmode 推断
-			if [ -z "$band" ]; then
-				local hwmode
-				hwmode=$(uci -q get wireless.${n}.hwmode 2>/dev/null)
-				[ "$hwmode" = "11a" ] || [ "$hwmode" = "11ac" ] || [ "$hwmode" = "11axa" ] && band="5g"
-				[ -z "$band" ] && band="2g"
+	# 2) wireless - 按 idx 写每个 wifi-iface 的 macaddr
+	if [ -n "$wifi_pairs" ]; then
+		local IFS=';'
+		local pair idx mac
+		for pair in $wifi_pairs; do
+			idx=${pair%%=*}
+			mac=${pair#*=}
+			if [ -n "$idx" ] && [ -n "$mac" ]; then
+				uci set wireless.@wifi-iface[${idx}].macaddr="$mac" 2>/dev/null
 			fi
-			case "$band" in
-				2g|2G|bgn|g)
-					[ -n "$wifi2g_mac" ] && uci set wireless.${n}.macaddr="$wifi2g_mac"
-					;;
-				5g|5G|ac|axa|an)
-					[ -n "$wifi5g_mac" ] && uci set wireless.${n}.macaddr="$wifi5g_mac"
-					;;
-			esac
-			idx=$((idx+1))
 		done
+		unset IFS
 		uci commit wireless
 	fi
 
@@ -211,95 +232,135 @@ write_to_uci() {
 }
 
 reload_services() {
-	# 不重启设备，只重启网络/无线
 	/etc/init.d/network reload 2>/dev/null
 	/etc/init.d/dnsmasq reload 2>/dev/null
-	# wifi 单独 reload（network reload 已覆盖，但 wifi 经常需要重启）
 	/sbin/wifi reload 2>/dev/null
 	sleep 1
-	# 如果是立即模式，让 hostname 立即生效
 	local hn
 	hn=$(uci -q get system.@system[0].hostname 2>/dev/null)
 	[ -n "$hn" ] && echo "$hn" > /proc/sys/kernel/hostname
 }
 
-# 接受 6 个参数：wan_mac lan_mac wifi2g_mac wifi5g_mac hostname lan_ip
-#   [args] 全部省略 → 按 auto_* 决定生成（用于 LuCI "立即应用但仅刷新 auto 选项"）
+# 接受 --flag 形式参数
+#   --wan-mac / --lan-mac / --lan-ip / --hostname  <val>
+#   --wifi <idx> <mac>           可重复
+#   --schedule <0|1|2>           可选
 cmd_apply() {
-	local wm="${1:-}" lmm="${2:-}" w2m="${3:-}" w5m="${4:-}" hn="${5:-}" lip="${6:-}"
-	if [ -z "$wm$lmm$w2m$w5m$hn$lip" ]; then
-		# 无参数：按 auto_* 自动决定
-		cmd_boot
-		return $?
-	fi
-	write_to_uci "$wm" "$lmm" "$w2m" "$w5m" "$hn" "$lip"
+	local wan_mac="" lan_mac="" lan_ip="" hostname="" schedule=""
+	local wifi_pairs=""
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			--wan-mac)  wan_mac="$2"; shift 2;;
+			--lan-mac)  lan_mac="$2"; shift 2;;
+			--lan-ip)   lan_ip="$2";  shift 2;;
+			--hostname) hostname="$2"; shift 2;;
+			--schedule) schedule="$2"; shift 2;;
+			--wifi)
+				if [ -n "$2" ] && [ -n "$3" ]; then
+					[ -n "$wifi_pairs" ] && wifi_pairs="$wifi_pairs;"
+					wifi_pairs="$wifi_pairs$2=$3"
+				fi
+				shift 3;;
+			*) shift;;
+		esac
+	done
+	[ -n "$schedule" ] && set_schedule "$schedule"
+	write_to_uci "$wan_mac" "$lan_mac" "$lan_ip" "$hostname" "$wifi_pairs"
 	reload_services
 	log "apply done"
 }
 
 cmd_apply_and_reboot() {
-	local wm="${1:-}" lmm="${2:-}" w2m="${3:-}" w5m="${4:-}" hn="${5:-}" lip="${6:-}"
-	if [ -z "$wm$lmm$w2m$w5m$hn$lip" ]; then
-		# 无参数：取 wuxuroute 段里 last_* 的值（前端在按"重启"按钮时已写好）
-		wm=$(uci -q get wuxuroute.@config[0].last_wan_mac)
-		lmm=$(uci -q get wuxuroute.@config[0].last_lan_mac)
-		w2m=$(uci -q get wuxuroute.@config[0].last_wifi2g_mac)
-		w5m=$(uci -q get wuxuroute.@config[0].last_wifi5g_mac)
-		hn=$(uci -q get wuxuroute.@config[0].last_hostname)
-		lip=$(uci -q get wuxuroute.@config[0].last_lan_ip)
-	fi
-	write_to_uci "$wm" "$lmm" "$w2m" "$w5m" "$hn" "$lip"
-	# 把这次的值存为下次 boot 的基线
-	uci set wuxuroute.@config[0].last_wan_mac="$wm"  2>/dev/null
-	uci set wuxuroute.@config[0].last_lan_mac="$lmm" 2>/dev/null
-	uci set wuxuroute.@config[0].last_wifi2g_mac="$w2m" 2>/dev/null
-	uci set wuxuroute.@config[0].last_wifi5g_mac="$w5m" 2>/dev/null
-	uci set wuxuroute.@config[0].last_hostname="$hn"  2>/dev/null
-	uci set wuxuroute.@config[0].last_lan_ip="$lip"   2>/dev/null
-	uci commit wuxuroute
+	local wan_mac="" lan_mac="" lan_ip="" hostname=""
+	local wifi_pairs=""
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			--wan-mac)  wan_mac="$2"; shift 2;;
+			--lan-mac)  lan_mac="$2"; shift 2;;
+			--lan-ip)   lan_ip="$2";  shift 2;;
+			--hostname) hostname="$2"; shift 2;;
+			--wifi)
+				if [ -n "$2" ] && [ -n "$3" ]; then
+					[ -n "$wifi_pairs" ] && wifi_pairs="$wifi_pairs;"
+					wifi_pairs="$wifi_pairs$2=$3"
+				fi
+				shift 3;;
+			*) shift;;
+		esac
+	done
+	write_to_uci "$wan_mac" "$lan_mac" "$lan_ip" "$hostname" "$wifi_pairs"
 	log "rebooting in 3s..."
 	sleep 3
 	/sbin/reboot
 }
 
+# 定时自动更新
+set_schedule() {
+	local mode="$1"
+	[ -z "$mode" ] && mode=0
+	uci -q set wuxuroute.@config[0].schedule="$mode"
+	uci commit wuxuroute
+
+	local cron_cmd="/usr/sbin/wuxuroute boot"
+	# 清掉旧的 wuxuroute 行
+	if [ -f /etc/crontabs/root ]; then
+		sed -i '/wuxuroute boot/d' /etc/crontabs/root 2>/dev/null
+	fi
+	case "$mode" in
+		1) echo "0 4 * * * $cron_cmd" >> /etc/crontabs/root ;;
+		2) echo "0 4 * * 1 $cron_cmd" >> /etc/crontabs/root ;;
+		*) ;;
+	esac
+	if [ "$mode" != "0" ]; then
+		/etc/init.d/cron enable 2>/dev/null
+		/etc/init.d/cron restart 2>/dev/null || true
+		log "schedule enabled (mode=$mode)"
+	else
+		log "schedule disabled"
+	fi
+}
+
 cmd_boot() {
-	# 启动时调用。按 auto_* 决定是否重新生成
 	[ -f "$CONF" ] || return 0
-	local auto_wan auto_lan auto_w2g auto_w5g auto_hn auto_lip
+	local auto_wan auto_lan auto_wifi auto_hn auto_lip
 	auto_wan=$(uci -q get wuxuroute.@config[0].auto_wan_mac)
 	auto_lan=$(uci -q get wuxuroute.@config[0].auto_lan_mac)
-	auto_w2g=$(uci -q get wuxuroute.@config[0].auto_wifi2g_mac)
-	auto_w5g=$(uci -q get wuxuroute.@config[0].auto_wifi5g_mac)
+	auto_wifi=$(uci -q get wuxuroute.@config[0].auto_wifi)
 	auto_hn=$(uci -q get wuxuroute.@config[0].auto_hostname)
 	auto_lip=$(uci -q get wuxuroute.@config[0].auto_lan_ip)
 
-	local wm="" lmm="" w2m="" w5m="" hn="" lip=""
+	local wm="" lmm="" hn="" lip="" wifi_pairs=""
 	[ "$auto_wan" = "1" ] && wm=$(gen_mac)
 	[ "$auto_lan" = "1" ] && lmm=$(gen_mac)
-	[ "$auto_w2g" = "1" ] && w2m=$(gen_mac)
-	[ "$auto_w5g" = "1" ] && w5m=$(gen_mac)
 	[ "$auto_hn"  = "1" ] && hn=$(gen_hostname)
 	[ "$auto_lip" = "1" ] && lip=$(get_lan_ip)
+	if [ "$auto_wifi" = "1" ]; then
+		# 为所有 WiFi SSID 生成随机 MAC
+		local line
+		for line in $(wifi_list); do
+			parse_wifi_line "$line"
+			[ -n "$wifi_pairs" ] && wifi_pairs="$wifi_pairs;"
+			wifi_pairs="$wifi_pairs${_pwl_idx}=$(gen_mac)"
+		done
+	fi
 
-	if [ -z "$wm$lmm$w2m$w5m$hn$lip" ]; then
+	if [ -z "$wm$lmm$hn$lip$wifi_pairs" ]; then
 		log "no auto-randomize flags set, skip"
 		return 0
 	fi
 
-	log "boot auto-randomize: wm=$wm lmm=$lmm w2m=$w2m w5m=$w5m hn=$hn lip=$lip"
-	write_to_uci "$wm" "$lmm" "$w2m" "$w5m" "$hn" "$lip"
-	# reload 而非 reboot（boot 时 network 可能还在 start 流程中）
+	log "boot auto-randomize: wm=$wm lmm=$lmm hn=$hn lip=$lip wifi_pairs=$wifi_pairs"
+	write_to_uci "$wm" "$lmm" "$lip" "$hn" "$wifi_pairs"
 	/etc/init.d/network reload 2>/dev/null || true
 	/sbin/wifi reload 2>/dev/null || true
 }
 
 cmd_factory_reset() {
-	# 清空 macaddr，让驱动恢复出厂 MAC
+	# 清空所有手动 macaddr，让驱动恢复出厂 MAC
 	uci -q delete network.wan.macaddr
 	uci -q delete network.lan.macaddr
-	for iface in $(uci show wireless | grep '=wifi-iface$' | cut -d'=' -f1); do
-		local n=${iface##*.}
-		uci -q delete wireless.${n}.macaddr
+	for sec in $(uci show wireless 2>/dev/null | sed -n 's/^wireless\.\(@wifi-iface\[[0-9]*\]\)=wifi-iface$/\1/p'); do
+		uci -q delete wireless.${sec}.macaddr
 	done
 	uci commit network
 	uci commit wireless
@@ -312,15 +373,18 @@ cmd_factory_reset() {
 case "${1:-}" in
 	random)           shift; cmd_random "$@" ;;
 	get)              shift; cmd_get "$@" ;;
+	list-wifi)        shift; cmd_list_wifi "$@" ;;
+	status)           shift; cmd_status "$@" ;;
 	apply)            shift; cmd_apply "$@" ;;
 	apply-and-reboot) shift; cmd_apply_and_reboot "$@" ;;
-	boot)           shift; cmd_boot "$@" ;;
-	factory-reset)  shift; cmd_factory_reset "$@" ;;
-	gen-mac)        shift; gen_mac ;;
-	gen-hostname)   shift; gen_hostname ;;
+	boot)             shift; cmd_boot "$@" ;;
+	factory-reset)    shift; cmd_factory_reset "$@" ;;
+	schedule)         shift; set_schedule "$@" ;;
+	gen-mac)          shift; gen_mac "$@" ;;
+	gen-hostname)     shift; gen_hostname ;;
 	*)
 		cat <<EOF
-Usage: $0 {random|get|apply|apply-and-reboot|boot|factory-reset|gen-mac|gen-hostname} [args...]
+Usage: $0 {random|get|list-wifi|status|apply|apply-and-reboot|boot|factory-reset|schedule|gen-mac|gen-hostname} [args...]
 EOF
 		exit 1
 		;;
