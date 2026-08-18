@@ -1,0 +1,13 @@
+#!/bin/sh /etc/rc.common
+# luci-app-policyroute init
+START=99
+STOP=10
+
+start() {
+    # best-effort apply at boot (network default routes should be present by 99)
+    /usr/sbin/policyroute boot
+}
+
+stop() {
+    /usr/sbin/policyroute stop
+}

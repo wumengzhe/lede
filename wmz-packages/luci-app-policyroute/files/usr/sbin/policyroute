@@ -1,0 +1,254 @@
+#!/bin/bash
+# luci-app-policyroute backend
+#
+# exit-agnostic source-based policy routing.
+#   mechanism: nftables mark (by src mac/ip/port)  ->  ip rule fwmark  ->  per-egress route table
+#   exit can be: multi-WAN (wan/wan1), WireGuard/OpenVPN (wg0/tun0),
+#                or a proxy tunnel (passwall/openclash utun) -- or none of them.
+#
+# No proxy is required. The panel only steers *which device/port goes out which
+# existing interface*; it never builds the tunnel itself.
+
+set -u
+PGM="policyroute"
+UCI_CFG="policyroute"
+NFT_TABLE="inet wmz_policy"
+BASE_PRIORITY=1000
+LOCK="/var/run/${PGM}.lock"
+STATE="/var/run/${PGM}.state"
+
+log()  { logger -t "$PGM" "$*"; }
+ucig() { uci -q get  "$1"; }
+ucis() { uci -q show "$1"; }
+
+trim() { sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
+
+is_enabled() { [ "$(ucig ${UCI_CFG}.config.enabled 2>/dev/null)" = "1" ]; }
+
+# ----------------------------------------------------------------------------
+# list-ifaces: enumerate usable egress interfaces (exit-agnostic)
+#   output line:  ifname|type|gateway
+#   type in: wan | vpn | proxy | other
+# ----------------------------------------------------------------------------
+cmd_list_ifaces() {
+    # candidate names: UCI network interfaces + ip-link up names that look like tunnels
+    local cand=""
+    cand=$(uci -q show network 2>/dev/null | sed -n 's/^network\.\([A-Za-z0-9_]*\)=interface.*/\1/p')
+    for l in $(ip -o link show up 2>/dev/null | awk -F': ' '{print $2}' | sed 's/@.*//'); do
+        case "$l" in
+            utun*|tun*|wg*|vpn*|pppoe*) cand="$cand $l" ;;
+        esac
+    done
+
+    local seen=""
+    for ifc in $cand; do
+        # skip loopback / lan bridge / bridge members
+        case "$ifc" in
+            lo|lan|br-lan|docker*|@*) continue ;;
+        esac
+        # must be an existing, up interface
+        ip -o link show up "$ifc" >/dev/null 2>&1 || continue
+        # de-dupe
+        echo "$seen" | tr ' ' '\n' | grep -qx "$ifc" && continue
+        seen="$seen $ifc"
+
+        local proto="" itype="other" gw=""
+        proto=$(ucig network.$ifc.proto 2>/dev/null)
+        case "$ifc" in
+            wan|wan[0-9]*) itype="wan" ;;
+            wg*|vpn*)       itype="vpn" ;;
+            tun*|utun*)     itype="proxy" ;;
+            *)
+                case "$proto" in
+                    wireguard|openconnect|openvpn|ncm|qmi) itype="vpn" ;;
+                    pppoe|dhcp|static) itype="wan" ;;
+                    *) itype="other" ;;
+                esac ;;
+        esac
+
+        # gateway: prefer an existing default for this dev (any table),
+        # then a main-table default pointing at this dev.
+        gw=$(ip -4 route show table all 2>/dev/null \
+                | awk -v d="$ifc" '$1=="default" && $0 ~ ("dev "d" ") {for(i=1;i<=NF;i++) if($i=="via") print $i; exit}' \
+                | head -1 | trim)
+        [ -z "$gw" ] && gw=$(ip -4 route show default 2>/dev/null \
+                | awk -v d="$ifc" '$0 ~ ("dev "d"$") {for(i=1;i<=NF;i++) if($i=="via") print $(i+1); exit}' \
+                | head -1 | trim)
+
+        echo "${ifc}|${itype}|${gw}"
+    done | sort -u
+}
+
+# ----------------------------------------------------------------------------
+# list-devices: enumerate LAN devices (for the UI source picker)
+#   output line:  mac|ip|name
+# ----------------------------------------------------------------------------
+cmd_list_devices() {
+    # active DHCP leases
+    if [ -f /tmp/dhcp.leases ]; then
+        awk '{print $2"|"$3"|"$4}' /tmp/dhcp.leases 2>/dev/null
+    fi
+    # static leases (dhcp.@lease[*])
+    uci -q show dhcp 2>/dev/null | while IFS== read -r k v; do
+        case "$k" in
+            dhcp.@lease\[*].mac) m=${v//\'/}; ipk=${k/mac/ip}; nk=${k/mac/name}; i=$(ucig "$ipk" 2>/dev/null); n=$(ucig "$nk" 2>/dev/null); echo "${m}|${i}|${n}";;
+        esac
+    done
+    # reachable neighbours on br-lan
+    ip -4 neigh show dev br-lan nud reachable 2>/dev/null | awk '{print $5"|"$1"|"}'
+}
+
+# resolve a host (DHCP hostname) to a current source expression
+#   echoes:  ip <addr>   (best effort; empty if unknown)
+resolve_host() {
+    local host="$1" out=""
+    # from leases
+    out=$(awk -v h="$host" '$4==h {print $3; exit}' /tmp/dhcp.leases 2>/dev/null)
+    [ -z "$out" ] && out=$(uci -q show dhcp 2>/dev/null \
+        | while IFS== read -r k v; do
+              case "$k" in dhcp.@host\[*].name) [ "${v//\'/}" = "$host" ] && { mk=${k/name/mac}; echo "$(ucig "$mk" 2>/dev/null)"; };; esac
+          done | head -1)
+    echo "$out"
+}
+
+# ----------------------------------------------------------------------------
+# figure out the routing table id for an egress iface.
+#   reuse an existing default table if the proxy/tunnel already has one,
+#   otherwise allocate a fresh table and install a default route.
+#   echoes:  "<table_id> <ours:0|1>"
+# ----------------------------------------------------------------------------
+iface_table() {
+    local ifc="$1" ours=1 tid=""
+    # reuse existing default table for this dev (proxy/utun case)
+    tid=$(ip -4 route show table all 2>/dev/null \
+            | awk -v d="$ifc" '$1=="default" && $0 ~ ("dev "d" ") {for(i=1;i<=NF;i++) if($i=="table") print $(i+1); exit}' \
+            | head -1 | trim)
+    if [ -n "$tid" ]; then
+        ours=0
+        echo "$tid $ours"
+        return
+    fi
+    # allocate a new table id (200..299 scanned for a free one)
+    for t in $(seq 200 299); do
+        if ! ip -4 route show table "$t" 2>/dev/null | grep -q .; then
+            tid=$t
+            local gw=""
+            gw=$(ip -4 route show default 2>/dev/null \
+                    | awk -v d="$ifc" '$0 ~ ("dev "d"$") {for(i=1;i<=NF;i++) if($i=="via") print $(i+1); exit}' \
+                    | head -1 | trim)
+            if [ -n "$gw" ]; then
+                ip route add default via "$gw" dev "$ifc" table "$tid" 2>/dev/null || \
+                ip route add default dev "$ifc" table "$tid" 2>/dev/null
+            else
+                ip route add default dev "$ifc" table "$tid" 2>/dev/null
+            fi
+            break
+        fi
+    done
+    [ -z "$tid" ] && tid=200
+    echo "$tid $ours"
+}
+
+# ----------------------------------------------------------------------------
+# stop: tear down everything we created
+# ----------------------------------------------------------------------------
+cmd_stop() {
+    # delete ip rules we added (by mark, kept in STATE)
+    if [ -f "$STATE" ]; then
+        while IFS=' ' read -r _mark _tbl _ours; do
+            [ -n "$_mark" ] && ip rule del fwmark "$_mark" 2>/dev/null || true
+            if [ "$_ours" = "1" ] && [ -n "$_tbl" ]; then
+                ip route flush table "$_tbl" 2>/dev/null || true
+            fi
+        done <"$STATE"
+        rm -f "$STATE"
+    fi
+    # flush our nft table
+    nft list table $NFT_TABLE >/dev/null 2>&1 && nft flush table $NFT_TABLE 2>/dev/null || true
+    nft list table $NFT_TABLE >/dev/null 2>&1 && nft delete table $NFT_TABLE 2>/dev/null || true
+    log "stopped"
+}
+
+# ----------------------------------------------------------------------------
+# apply: rebuild nft marks + ip rules + tables from UCI rules
+# ----------------------------------------------------------------------------
+cmd_apply() {
+    is_enabled || { log "disabled, refusing to apply"; return 1; }
+    # clean previous state first
+    cmd_stop
+
+    local nft_rules="" prio=$BASE_PRIORITY idx=0
+    : >"$STATE"
+
+    local rules=$(uci -q show ${UCI_CFG} 2>/dev/null | sed -n 's/^'${UCI_CFG}'\.@rule\[\([0-9]\+\)\]\..*/\1/p' | sort -n -u)
+    [ -z "$rules" ] && { log "no rules defined"; return 0; }
+
+    for r in $rules; do
+        local en name src value proto dport iface
+        en=$(ucig ${UCI_CFG}.@rule[$r].enabled 2>/dev/null)
+        [ "$en" = "1" ] || continue
+        name=$(ucig ${UCI_CFG}.@rule[$r].name 2>/dev/null)
+        src=$(ucig ${UCI_CFG}.@rule[$r].src 2>/dev/null)
+        value=$(ucig ${UCI_CFG}.@rule[$r].value 2>/dev/null)
+        proto=$(ucig ${UCI_CFG}.@rule[$r].proto 2>/dev/null)
+        dport=$(ucig ${UCI_CFG}.@rule[$r].dport 2>/dev/null)
+        iface=$(ucig ${UCI_CFG}.@rule[$r].iface 2>/dev/null)
+        [ -z "$iface" ] && { log "rule '$name' has no iface, skip"; continue; }
+        [ -z "$value" ] && { log "rule '$name' has no source value, skip"; continue; }
+
+        # resolve source expression
+        local match=""
+        case "$src" in
+            mac)  match="ether saddr $value" ;;
+            ip)   match="ip saddr $value" ;;
+            host) local ipv=$(resolve_host "$value"); [ -n "$ipv" ] && match="ip saddr $ipv" || { log "host '$value' unresolved, skip"; continue; } ;;
+            *)    log "rule '$name' unknown src '$src', skip"; continue ;;
+        esac
+        case "$proto" in
+            tcp|udp) match="$match $proto dport ${dport:-0}" ;;
+        esac
+
+        local mark=$((BASE_PRIORITY + idx))
+        local tbl_info ours tid
+        tbl_info=$(iface_table "$iface"); ours=${tbl_info##* }; tid=${tbl_info% *}
+
+        nft_rules="${nft_rules}    ${match} meta mark set 0x$(printf '%x' $mark)\n"
+        ip rule add fwmark "0x$(printf '%x' $mark)" lookup "$tid" priority "$prio" 2>/dev/null || \
+            log "failed to add ip rule for '$name'"
+        echo "0x$(printf '%x' $mark) $tid $ours" >>"$STATE"
+
+        idx=$((idx+1)); prio=$((prio+1))
+        log "rule '$name': ${src}=${value} -> ${iface} (mark 0x$(printf '%x' $mark), table $tid)"
+    done
+
+    # emit nft config
+    if [ -n "$nft_rules" ]; then
+        nft -f - <<EOF
+table $NFT_TABLE {
+    chain prerouting {
+        type filter hook prerouting priority mangle; policy accept;
+$(printf '%s' "$nft_rules")
+    }
+}
+EOF
+        log "applied $((idx)) rule(s)"
+    else
+        log "no active rules after filtering"
+    fi
+}
+
+cmd_boot()  { is_enabled && cmd_apply || log "disabled at boot"; }
+cmd_status(){ [ -f "$STATE" ] && cat "$STATE" || echo "no state (not applied)"; }
+
+# ----------------------------------------------------------------------------
+# dispatch
+# ----------------------------------------------------------------------------
+case "${1:-help}" in
+    list-ifaces)  cmd_list_ifaces  ;;
+    list-devices) cmd_list_devices ;;
+    status)       cmd_status       ;;
+    apply)        cmd_apply        ;;
+    boot)         cmd_boot         ;;
+    stop)         cmd_stop         ;;
+    *) echo "usage: $PGM {list-ifaces|list-devices|status|apply|boot|stop}"; exit 1 ;;
+esac
