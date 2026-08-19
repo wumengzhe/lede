@@ -7,7 +7,7 @@ PKG_RELEASE:=1
 PKG_MAINTAINER:=wumengzhe
 PKG_LICENSE:=MIT
 
-LUCI_TITLE:=策略路由（按设备/端口指定出口，防关联）
+LUCI_TITLE:=Policy Route (per-device / per-port egress, anti-association)
 LUCI_DESCRIPTION:=Source-based policy routing. Route traffic by device MAC/IP/host \
 	or destination port to any egress (multi-WAN, WireGuard, OpenVPN, passwall/openclash utun). \
 	Exit-agnostic: no proxy required.
