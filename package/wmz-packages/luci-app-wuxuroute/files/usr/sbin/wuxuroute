@@ -295,29 +295,43 @@ cmd_apply_and_reboot() {
 }
 
 # 定时自动更新
+# 接受旧值 0/1/2 兼容（0=关 1=每天04:00 2=每周一04:00），
+# 也接受标准 5 段 cron 表达式（分 时 日 月 周）。
 set_schedule() {
-	local mode="$1"
-	[ -z "$mode" ] && mode=0
-	uci -q set wuxuroute.@config[0].schedule="$mode"
-	uci commit wuxuroute
+    local mode="$1"
+    local cron_cmd="/usr/sbin/wuxuroute boot"
+    local cron_expr=""
 
-	local cron_cmd="/usr/sbin/wuxuroute boot"
-	# 清掉旧的 wuxuroute 行
-	if [ -f /etc/crontabs/root ]; then
-		sed -i '/wuxuroute boot/d' /etc/crontabs/root 2>/dev/null
-	fi
-	case "$mode" in
-		1) echo "0 4 * * * $cron_cmd" >> /etc/crontabs/root ;;
-		2) echo "0 4 * * 1 $cron_cmd" >> /etc/crontabs/root ;;
-		*) ;;
-	esac
-	if [ "$mode" != "0" ]; then
-		/etc/init.d/cron enable 2>/dev/null
-		/etc/init.d/cron restart 2>/dev/null || true
-		log "schedule enabled (mode=$mode)"
-	else
-		log "schedule disabled"
-	fi
+    case "$mode" in
+        ""|0) cron_expr="" ;;
+        1)    cron_expr="0 4 * * *" ;;
+        2)    cron_expr="0 4 * * 1" ;;
+        *)
+            # 5 段：分 时 日 月 周。具体字符合法性交给 crontab 去判。
+            if echo "$mode" | awk '{ exit !(NF==5) }'; then
+                cron_expr="$mode"
+            else
+                log "invalid cron expression: '$mode' (expect 5 whitespace-separated fields)"
+                return 1
+            fi
+            ;;
+    esac
+
+    uci -q set wuxuroute.@config[0].schedule="$cron_expr"
+    uci commit wuxuroute
+
+    # 清掉旧的 wuxuroute 行
+    if [ -f /etc/crontabs/root ]; then
+        sed -i '/wuxuroute boot/d' /etc/crontabs/root 2>/dev/null
+    fi
+    if [ -n "$cron_expr" ]; then
+        echo "$cron_expr $cron_cmd" >> /etc/crontabs/root
+        /etc/init.d/cron enable 2>/dev/null
+        /etc/init.d/cron restart 2>/dev/null || true
+        log "schedule enabled (cron='$cron_expr')"
+    else
+        log "schedule disabled"
+    fi
 }
 
 cmd_boot() {

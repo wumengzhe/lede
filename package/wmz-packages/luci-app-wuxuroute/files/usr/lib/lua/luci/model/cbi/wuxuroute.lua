@@ -2,7 +2,8 @@
 -- UCI config: wuxuroute @config[0]
 -- 字段: wan_mac / lan_mac / lan_ip / hostname
 -- 动态: wifi_mac_<idx>  (每个 WiFi SSID 一个，数量不固定)
--- 选项: auto_wan_mac / auto_lan_mac / auto_wifi / auto_hostname / auto_lan_ip / schedule
+-- 选项: auto_wan_mac / auto_lan_mac / auto_wifi / auto_hostname / auto_lan_ip
+-- 定时: _preset / _time / schedule (cron 表达式)
 
 m = Map("wuxuroute", translate("无序路由配置"),
 	translate("一键配置 WAN/LAN/WiFi MAC 地址、LAN IP、主机名。支持多 SSID 逐个设置，可设置开机或定时自动重置。"))
@@ -52,6 +53,37 @@ tb.description = [[
 		s.textContent = msg || '';
 		s.style.color = ok ? '#0a0' : '#c00';
 	}
+	// ---------- 关键 1：解析 JSON 时剥掉 LuCI XSSI 前缀 ----------
+	function parseLuciJSON(text){
+		var s = (text == null ? '' : String(text));
+		// LuCI 的 write_json 会加：
+		//   <!--/*--><![CDATA[/*><!--*/-->  ...JSON...  <!--*/-->
+		s = s.replace(/^\s*<!--[\s\S]*?-->/, '');
+		s = s.replace(/\/\*\]\]>\*\/-->\s*$/, '');
+		return JSON.parse(s);
+	}
+	function jsonCall(url, body, cb){
+		var xhr = new XMLHttpRequest();
+		xhr.open('POST', url, true);
+		xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+		xhr.onreadystatechange = function(){
+			if (xhr.readyState !== 4) return;
+			try { cb(null, parseLuciJSON(xhr.responseText)); }
+			catch (e) { cb(e, null); }
+		};
+		xhr.send(body || '');
+	}
+	// ---------- 关键 2：动态发现 CBI 的 sec_ref（不再硬编码 config.0） ----------
+	function discoverSecRef(){
+		var inp = document.querySelector('input[name^="cbid.wuxuroute."]');
+		if (inp){
+			var m = inp.name.match(/^cbid\.wuxuroute\.([^.]+)\./);
+			if (m) return m[1];
+		}
+		return 'config.0';  // 兜底
+	}
+	var SEC_REF = discoverSecRef();
+	function qcName(base){ return 'cbid.wuxuroute.' + SEC_REF + '.' + base; }
 	function setVal(name, v){
 		var inputs = document.querySelectorAll('input[name="' + name + '"]');
 		if (inputs && inputs[0]) inputs[0].value = v;
@@ -64,16 +96,8 @@ tb.description = [[
 		var inputs = document.querySelectorAll('input[type="checkbox"][name="' + name + '"]');
 		return (inputs && inputs[0]) ? inputs[0].checked : false;
 	}
-	function jsonCall(url, body, cb){
-		var xhr = new XMLHttpRequest();
-		xhr.open('POST', url, true);
-		xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-		xhr.onreadystatechange = function(){
-			if (xhr.readyState !== 4) return;
-			try { cb(null, JSON.parse(xhr.responseText)); }
-			catch (e) { cb(e); }
-		};
-		xhr.send(body || '');
+	function wifiFields(){
+		return document.querySelectorAll('input[name^="' + qcName('').replace(/\.$/, '') + '.wifi_mac_"]');
 	}
 	function curOui(){
 		var sel = $('qc-oui');
@@ -87,17 +111,13 @@ tb.description = [[
 	function randomInto(target){
 		if (target === 'hostname') {
 			jsonCall(L.url('admin/network/wuxuroute/gen_hostname'), '', function(err, d){
-				if (!err && d && d.hostname) setVal('cbid.wuxuroute.config.0.hostname', d.hostname);
+				if (!err && d && d.hostname) setVal(qcName('hostname'), d.hostname);
 			});
 		} else {
 			reqMac(function(err, d){
-				if (!err && d && d.mac) setVal('cbid.wuxuroute.config.0.' + target, d.mac);
+				if (!err && d && d.mac) setVal(qcName(target), d.mac);
 			});
 		}
-	}
-	function qcName(base){ return 'cbid.wuxuroute.config.0.' + base; }
-	function wifiFields(){
-		return document.querySelectorAll('input[name^="cbid.wuxuroute.config.0.wifi_mac_"]');
 	}
 	function buildBody(includeAuto){
 		var body = 'wan_mac=' + encodeURIComponent(getVal(qcName('wan_mac'))) +
@@ -115,20 +135,82 @@ tb.description = [[
 			body += '&auto_wifi=' + (checkbox(qcName('auto_wifi')) ? '1' : '');
 			body += '&auto_hostname=' + (checkbox(qcName('auto_hostname')) ? '1' : '');
 			body += '&auto_lan_ip=' + (checkbox(qcName('auto_lan_ip')) ? '1' : '');
-			var sch = document.querySelector('select[name="cbid.wuxuroute.config.0.schedule"]');
-			if (sch) body += '&schedule=' + encodeURIComponent(sch.value);
 		}
+		// 定时：直接送 cron 表达式（也兼容旧 0/1/2）
+		var sched = getVal(qcName('schedule'));
+		body += '&schedule=' + encodeURIComponent(sched || '');
 		return body;
+	}
+
+	// ---------- 定时辅助：预设 ↔ cron 双向同步 ----------
+	function pad2(n){ n = parseInt(n, 10) || 0; return (n < 10 ? '0' : '') + n; }
+	function parseCron(c){
+		if (!c || c.trim() === '') return { preset:'', time:'' };
+		// daily:    "M H * * *"
+		var dm = c.match(/^(\d+)\s+(\d+)\s+\*\s+\*\s+\*$/);
+		if (dm) return { preset:'daily',   time: pad2(dm[2]) + ':' + pad2(dm[1]) };
+		// weekday:  "M H * * 1-5"
+		var wm = c.match(/^(\d+)\s+(\d+)\s+\*\s+\*\s+1-5$/);
+		if (wm) return { preset:'weekday', time: pad2(wm[2]) + ':' + pad2(wm[1]) };
+		// weekend:  "M H * * 6,0"
+		var em = c.match(/^(\d+)\s+(\d+)\s+\*\s+\*\s+6,0$/);
+		if (em) return { preset:'weekend', time: pad2(em[2]) + ':' + pad2(em[1]) };
+		// legacy 0/1/2 (旧 schema)
+		if (c === '1') return { preset:'daily',   time:'04:00' };
+		if (c === '2') return { preset:'weekday', time:'04:00' };
+		return { preset:'__custom__', time:'' };
+	}
+	function buildCron(preset, time){
+		var parts = (time || '04:00').split(':');
+		var h = parseInt(parts[0], 10) || 0;
+		var m = parseInt(parts[1], 10) || 0;
+		if (preset === 'daily')   return m + ' ' + h + ' * * *';
+		if (preset === 'weekday') return m + ' ' + h + ' * * 1-5';
+		if (preset === 'weekend') return m + ' ' + h + ' * * 6,0';
+		return null;  // 自定义：让用户直接编辑 cron
+	}
+	function syncScheduleUI(){
+		var cronEl  = document.querySelector('input[name="' + qcName('schedule') + '"]');
+		var presEl  = document.querySelector('select[name="' + qcName('_preset') + '"]');
+		var timeEl  = document.querySelector('input[name="' + qcName('_time')   + '"]');
+		if (!cronEl || !presEl) return;
+		var init = parseCron(cronEl.value);
+		// ListValue 的 "" 与 "__custom__" 都需要落到"自定义"，但 UI 里没显示"自定义"项
+		// 这里给 select 加一个临时 option 表示"自定义"
+		var customVal = '__custom__';
+		if (!presEl.querySelector('option[value="' + customVal + '"]')){
+			var opt = document.createElement('option');
+			opt.value = customVal;
+			opt.textContent = '自定义 cron';
+			opt.style.display = 'none';  // 不可选，但程序可设
+			presEl.appendChild(opt);
+		}
+		presEl.value = init.preset || '';
+		if (timeEl && init.time) timeEl.value = init.time;
+		function refreshCron(){
+			var p = presEl.value;
+			if (p === '') { cronEl.value = ''; return; }  // 关闭 = 清空 cron
+			if (p === customVal) return;  // 自定义：不动 cron
+			var c = buildCron(p, timeEl ? timeEl.value : '04:00');
+			if (c != null) cronEl.value = c;
+		}
+		presEl.addEventListener('change', refreshCron);
+		if (timeEl) timeEl.addEventListener('change', refreshCron);
+		cronEl.addEventListener('change', function(){
+			var cur = parseCron(cronEl.value);
+			presEl.value = cur.preset || customVal;
+			if (timeEl && cur.time) timeEl.value = cur.time;
+		});
 	}
 
 	window.addEventListener('DOMContentLoaded', function(){
 		// 回填当前值
 		jsonCall(L.url('admin/network/wuxuroute/get'), '', function(err, data){
 			if (err || !data) return;
-			if (data.wan_mac)    setVal(qcName('wan_mac'), data.wan_mac);
-			if (data.lan_mac)    setVal(qcName('lan_mac'), data.lan_mac);
+			if (data.wan_mac)    setVal(qcName('wan_mac'),  data.wan_mac);
+			if (data.lan_mac)    setVal(qcName('lan_mac'),  data.lan_mac);
 			if (data.hostname)   setVal(qcName('hostname'), data.hostname);
-			if (data.lan_ip)     setVal(qcName('lan_ip'), data.lan_ip);
+			if (data.lan_ip)     setVal(qcName('lan_ip'),   data.lan_ip);
 			var count = parseInt(data.wifi_count || '0', 10);
 			for (var i=0; i<count; i++){
 				if (data['wifi_' + i + '_mac']) setVal(qcName('wifi_mac_' + i), data['wifi_' + i + '_mac']);
@@ -154,6 +236,8 @@ tb.description = [[
 			var box = $('qc-status-box');
 			if (box) box.innerHTML = html;
 		});
+		// 定时同步
+		syncScheduleUI();
 	});
 
 	// 随机按钮（动态生成的 WiFi 行 + 固定字段）
@@ -194,7 +278,7 @@ tb.description = [[
 			var m = wfs[i].name.match(/wifi_mac_(\d+)$/);
 			if (m) randomInto('wifi_mac_' + m[1]);
 		}
-		status('已随机生成所有字段，点“保存并应用”生效', true);
+		status('已随机生成所有字段，点"保存并应用"生效', true);
 	});
 
 	$('qc-apply') && $('qc-apply').addEventListener('click', function(){
@@ -282,8 +366,8 @@ hostname.datatype = "hostname"
 hostname.rmempty = true
 hostname.description = [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_hostname">]] .. translate("随机 PC 主机名") .. [[</button>]]
 
--- ===== 开机 / 定时自动更新 =====
-s = m:section(TypedSection, "config", translate("重启自动更新"))
+-- ===== 开机自动更新 =====
+s = m:section(TypedSection, "config", translate("开机自动更新"))
 s.anonymous = true
 s.addremove = false
 s.description = translate("勾选后，每次路由器开机 / 重启时会自动重新生成下列项。配合下方“定时更新”可周期性自动更换。")
@@ -292,14 +376,32 @@ auto_wan_mac    = s:option(Flag, "auto_wan_mac",    translate("开机更新 WAN 
 auto_lan_mac    = s:option(Flag, "auto_lan_mac",    translate("开机更新 LAN MAC"))
 auto_wifi       = s:option(Flag, "auto_wifi",       translate("开机更新全部 WiFi SSID MAC"))
 auto_hostname   = s:option(Flag, "auto_hostname",   translate("开机更新主机名"))
-auto_lan_ip     = s:option(Flag, "auto_lan_ip",     translate("开机保留 LAN IP（不随机）"))
+auto_lan_ip     = s:option(Flag, "auto_lan_ip",     translate("开机更新 LAN IP"))
 auto_lan_ip.default = "1"
 auto_lan_ip.description = translate("LAN IP 默认不随机（避免忘记新 IP 进不了后台）。如要随机生成，取消勾选。")
 
-schedule = s:option(ListValue, "schedule", translate("定时自动更新"),
-	translate("除开机外，按周期自动重新生成“重启自动更新”中勾选的项。依赖系统 cron（多数固件已带）。"))
-schedule:value("0", translate("关闭"))
-schedule:value("1", translate("每天 04:00"))
-schedule:value("2", translate("每周一 04:00"))
+-- ===== 定时自动更新（cron 表达式）=====
+s = m:section(TypedSection, "config", translate("定时自动更新"))
+s.anonymous = true
+s.addremove = false
+s.description = translate("周期性重新生成“开机自动更新”中勾选的项。依赖系统 cron（多数固件已带）。")
+
+preset = s:option(ListValue, "_preset", translate("快捷预设"),
+	translate("选预设会自动填充下方的 cron 表达式；选空白则关闭；选其它则直接编辑 cron。"))
+preset:value("",     translate("关闭"))
+preset:value("daily",   translate("每天 HH:MM"))
+preset:value("weekday", translate("工作日（周一至周五）HH:MM"))
+preset:value("weekend", translate("周末（周六、周日）HH:MM"))
+
+time_opt = s:option(Value, "_time", translate("时间 (HH:MM)"))
+time_opt.default = "04:00"
+time_opt.datatype = "string"
+time_opt.rmempty = true
+time_opt.description = translate("对“每天 / 工作日 / 周末”预设生效；自定义 cron 时忽略。格式 HH:MM，如 04:00 / 23:30。")
+
+schedule = s:option(Value, "schedule", translate("cron 表达式"),
+	translate("标准 5 段 cron：分 时 日 月 周。留空 = 关闭。"))
+schedule.optional = true
+schedule.rmempty = true
 
 return m

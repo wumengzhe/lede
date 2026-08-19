@@ -31,7 +31,7 @@ is_enabled() { [ "$(ucig ${UCI_CFG}.config.enabled 2>/dev/null)" = "1" ]; }
 #   type in: wan | vpn | proxy | other
 # ----------------------------------------------------------------------------
 cmd_list_ifaces() {
-    # candidate names: UCI network interfaces + ip-link up names that look like tunnels
+    # 候选名：UCI 里的所有网络接口（不管是否 up），加上一组 up 的"看起来像隧道"的接口
     local cand=""
     cand=$(uci -q show network 2>/dev/null | sed -n 's/^network\.\([A-Za-z0-9_]*\)=interface.*/\1/p')
     for l in $(ip -o link show up 2>/dev/null | awk -F': ' '{print $2}' | sed 's/@.*//'); do
@@ -39,17 +39,22 @@ cmd_list_ifaces() {
             utun*|tun*|wg*|vpn*|pppoe*) cand="$cand $l" ;;
         esac
     done
+    # 兜底：把所有 up 的物理/VLAN/桥接口也加进来（即使是 eth0 之类未在 UCI 命名）
+    for l in $(ip -o link show up 2>/dev/null | awk -F': ' '{print $2}' | sed 's/@.*//'); do
+        case "$l" in
+            lo|docker*) continue ;;
+        esac
+        cand="$cand $l"
+    done
 
     local seen=""
     for ifc in $cand; do
-        # skip loopback / lan bridge / bridge members
+        # 永远排除：loopback、docker、LAN 桥、UCI 段引用
         case "$ifc" in
-            lo|lan|br-lan|docker*|@*) continue ;;
+            lo|br-lan|br-lan*|docker*|@*) continue ;;
         esac
-        # must be an existing, up interface
-        ip -o link show up "$ifc" >/dev/null 2>&1 || continue
-        # de-dupe
-        echo "$seen" | tr ' ' '\n' | grep -qx "$ifc" && continue
+        # 去重
+        case " $seen " in *" $ifc "*) continue ;; esac
         seen="$seen $ifc"
 
         local proto="" itype="other" gw=""
@@ -66,14 +71,15 @@ cmd_list_ifaces() {
                 esac ;;
         esac
 
-        # gateway: prefer an existing default for this dev (any table),
-        # then a main-table default pointing at this dev.
-        gw=$(ip -4 route show table all 2>/dev/null \
-                | awk -v d="$ifc" '$1=="default" && $0 ~ ("dev "d" ") {for(i=1;i<=NF;i++) if($i=="via") print $i; exit}' \
-                | head -1 | trim)
-        [ -z "$gw" ] && gw=$(ip -4 route show default 2>/dev/null \
-                | awk -v d="$ifc" '$0 ~ ("dev "d"$") {for(i=1;i<=NF;i++) if($i=="via") print $(i+1); exit}' \
-                | head -1 | trim)
+        # 网关：仅当接口 up 时才有意义（down 时一律空）
+        if ip -o link show up "$ifc" >/dev/null 2>&1; then
+            gw=$(ip -4 route show table all 2>/dev/null \
+                    | awk -v d="$ifc" '$1=="default" && $0 ~ ("dev "d" ") {for(i=1;i<=NF;i++) if($i=="via") print $i; exit}' \
+                    | head -1 | trim)
+            [ -z "$gw" ] && gw=$(ip -4 route show default 2>/dev/null \
+                    | awk -v d="$ifc" '$0 ~ ("dev "d"$") {for(i=1;i<=NF;i++) if($i=="via") print $(i+1); exit}' \
+                    | head -1 | trim)
+        fi
 
         echo "${ifc}|${itype}|${gw}"
     done | sort -u

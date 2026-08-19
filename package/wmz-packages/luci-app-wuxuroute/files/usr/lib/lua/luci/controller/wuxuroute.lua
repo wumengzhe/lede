@@ -55,10 +55,10 @@ local function json_response(tbl)
 	luci.http.write_json(tbl or {})
 end
 
--- 仅允许 MAC / IP / 主机名 / 厂商前缀 相关的字符，防注入
+-- 仅允许 MAC / IP / 主机名 / 厂商前缀 / cron 表达式 相关的字符，防注入
 local function clean(s)
 	if not s then return "" end
-	return (s:gsub("[^%x%:%._%-/, 0-9a-zA-Z]", ""))
+	return (s:gsub("[^%x%:%._%-/, 0-9a-zA-Z%*]", ""))
 end
 
 local function mac_ok(s)
