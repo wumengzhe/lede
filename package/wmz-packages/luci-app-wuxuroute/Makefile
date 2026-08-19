@@ -12,7 +12,20 @@ LUCI_DESCRIPTION:=Randomize WAN/LAN/WiFi MAC addresses, LAN IP and hostname. Opt
 LUCI_DEPENDS:=+luci-base +uci +coreutils
 LUCI_PKGARCH:=all
 
-include $(TOPDIR)/feeds/luci/luci.mk
+include $(INCLUDE_DIR)/package.mk
+
+define Package/$(PKG_NAME)
+  SECTION:=luci
+  CATEGORY:=LuCI
+  SUBMENU:=3. Applications
+  TITLE:=$(LUCI_TITLE)
+  DEPENDS:=$(LUCI_DEPENDS)
+  PKGARCH:=$(LUCI_PKGARCH)
+endef
+
+define Package/$(PKG_NAME)/description
+  $(strip $(LUCI_DESCRIPTION))
+endef
 
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/sbin

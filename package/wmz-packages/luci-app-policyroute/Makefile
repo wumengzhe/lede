@@ -13,12 +13,24 @@ LUCI_DESCRIPTION:=Source-based policy routing. Route traffic by device MAC/IP/ho
 	Exit-agnostic: no proxy required.
 LUCI_DEPENDS:=+nftables +ip-full +kmod-nft-core
 
-include $(TOPDIR)/feeds/luci/luci.mk
-
-# OpenWrt 22.03+ uses nftables by default; this package relies on `nft` + `ip rule`.
 PKG_CONFIG_DEPENDS:= \
 	CONFIG_PACKAGE_nftables \
 	CONFIG_PACKAGE_ip-full
+
+include $(INCLUDE_DIR)/package.mk
+
+define Package/$(PKG_NAME)
+  SECTION:=luci
+  CATEGORY:=LuCI
+  SUBMENU:=3. Applications
+  TITLE:=$(LUCI_TITLE)
+  DEPENDS:=$(LUCI_DEPENDS)
+  PKGARCH:=all
+endef
+
+define Package/$(PKG_NAME)/description
+  $(strip $(LUCI_DESCRIPTION))
+endef
 
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/sbin
