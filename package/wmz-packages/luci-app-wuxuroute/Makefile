@@ -52,4 +52,11 @@ define Package/$(PKG_NAME)/prerm
 [ -n "$${IPKG_INSTROOT}" ] || /etc/init.d/wuxuroute stop 2>/dev/null || true
 endef
 
+# Pure Lua/shell package: nothing to configure or compile.
+define Build/Configure
+endef
+
+define Build/Compile
+endef
+
 $(eval $(call BuildPackage,$(PKG_NAME)))

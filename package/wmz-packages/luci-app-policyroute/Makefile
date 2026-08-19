@@ -11,7 +11,7 @@ LUCI_TITLE:=Policy Route (per-device / per-port egress, anti-association)
 LUCI_DESCRIPTION:=Source-based policy routing. Route traffic by device MAC/IP/host \
 	or destination port to any egress (multi-WAN, WireGuard, OpenVPN, passwall/openclash utun). \
 	Exit-agnostic: no proxy required.
-LUCI_DEPENDS:=+nftables +ip-full +kmod-nft-core
+LUCI_DEPENDS:=+luci-base +nftables +ip-full +kmod-nft-core
 
 PKG_CONFIG_DEPENDS:= \
 	CONFIG_PACKAGE_nftables \
@@ -55,6 +55,13 @@ endef
 define Package/$(PKG_NAME)/prerm
 #!/bin/sh
 [ -n "$${IPKG_INSTROOT}" ] || /etc/init.d/policyroute stop 2>/dev/null || true
+endef
+
+# Pure Lua/shell package: nothing to configure or compile.
+define Build/Configure
+endef
+
+define Build/Compile
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
