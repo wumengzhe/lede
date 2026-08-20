@@ -101,3 +101,32 @@ bl   <重定位外部符号>    ; 真正的"写环 + 敲门铃"提交
 `airoha_pon.c::hal_send_omci()` 的 real 后端已据本节字布局**构造描述符**，但提交（门铃）仍为
 单点 `TODO`，默认返回 `-EOPNOTSUPP`（带明确 dev_warn 指向本文件），**不写任何猜测性 MMIO**，
 确保驱动在未知硬件上安全可加载。启用需设置模块参数 `omci_tx_enable=1`（填好门铃后）。
+
+## 7. 路线修正（2026-08-21 续：关键）
+
+本轮进一步定位到 stock `xpon_10g.ko` 的 submit 走 `qdma_wan.ko` 导出的符号
+（`qdma_wan_fwd_timer` 等）；`qdma_register_callback_function`(0xbe40) 把各 op 函数指针
+存入回调表 `gpQdmaDev+0xa00..0xa58`；`qdma_transmit_packet` 写 QDMA 寄存器偏移 ~0xc25~0xc71。
+**但这条线索对本次 6.12 移植是死路**，理由：
+
+1. **内核版本不符**：stock `qdma_wan.ko` 是 **5.4.55 vendor QDMA**；本仓 `airoha` target 编的是
+   **6.12 upstream `airoha_eth`**（见 `target/linux/airoha/patches-6.12/`），二者 QDMA 寄存器布局
+   不同 → 从 stock 抠出的门铃偏移不能直接用于 6.12 构建。
+2. **OMCI 实际由 NPU 固件承载**：board 脚本与 `package/firmware/airoha-xpon-npu-firmware`
+   （`an7581_xpon_npu_rv32.bin` RISC-V 固件）表明，6.12 参考实现的 OMCI 由 **Airoha NPU 固件**
+   处理，kmod 只负责把 OMCI 帧递交给 NPU（共享内存 / 敲 NPU 门铃）。该门铃在 NPU 固件内部，
+   无法从 5.4.55 的 `xpon_10g.ko` 逆向得到。
+3. 全仓 grep `airoha_eth` 的 `EXPORT_SYMBOL` 无 omci/xpon/gwan → upstream 驱动**没有** OMCI API；
+   "别人在 OpenWrt AN7581 跑通 PON"用的是 **Airoha 参考 BSP 的 vendor xpon 模块**（非主线）。
+
+**结论 / 转移路线**：
+- 从零 RE 出门铃在本构建下不可行（缺 Airoha 6.12 BSP / NPU 内部规范）。
+- 可行路线（按性价比）：
+  (A) **引入 Airoha 参考 BSP 的 vendor xpon 驱动**（含 NPU 交互 + OMCI 传输）——最可靠，
+      但需要该 BSP 源码（用户目前无法提供）。
+  (B) **OMCI-over-netdev（econet EN7528 参考模式）**：把 OMCI 作为带特定 EtherType/VLAN 的
+      原始帧从 `pon0` 网口发出（AKoo7 `econet-omcid` 即此模式），绕过 QDMA/NPU 门铃。
+      前提：确认 AN7581 PON MAC 接受该方式及对应 EtherType/VLAN（需从 stock gwan 成帧或
+      Airoha 规范取得）。可在真机验证。
+  (C) 先让管理面 + sim 后端可刷机，真实 OMCI TX 留待拿到 BSP 或在真机试 (B)。
+- `omci_tx_enable` 门铃 TODO 维持；描述符构造代码保留（仅作文档化证据，硬件无关）。
