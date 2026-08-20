@@ -273,6 +273,39 @@ int uci_get_int(struct uci_section *s, const char *opt, int def)
 	return atoi(v);
 }
 
+/* Map UCI mode string to the kernel's sys_xpon_mode ABI. */
+static int mode_from_uci(struct uci_section *s)
+{
+	char buf[16];
+
+	uci_get_str(s, "mode", buf, sizeof(buf), "xgspon");
+	if (!strncmp(buf, "xgpon", 5))
+		return PON_MODE_XGPON;
+	if (!strncmp(buf, "xgspon", 6))
+		return PON_MODE_XGSPON;
+	return PON_MODE_XGSPON;
+}
+
+/* Write the PON mode back to the kernel module parameter before activation.
+ * The module must be loaded (it is, by the time ponmgr starts). */
+static int set_kernel_mode(int mode)
+{
+	int fd;
+	char buf[4];
+	int n;
+
+	fd = open("/sys/module/airoha_pon/parameters/sys_xpon_mode", O_WRONLY);
+	if (fd < 0)
+		return -1;
+	n = snprintf(buf, sizeof(buf), "%d", mode);
+	if (write(fd, buf, n) < 0) {
+		close(fd);
+		return -1;
+	}
+	close(fd);
+	return 0;
+}
+
 /* ------------------------------------------------------------------ */
 /* provisioning (PON_CMD_SET_PROV)                                     */
 /* ------------------------------------------------------------------ */
@@ -297,6 +330,14 @@ static int prov_apply(struct uci_section *s)
 	uci_get_str(s, "auth_method", buf, sizeof(buf), "loid");
 	am = (buf[0] == 'p') ? 2 : (buf[0] == 's') ? 3 : 1; /* loid=1, pwd=2, sn=3 */
 	nl_put_attr_inline(attrs, &off, PON_ATTR_AUTH_METHOD, &am, 4);
+
+	{
+		int mode = mode_from_uci(s);
+		if (set_kernel_mode(mode) == 0)
+			syslog(LOG_INFO, "pon: kernel xpon_mode set to %d", mode);
+		else
+			syslog(LOG_WARNING, "pon: failed to set kernel xpon_mode");
+	}
 
 	syslog(LOG_INFO, "pon: applying provisioning (%d attr bytes)", off);
 	return genl_pon_cmd(PON_CMD_SET_PROV, attrs, off, NULL, 0, NULL);

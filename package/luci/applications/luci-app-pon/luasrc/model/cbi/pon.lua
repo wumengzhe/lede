@@ -31,6 +31,12 @@ o:value("sn", translate("Serial number"))
 o:value("hybrid", translate("Hybrid"))
 o.default = "loid"
 
+o = s:option(ListValue, "mode", translate("PON mode"),
+	translate("Select XGS-PON (10G symmetric) or XG-PON (10G/2.5G). Most new deployments use XGS-PON."))
+o:value("xgspon", translate("XGS-PON (default)"))
+o:value("xgpon", translate("XG-PON"))
+o.default = "xgspon"
+
 o = s:option(ListValue, "fec", translate("FEC"),
 	translate("Forward error correction (XGS-PON)"))
 o:value("0", translate("Off"))

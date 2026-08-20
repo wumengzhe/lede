@@ -6,34 +6,44 @@
  *
  *  1. generic-netlink family "airoha_pon"  - management state:
  *       laser on/off, LOS/TX-FAULT, provisioning, PON state (O1..O5),
- *       RX power. Driven by the BOSA control GPIOs described in the
- *       "airoha,pon" device tree node.
+ *       RX power, PON mode, FEC, DDM (tx power, bias, temperature).
+ *       Driven by the BOSA control GPIOs described in the "airoha,pon"
+ *       device tree node and by direct PON MAC register access.
  *
  *  2. char device /dev/airoha_pon          - OMCI/GTC *frame* plane:
  *       SEND_OMCI ioctl pushes a raw OMCI G.988 message to the PON MAC,
  *       read() drains OMCI indications/alarms from the MAC. This is the
  *       transport that lets ponmgr actually talk OMCI with the OLT.
  *
- * ARCHITECTURE (rev 2, corrected): the optical link is terminated by the
- * on-die PON MAC / XPON PHY (registers at 0x1fa80000, an7581.dtsi pon_pcs
- * block) - NOT by the NPU. Evidence from the stock image:
- *   - xpon.ko / xpon_10g.ko contain zero NPU / mailbox references
- *     (no mbq, no doorbell, no ioremap of 0x1e900000);
- *   - npu.ko is the WiFi/PPE offload firmware loader (it requests
- *     userfs/npu_rv32.bin + npu_data.bin), so those blobs are WiFi
- *     firmware, not an XPON HAL;
- *   - OMCI frames are pushed to the MAC by gwan_prepare_tx_message()
- *     which builds a QDMA (queue-DMA) TX descriptor - see RE notes
- *     Tools/re_notes_omci_mailbox.md.
+ * ARCHITECTURE (rev 3, corrected 2026-08-21):
+ * The optical link is terminated by the on-die PON MAC / XPON PHY.
+ * Authoritative register map from the an7581 tclinux reference dts:
+ *   - PON MAC core : 0x1fb64000 (IRQ 42, "econet,ecnt-xpon")
+ *   - PON PHY      : 0x1faf0000
+ *   - USXGMII wrapper: 0x1fa80000
+ *   - SerDes PMA/ANA: 0x1fa8a000 / 0x1fa8b000
+ * This driver maps the PON MAC core block and replays the reverse-
+ * engineered init sequence (pon_mac_seq.h). The NPU (0x1e900000) is
+ * unrelated to PON; xpon_10g.ko has zero NPU/mailbox references.
  *
- * hal_backend=1 (real) therefore programs the PON MAC registers directly
- * (reverse-engineered init sequence, pon_mac_seq.h) and replays them on
- * activation; the OMCI frame TX/RX register protocol (QDMA descriptor
- * path of gwan_prepare_tx_message / gwan_process_rx_message) is the open
- * RE item that remains before the link can carry OMCI end-to-end.
- * hal_backend=0 (sim, default) synthesises an O1..O5 bring-up and echoes
- * OMCI so the whole userspace stack is exercisable without a working
- * optical path.
+ * OMCI frames are pushed to the MAC by gwan_prepare_tx_message() which
+ * builds a QDMA (queue-DMA) TX descriptor. The 2-word descriptor format is
+ * now FULLY reverse-engineered (see PON_OMCI_TX_RE.md): word0[29:14]=frame
+ * length, word0[8]=type flag, word1[31]=OWN, plus fixed control fields.
+ * The descriptor is built in hal_send_omci()/omci_tx_submit(); the actual
+ * ring-write + doorbell is gated behind module param omci_tx_enable (off by
+ * default) because the doorbell register lives behind an unresolved external
+ * symbol. Until that is resolved, the real backend returns -EOPNOTSUPP.
+ *
+ * PON mode: the public sysfs/module ABI uses enum pon_mode from pon_abi.h.
+ *   1 = XGPON  (10G down / 2.5G up, factory default for ZJ CMCC)
+ *   7 = XGSPON (10G symmetric, upstream OpenWrt reference default)
+ * The underlying SoC register encoding for the mode is applied in
+ * pon_mac_replay_seq() once it is fully reverse-engineered.
+ *
+ * hal_backend=1 (real, shipped default) maps registers and replays the
+ * init sequence. hal_backend=0 (sim) synthesises an O1..O5 bring-up and
+ * echoes OMCI so the userspace stack can be exercised without hardware.
  */
 
 #include <linux/module.h>
@@ -61,15 +71,16 @@
 #include "pon_abi.h"
 #include "pon_mac_seq.h"
 
-/* PON MAC register base (an7581.dtsi pon_pcs block). All offsets in
- * pon_mac_seq.h are relative to this physical address. Mapped non-exclusively
- * because the upstream airoha_eth driver also pokes this region for pon_pcs.
- * See pon_mac_seq.h header for the reverse-engineering provenance. */
-#define PON_MAC_BASE_PHYS	0x1fa80000UL
-#define PON_MAC_IOMAP_SIZE	0xc000UL	/* covers pon_pcs sub-blocks ..0x1fa8c000 */
+/* PON MAC core register base (an7581 tclinux dtsi: xpon_mac@1fb64000).
+ * All offsets in pon_mac_seq.h are relative to this physical address.
+ * The upstream airoha_eth driver may also ioremap nearby regions; we map
+ * non-exclusively here. The 0x1fa80000 region is the USXGMII wrapper,
+ * not the PON MAC core. */
+#define PON_MAC_BASE_PHYS	0x1fb64000UL
+#define PON_MAC_IOMAP_SIZE	0x10000UL	/* covers 0x1fb64000..0x1fb74000 */
 
 /* ------------------------------------------------------------------ */
-/* HAL backend                                                         */
+/* HAL backend + PON mode                                              */
 /* ------------------------------------------------------------------ */
 
 enum hal_backend {
@@ -80,6 +91,22 @@ enum hal_backend {
 static int backend_param = BACKEND_SIM;
 module_param_named(hal_backend, backend_param, int, 0444);
 MODULE_PARM_DESC(hal_backend, "0=sim (default), 1=real Airoha XPON HAL");
+
+/* PON line mode exposed to userspace and used to select the register init
+ * sequence. Default XGSPON (7) after upstream OpenWrt reference; XGPON (1) is
+ * the factory ZJ CMCC default. */
+static int xpon_mode_param = PON_MODE_XGSPON;
+module_param_named(sys_xpon_mode, xpon_mode_param, int, 0644);
+MODULE_PARM_DESC(sys_xpon_mode, "PON mode: 1=XGPON, 7=XGSPON (default)");
+
+/* OMCI TX DMA submission. Disabled by default: the QDMA OMCI descriptor
+ * *format* is reverse-engineered (see PON_OMCI_TX_RE.md) but the doorbell
+ * register / ring base lives behind an external symbol we have not resolved
+ * yet. Loading with omci_tx_enable=1 without a real doorbell will NOT work
+ * and is intentionally gated so the driver never issues speculative MMIO. */
+static bool omci_tx_enable;
+module_param_named(omci_tx_enable, omci_tx_enable, bool, 0444);
+MODULE_PARM_DESC(omci_tx_enable, "0=safe stub (default), 1=attempt QDMA OMCI TX (needs doorbell)");
 
 /* ------------------------------------------------------------------ */
 /* Device / GPIO state                                                 */
@@ -94,9 +121,15 @@ struct air_pon {
 	struct gpio_desc	*tx_fault;
 	int			tx_disable_active; /* 0=high 1=low */
 	int			laser;		/* 1 = enabled */
+	enum pon_mode		mode;		/* public ABI line mode */
 
 	enum pon_state		state;
 	s32			rx_power;	/* dBm*100 */
+	s32			tx_power;	/* dBm*100 */
+	s32			bias;		/* mA*100 */
+	s32			temperature;	/* degC*100 */
+	u32			voltage;	/* mV */
+	u8			fec;		/* 1 = enabled */
 
 	/* OMCI indication fifo (records: u16 len + msg) */
 	struct kfifo		ind_fifo;
@@ -136,22 +169,75 @@ static void ind_push(const struct air_pon_omci *m)
 /* HAL backend operations                                              */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* QDMA OMCI TX descriptor (reverse-engineered, see PON_OMCI_TX_RE.md)  */
+/* ------------------------------------------------------------------ */
+
+/* 2-word (8-byte) GWAN TX descriptor as built by stock xpon_10g.ko
+ * gwan_prepare_tx_message(). Word layout confirmed from capstone disasm:
+ *   word0[29:14] = OMCI frame length (16-bit)
+ *   word0[8]     = OMCI/type flag (set on the msg-submit path)
+ *   word1[31]    = OWN (DMA ownership)
+ *   word1[30:24] = control field (observed 0x7f)
+ *   word1[23:20] = queue/channel id (observed 0x2)
+ *   word1[10:6]  = control field (observed 0x1f)
+ *   word1[5:0]   = control field (observed 0x1f)
+ * The actual data buffer is handed to the submit function separately
+ * (it is NOT embedded in this 8-byte descriptor). */
+struct gwan_tx_desc {
+	__le32 word0;
+	__le32 word1;
+} __packed;
+
+/* Build the descriptor from a userspace OMCI frame. Pure bit-pack, no MMIO. */
+static void gwan_build_tx_desc(struct gwan_tx_desc *d, const struct air_pon_omci *m)
+{
+	u32 len = m->len > 0xffff ? 0xffff : m->len;
+
+	d->word0 = cpu_to_le32(((len & 0xffff) << 14) | (1u << 8));
+	d->word1 = cpu_to_le32((1u << 31) | (0x7fu << 24) |
+			       (0x2u << 20) | (0x1fu << 6) | (0x1fu << 0));
+}
+
+/* Submit the OMCI frame to the PON MAC.
+ *
+ * Real hardware path: the stock module calls an *external* (relocated)
+ * submit symbol that writes the descriptor into the GWAN DMA ring and rings
+ * the doorbell. We have NOT resolved that symbol / the doorbell register yet
+ * (see PON_OMCI_TX_RE.md, section 5). To stay safe on unknown hardware we
+ * build the descriptor and, unless omci_tx_enable=1, refuse with -EOPNOTSUPP
+ * instead of poking registers we cannot name.
+ *
+ * When the doorbell is resolved, the body below is where the ring write +
+ * writel(doorbell) goes; the buffer still needs dma_map_single() of m->msg. */
+static int omci_tx_submit(struct air_pon *p, const struct air_pon_omci *m)
+{
+	struct gwan_tx_desc d;
+
+	gwan_build_tx_desc(&d, m);
+	if (!omci_tx_enable) {
+		dev_warn(p->dev,
+			"OMCI TX: descriptor built (len=%u) but doorbell unresolved; "
+			"load with omci_tx_enable=1 only after PON_OMCI_TX_RE.md §5 is done\n",
+			m->len);
+		return -EOPNOTSUPP;
+	}
+	/* TODO(§5): dma_map_single(m->msg, m->len, DMA_TO_DEVICE);
+	 *           write d into GWAN TX ring slot; writel(DOORBELL, ring_base);
+	 *           dma_unmap_single(...) on completion. */
+	dev_warn(p->dev, "OMCI TX: doorbell path not implemented yet\n");
+	return -EOPNOTSUPP;
+}
+
 /* Forward a raw OMCI message to the PON MAC. Returns 0 on success. */
 static int hal_send_omci(const struct air_pon_omci *m)
 {
 	struct air_pon *p = g_pon;
 
 	if (backend_param == BACKEND_REAL) {
-		/* The stock xpon.ko ships OMCI frames to the MAC via the QDMA
-		 * (queue-DMA) TX path of gwan_prepare_tx_message() - see RE
-		 * notes Tools/re_notes_omci_mailbox.md. That descriptor/register
-		 * protocol is the remaining open RE item; until it is ported we
-		 * cannot push real OMCI frames, so report the failure explicitly
-		 * instead of faking success. The MAC init sequence (pon_mac_seq.h)
-		 * and laser/status management are already live on this path. */
 		if (!p || !p->mac_base)
 			return -ENODEV;
-		return -EOPNOTSUPP;
+		return omci_tx_submit(p, m);
 	}
 	/* SIM: echo the message back as an indication so ponmgr sees a reply
 	 * and the userspace OMCI codec is exercised end-to-end. */
@@ -169,17 +255,25 @@ static void hal_get_status(struct air_pon_status *s)
 		s->state = PON_STATE_NO_MODULE;
 		return;
 	}
-	s->state    = p->state;
-	s->laser    = p->laser;
-	s->rx_power = p->rx_power;
-	s->los      = p->rx_sd ? !gpiod_get_value_cansleep(p->rx_sd) : 0;
-	s->tx_fault = p->tx_fault ? gpiod_get_value_cansleep(p->tx_fault) : 0;
+	s->state       = p->state;
+	s->laser       = p->laser;
+	s->rx_power    = p->rx_power;
+	s->tx_power    = p->tx_power;
+	s->bias        = p->bias;
+	s->temperature = p->temperature;
+	s->voltage     = p->voltage;
+	s->fec         = p->fec;
+	s->mode        = p->mode;
+	s->los         = p->rx_sd ? !gpiod_get_value_cansleep(p->rx_sd) : 0;
+	s->tx_fault    = p->tx_fault ? gpiod_get_value_cansleep(p->tx_fault) : 0;
 }
 
 /* Replay the reverse-engineered PON MAC init sequence (pon_mac_seq.h) into
- * the ioremapped MAC register block. Safe to call once the laser GPIO is
- * already asserted by the caller. All entries are real register accesses
- * captured at set_xpon_data/get_xpon_data call sites in stock xpon.ko. */
+ * the ioremapped MAC core register block. The sequence was captured at
+ * set_xpon_data/get_xpon_data call sites in stock xpon_10g.ko (k5.4.55).
+ * The PON mode is not yet encoded into the replay; once the SoC mode
+ * register mapping is fully RE'd, xpon_mode_param will be written before
+ * this sequence. */
 static void pon_mac_replay_seq(struct air_pon *p)
 {
 	int i;
@@ -198,8 +292,8 @@ static void pon_mac_replay_seq(struct air_pon *p)
 			writel(v, reg);
 		}
 	}
-	dev_info(p->dev, "PON MAC init sequence replayed (%d ops)\n",
-		 PON_MAC_SEQ_N);
+	dev_info(p->dev, "PON MAC init sequence replayed (%d ops, mode=%d)\n",
+		 PON_MAC_SEQ_N, p->mode);
 }
 
 static void hal_activate(int on)
@@ -209,15 +303,13 @@ static void hal_activate(int on)
 	if (!p)
 		return;
 	if (backend_param == BACKEND_REAL) {
-		/* The on-die NPU XPON-HAL firmware (airoha-en7581-npu-firmware)
-		 * performs serdes training + GTC/OMCI sync. Its bootstrap mailbox
-		 * handshake is still being reverse-engineered, so here we only
-		 * (re)program the PON MAC registers and report the MAC as ready
-		 * (standby). The link reaches O5 once the NPU firmware completes
-		 * synchronisation - that is driven by the firmware, not this
-		 * register block. See re_omci.py RE notes. */
 		if (on) {
+			p->mode = xpon_mode_param;
 			pon_mac_replay_seq(p);
+			/* With only register init and no QDMA OMCI TX/RX, the MAC is
+			 * brought to standby. A real O5 transition requires the OMCI
+			 * handshake, which depends on the still-being-RE'd QDMA
+			 * descriptor protocol. */
 			p->state = PON_STATE_O2_STANDBY;
 		} else {
 			p->state = PON_STATE_O1_INIT;
@@ -391,9 +483,15 @@ static int genl_get_info(struct sk_buff *skb, struct genl_info *info)
 		goto nla_put_failure;
 	if (nla_put_u32(msg, PON_ATTR_STATE, st.state) ||
 	    nla_put_s32(msg, PON_ATTR_RX_POWER, st.rx_power) ||
+	    nla_put_s32(msg, PON_ATTR_TX_POWER, st.tx_power) ||
+	    nla_put_s32(msg, PON_ATTR_BIAS, st.bias) ||
+	    nla_put_s32(msg, PON_ATTR_TEMP, st.temperature) ||
+	    nla_put_u32(msg, PON_ATTR_VOLTAGE, st.voltage) ||
 	    nla_put_u8(msg, PON_ATTR_LASER, st.laser) ||
 	    nla_put_u8(msg, PON_ATTR_LOS, st.los) ||
-	    nla_put_u8(msg, PON_ATTR_TX_FAULT, st.tx_fault))
+	    nla_put_u8(msg, PON_ATTR_TX_FAULT, st.tx_fault) ||
+	    nla_put_u8(msg, PON_ATTR_FEC, st.fec) ||
+	    nla_put_u32(msg, PON_ATTR_MODE, st.mode))
 		goto nla_put_failure;
 	genlmsg_end(msg, hdr);
 	return genlmsg_reply(msg, info);
@@ -448,8 +546,14 @@ static int air_pon_probe(struct platform_device *pdev)
 	if (!p)
 		return -ENOMEM;
 	p->dev = dev;
+	p->mode = xpon_mode_param;
 	p->state = PON_STATE_O1_INIT;
 	p->rx_power = -4000;
+	p->tx_power = 0;
+	p->bias = 0;
+	p->temperature = 0;
+	p->voltage = 0;
+	p->fec = 0;
 	spin_lock_init(&p->fifo_lock);
 	init_waitqueue_head(&p->ind_wait);
 	atomic_set(&p->stop, 0);
@@ -521,8 +625,8 @@ static int air_pon_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_misc;
 
-	dev_info(dev, "Airoha PON driver probed (hal_backend=%d, %s)\n",
-		 backend_param, backend_param ? "real" : "sim");
+	dev_info(dev, "Airoha PON driver probed (hal_backend=%d %s, mode=%d)\n",
+		 backend_param, backend_param ? "real" : "sim", p->mode);
 	return 0;
 
 err_misc:

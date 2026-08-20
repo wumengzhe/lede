@@ -1,5 +1,5 @@
 <%# SPDX-License-Identifier: Apache-2.0 -%>
-<%# luci-app-pon: PON status view -%>
+<%# luci-app-pon: PON status view (AN7581 XG/XGS-PON ONT) -%>
 <%
 	local ponctl = function(args)
 		local f = io.popen("ponctl " .. args .. " 2>/dev/null")
@@ -8,7 +8,7 @@
 		f:close()
 		local kv = {}
 		for line in out:gmatch("[^\n]+") do
-			local k, v = line:match("^(%w+)=(.*)$")
+			local k, v = line:match("^(\w+)=(.*)$")
 			if k then kv[k] = v end
 		end
 		return kv
@@ -23,7 +23,17 @@
 		[4] = "O4 (ranging)",
 		[5] = "O5 (operation)",
 	}
+	local modes = {
+		[0] = "Auto",
+		[1] = "XG-PON",
+		[7] = "XGS-PON",
+	}
 	local state_name = states[tonumber(st.state)] or "unknown"
+	local mode_name = modes[tonumber(st.mode)] or (st.mode or "?")
+	local function fmt10(v)
+		v = tonumber(v) or 0
+		return string.format("%.2f", v / 100)
+	end
 -%>
 
 <%+header%>
@@ -32,7 +42,7 @@
 
 <div class="cbi-map">
 	<div class="cbi-map-descr">
-		<%:XGS-PON optical network terminal status.%>
+		<%:XG/XGS-PON optical network terminal status.%>
 	</div>
 	<fieldset class="cbi-section">
 		<legend><%:Status%></legend>
@@ -43,8 +53,12 @@
 					<th class="cbi-section-table-cell"><%:Value%></th>
 				</tr>
 				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:PON state%></td>
+					<td class="cbi-section-table-cell"><%:ONU state%></td>
 					<td class="cbi-section-table-cell"><%=state_name%> (<%=st.state or "?"%>)</td>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:PON mode%></td>
+					<td class="cbi-section-table-cell"><%=mode_name%> (<%=st.mode or "?"%>)</td>
 				</tr>
 				<tr class="cbi-section-table-row">
 					<td class="cbi-section-table-cell"><%:Laser%></td>
@@ -52,7 +66,27 @@
 				</tr>
 				<tr class="cbi-section-table-row">
 					<td class="cbi-section-table-cell"><%:RX power%></td>
-					<td class="cbi-section-table-cell"><%=st.rx_power%> dBm</td>
+					<td class="cbi-section-table-cell"><%=fmt10(st.rx_power)%> dBm</td>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:TX power%></td>
+					<td class="cbi-section-table-cell"><%=fmt10(st.tx_power)%> dBm</td>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:Bias current%></td>
+					<td class="cbi-section-table-cell"><%=fmt10(st.bias)%> mA</td>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:Temperature%></td>
+					<td class="cbi-section-table-cell"><%=fmt10(st.temperature)%> °C</td>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:Voltage%></td>
+					<td class="cbi-section-table-cell"><%=(tonumber(st.voltage) or 0)%> mV</td>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:FEC%></td>
+					<td class="cbi-section-table-cell"><%=(st.fec == "1") and "on" or "off"%></td>
 				</tr>
 				<tr class="cbi-section-table-row">
 					<td class="cbi-section-table-cell"><%:LOS%></td>

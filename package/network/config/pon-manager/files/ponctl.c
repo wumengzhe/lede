@@ -174,19 +174,43 @@ static int do_status(void)
 			case PON_ATTR_LOS:
 				st.los = *(uint8_t *)d;
 				break;
-			case PON_ATTR_TX_FAULT:
-				st.tx_fault = *(uint8_t *)d;
-				break;
-			}
-			rem -= NLA_ALIGN(a->nla_len);
-			a = (struct nlattr *)((uint8_t *)a + NLA_ALIGN(a->nla_len));
+		case PON_ATTR_TX_FAULT:
+			st.tx_fault = *(uint8_t *)d;
+			break;
+		case PON_ATTR_TX_POWER:
+			st.tx_power = *(int32_t *)d;
+			break;
+		case PON_ATTR_BIAS:
+			st.bias = *(int32_t *)d;
+			break;
+		case PON_ATTR_TEMP:
+			st.temperature = *(int32_t *)d;
+			break;
+		case PON_ATTR_VOLTAGE:
+			st.voltage = *(uint32_t *)d;
+			break;
+		case PON_ATTR_FEC:
+			st.fec = *(uint8_t *)d;
+			break;
+		case PON_ATTR_MODE:
+			st.mode = *(uint32_t *)d;
+			break;
 		}
+		rem -= NLA_ALIGN(a->nla_len);
+		a = (struct nlattr *)((uint8_t *)a + NLA_ALIGN(a->nla_len));
 	}
+}
 	printf("state=%u\n", st.state);
 	printf("laser=%u\n", st.laser);
 	printf("rx_power=%d\n", st.rx_power);
+	printf("tx_power=%d\n", st.tx_power);
+	printf("bias=%d\n", st.bias);
+	printf("temperature=%d\n", st.temperature);
+	printf("voltage=%u\n", st.voltage);
 	printf("los=%u\n", st.los);
 	printf("tx_fault=%u\n", st.tx_fault);
+	printf("fec=%u\n", st.fec);
+	printf("mode=%u\n", st.mode);
 	return 0;
 }
 

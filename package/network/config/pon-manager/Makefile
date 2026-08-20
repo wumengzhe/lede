@@ -45,12 +45,16 @@ define Build/Compile
 		-L$(STAGING_DIR)/usr/lib -luci -lubox -lubus
 	$(TARGET_CC) $(TARGET_CFLAGS) -I$(STAGING_DIR)/usr/include \
 		-o $(PKG_BUILD_DIR)/ponctl $(PKG_BUILD_DIR)/ponctl.c
+	$(TARGET_CC) $(TARGET_CFLAGS) -I$(STAGING_DIR)/usr/include \
+		-I$(PKG_BUILD_DIR) \
+		-o $(PKG_BUILD_DIR)/omcid2 $(PKG_BUILD_DIR)/omcid2.c
 endef
 
 define Package/pon-manager/install
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/ponmgr $(1)/usr/sbin/ponmgr
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/ponctl $(1)/usr/sbin/ponctl
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/omcid2 $(1)/usr/sbin/omcid2
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/pon.init $(1)/etc/init.d/pon
 	$(INSTALL_DIR) $(1)/etc/config
