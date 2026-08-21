@@ -188,6 +188,7 @@ static const struct attrtab attrtabs[] = {
     { 281, {2, 1, 2, 2, 1, 1, 2, 1, 0} },
     { 329, {1, 1, 25, 2, 2, 0} },
     { 11, {1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 0} },
+    { 5,  {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0} }, /* Cardholder */
     { 0, {0} }
 };
 static const struct attrtab *find_attrtab(uint16_t cls)
@@ -425,6 +426,8 @@ static void h_generic_ok(const uint8_t *req, const char *name)
 
 /* ---- ONU serial ---- */
 static uint8_t g_onu_sn[8];
+static char g_loid[64];
+static char g_password[64];
 
 static int parse_onu_sn(const char *s)
 {
@@ -443,32 +446,70 @@ static int parse_onu_sn(const char *s)
     return 1;
 }
 
-/* ---- seed MIB ---- */
+/* ---- seed MIB ----
+ * Faithful baseline for the Nokia Bell XG-040G-MD (AN7581, Jiuzhou BOSA),
+ * derived from the device's own factory OMCI capability dump
+ * (etc/omci.log: HGU, OMCC ver 134, 4xGE + 1xVEIP + XGPON card, 16 T-CONT,
+ * 256 GEM, SW NXGS1426V07t01). These are the "pre-instantiated" MEs the ONT
+ * presents; the OLT then MIB-UPLOADs them and CREATEs the rest (GEM ports,
+ * ANI-G specifics, VLANs). */
 static void seed_mib(void)
 {
     struct me *m;
     int i;
+
+    /* ONU-G (256): vendor NBEL, version NXGS1426V07t01, equipment id
+     * XG-040G-MD, serial B45F6727 (factory YP_Serial_Num = NBELB45F6727). */
     m = mib_add(256, 0, 1);
-    memcpy(m->attr, g_onu_sn, 4);
-    memset(m->attr + 4, 0x20, 14);
-    memcpy(m->attr + 4, "RP0201", 6);
-    memcpy(m->attr + 18, g_onu_sn, 8);
-    m->attr[26] = 0x02;
-    m->attr[31] = 0x0a;
-    m->attr[69] = 0x00; m->attr[70] = 0x03;
+    memcpy(m->attr, "NBEL", 4);                 /* attr1 vendor id */
+    memcpy(m->attr + 4, "NXGS1426V07t01", 14);  /* attr2 version */
+    memcpy(m->attr + 18, "B45F6727", 8);        /* attr3 serial (8 ASCII) */
+    memcpy(m->attr + 40, "XG-040G-MD         ", 20); /* equipment id */
+    m->attr[31] = 134;                         /* OMCC version (factory 134) */
+
+    /* ONU2-G (257): software image status (bank 0 active) */
     m = mib_add(257, 0, 1);
-    m->attr[20] = 0xA1; m->attr[21] = 0x01; m->attr[22] = 0x54; m->attr[23] = 0x01;
+    m->attr[20] = 0xA1; m->attr[21] = 0x01;
+    m->attr[22] = 0x54; m->attr[23] = 0x01;
+
+    /* ONU data (2) */
     mib_add(2, 0, 1);
-    mib_add(263, 0x8001, 1);
-    for (i = 0; i < 8; i++) mib_add(262, 0x8000 + i, 1);
-    mib_add(329, 0x0A01, 1);
+
+    /* ANI-G (263) inst 0x8001: XGPON uplink (factory AccessType=XGPON).
+     * Optical thresholds from dump: Rx -45..-1 dBm, Tx -0.1..10 dBm. */
+    m = mib_add(263, 0x8001, 1);
+    m->attr[0] = 0x01;   /* XGPON */
+    m->attr[4] = 0xD3; m->attr[5] = 0x33; /* -45.00 dBm */
+    m->attr[6] = 0x03; m->attr[7] = 0xE7; /*  -1.00 dBm */
+
+    /* 16 T-CONT (262) 0x8001..0x8010; first policy 0, rest policy 1 */
+    for (i = 0; i < 16; i++) {
+        m = mib_add(262, 0x8001 + i, 1);
+        m->attr[0] = 0x80; m->attr[1] = (uint8_t)(0x01 + i); /* alloc-id */
+        m->attr[2] = (i == 0) ? 0 : 1;                       /* policy */
+    }
+
+    /* Card holders (5): VEIP(0x010e,type48) GE(0x0101,type47) XGPON(0x0180,type237) */
+    m = mib_add(5, 0x010e, 1); m->attr[0] = 48;  /* VEIP */
+    m = mib_add(5, 0x0101, 1); m->attr[0] = 47;  /* GE_1000BT */
+    m = mib_add(5, 0x0180, 1); m->attr[0] = 237; /* XGPON */
+
+    /* UNI-G (11): 4 GE ports 0x0101..0x0104 + VEIP UNI 0x0e01 */
     for (i = 0; i < 4; i++) mib_add(11, 0x0101 + i, 1);
+    mib_add(11, 0x0e01, 1);
+
+    /* SW image (7): bank 0 active = NXGS1426V07t01 */
     m = mib_add(7, 0, 1);
-    memcpy(m->attr, "V3.2.2120054  ", 14); m->attr[14] = 1; m->attr[15] = 1; m->attr[16] = 1;
+    memcpy(m->attr, "NXGS1426V07t01", 14);
+    m->attr[14] = 1; m->attr[15] = 0; m->attr[16] = 1;
     m = mib_add(7, 1, 1);
-    memcpy(m->attr, "V3.2.2120040  ", 14); m->attr[14] = 0; m->attr[15] = 0; m->attr[16] = 1;
-    mib_add(65530, 0, 1);
-    LOG("seeded baseline MIB: %d MEs", mib_n);
+    memcpy(m->attr, "NXGS1426V07t01", 14);
+    m->attr[14] = 1; m->attr[15] = 0; m->attr[16] = 0;
+
+    mib_add(65530, 0, 1); /* Galis/circuit-pack placeholder */
+
+    LOG("seed XG-040G-MD MIB: %d MEs; loid='%s' password='%s'",
+        mib_n, g_loid, g_password);
 }
 
 static void usage(const char *prog)
@@ -498,6 +539,16 @@ int main(int argc, char **argv)
     if (!parse_onu_sn(serial))
         LOG("WARNING: no/invalid ONU serial; ONU may not register until provisioned");
 
+    e = getenv("OMCID2_LOID");
+    if (e) {
+        strncpy(g_loid, e, sizeof(g_loid) - 1);
+        g_loid[sizeof(g_loid) - 1] = '\0';
+    }
+    e = getenv("OMCID2_PASSWORD");
+    if (e) {
+        strncpy(g_password, e, sizeof(g_password) - 1);
+        g_password[sizeof(g_password) - 1] = '\0';
+    }
     e = getenv("OMCID2_NOSELFCREATE");
     if (e && e[0] == '1') no_selfcreate = 1;
 

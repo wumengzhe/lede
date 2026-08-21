@@ -34,6 +34,12 @@
 		v = tonumber(v) or 0
 		return string.format("%.2f", v / 100)
 	end
+
+	local uci = require "luci.model.uci".cursor()
+	local pcfg = uci:get("pon", "config") or {}
+	local cfg_serial = pcfg.serial_no or "?"
+	local cfg_loid = pcfg.lo_id or "-"
+	local cfg_pass = (pcfg.password and #pcfg.password > 0) and "set" or "-"
 -%>
 
 <%+header%>
@@ -55,6 +61,18 @@
 				<tr class="cbi-section-table-row">
 					<td class="cbi-section-table-cell"><%:ONU state%></td>
 					<td class="cbi-section-table-cell"><%=state_name%> (<%=st.state or "?"%>)</td>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:Serial number%></td>
+					<td class="cbi-section-table-cell"><%=cfg_serial%></td>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:LOID%></td>
+					<td class="cbi-section-table-cell"><%=cfg_loid%></td>
+				</tr>
+				<tr class="cbi-section-table-row">
+					<td class="cbi-section-table-cell"><%:Password%></td>
+					<td class="cbi-section-table-cell"><%=cfg_pass%></td>
 				</tr>
 				<tr class="cbi-section-table-row">
 					<td class="cbi-section-table-cell"><%:PON mode%></td>

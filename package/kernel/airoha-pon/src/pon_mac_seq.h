@@ -8,8 +8,8 @@
  *
  * Every entry is a real register access captured at a set_xpon_data /
  * get_xpon_data call site. Offsets are relative to the PON MAC register
- * base 0x1fa80000 (an7581.dtsi pon_pcs block: GPON MAC @+0x4000.., EPON
- * MAC @+0x6000.., GEM/MIB @+0x41xx..). Replay with:
+ * base 0x1fb64000 (an7581 PON MAC core: GPON MAC @+0x4000, XGPON MAC
+ * @+0x5000, EPON MAC @+0x6000). Replay with:
  *    PON_OP_W   -> writel(wval, base + off)
  *    PON_OP_RMW -> writel((readl(base+off) & and_mask) | or_val, base+off)
  *
