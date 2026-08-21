@@ -73,10 +73,8 @@ endef
 
 define Build/Compile
 	$(call Build/Compile/U-Boot)
-ifeq ($(UBOOT_IMAGE),u-boot.fip)
-	$(call Build/fip-image-bl2)
-	$(call Build/fip-image)
-endif
+	$(if $(filter u-boot.fip,$(UBOOT_IMAGE)),$(call Build/fip-image-bl2))
+	$(if $(filter u-boot.fip,$(UBOOT_IMAGE)),$(call Build/fip-image))
 endef
 
 # don't stage files to bindir, let target/linux/airoha/image/*.mk do that
@@ -85,10 +83,9 @@ endef
 
 define Build/InstallDev
 	$(INSTALL_DIR) $(STAGING_DIR_IMAGE)
-ifeq ($(UBOOT_IMAGE),u-boot.fip)
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/bl2.fip $(STAGING_DIR_IMAGE)/$(BUILD_VARIANT)-bl2.fip
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/u-boot.fip $(STAGING_DIR_IMAGE)/$(BUILD_VARIANT)-bl31-u-boot.fip
-endif
+	$(if $(filter u-boot.fip,$(UBOOT_IMAGE)),\
+		$(INSTALL_DATA) $(PKG_BUILD_DIR)/bl2.fip $(STAGING_DIR_IMAGE)/$(BUILD_VARIANT)-bl2.fip;\
+		$(INSTALL_DATA) $(PKG_BUILD_DIR)/u-boot.fip $(STAGING_DIR_IMAGE)/$(BUILD_VARIANT)-bl31-u-boot.fip)
 endef
 
 $(eval $(call BuildPackage/U-Boot))
