@@ -352,11 +352,11 @@
 
 	phy-mode = "10gbase-r";
 
+	nvmem-cell-names = "mac-address";
+	nvmem-cells = <&macaddr_factory_3e 1>;
+
 	fixed-link {
 		speed = <10000>;
 		full-duplex;
 	};
-
-	nvmem-cell-names = "mac-address";
-	nvmem-cells = <&macaddr_factory_3e 1>;
 };
