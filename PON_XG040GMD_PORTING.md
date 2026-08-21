@@ -107,11 +107,30 @@
 
 ## 5. 编译与测试
 
+### 5.0 编译验证状态（2026-08-21，用户 VM wmz-lede）
+
+✅ 三个包已在用户本地 `wmz-lede`（VM `~/Desktop/lede`，目标 `airoha_an7581`，内核 6.12.103）**全部编译通过并打包 ipk**：
+- `kmod-airoha-pon` → `bin/targets/airoha/an7581/packages/kmod-airoha-pon_6.12.103-1_aarch64_cortex-a53.ipk`
+- `pon-manager` → `bin/packages/aarch64_cortex-a53/base/pon-manager_1_aarch64_cortex-a53.ipk`（ponmgr/ponctl/omcid2）
+- `luci-app-pon` → 纯脚本包，ipk 在 install 阶段生成（compile 显示 `Nothing to be done` 属正常）
+
+构建过程中修掉的编译问题（均已提交）：
+1. 内核 6.12：`struct genl_family/ops/info` 与 `genlmsg_*` 在 **`include/net/genetlink.h`**（`linux/genetlink.h` 只剩 UAPI），`nla_put_*/nla_get_*` 在 **`include/net/netlink.h`** —— 缺头全报 implicit-declaration。
+2. 内核 6.12：`NLMSG_PAYLOAD(nlh, len)` 是 **2 参**（libnl 风格 1 参不编过）。
+3. `struct air_pon_omci`(2050 B) 在栈上 → 4 处 `-Wframe-larger-than` 告警，全部改堆分配（softirq 路径用 `GFP_ATOMIC`）。
+4. ubus 头文件平级装在 `usr/include/libubus.h`（非 `libubus/` 子目录）；ponmgr 未用 ubus API，直接删 include。
+5. 新版 libuci `uci_lookup_section()` 是 3 参 → 改 `uci_foreach_element` 按 type 找 `config pon`。
+6. **luci-app-pon 的 `include ../../luci.mk` 在核心树位置无解**（luci.mk 在 luci feed 里）→ 条件 include 三级探测：`../../luci.mk` → `$(TOPDIR)/package/feeds/luci/luci.mk` → `$(TOPDIR)/feeds/luci/luci.mk`。**前提：先 `./scripts/feeds update luci && ./scripts/feeds install luci`**，且 `make menuconfig` 勾选 `CONFIG_PACKAGE_luci-app-pon=y` 才会进固件（单包 `make .../compile` 只强制编译、不写 .config）。
+
 ```sh
 # 在 wmz-lede 仓库根
 make package/kernel/airoha-pon/{clean,compile} V=s
 make package/network/config/pon-manager/{clean,compile} V=s
 make package/luci/applications/luci-app-pon/{clean,compile} V=s
+
+# 全量固件
+make menuconfig   # Target System → Airoha → AN7581；LuCI → Applications → luci-app-pon
+make -j$(nproc) V=s
 
 # 上机后
 logread | grep airoha_pon     # 确认 real 后端 probe、TX_OFF 映射
