@@ -249,9 +249,12 @@
 +};
 --- /dev/null
 +++ b/dts/upstream/src/arm64/airoha/an7581-nokia-xg-040g-md-u-boot.dtsi
-@@ -0,0 +1,124 @@
+@@ -0,0 +1,127 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +
++#include <dt-bindings/clock/en7523-clk.h>
++#include <dt-bindings/interrupt-controller/arm-gic.h>
++#include <dt-bindings/interrupt-controller/irq.h>
 +#include <dt-bindings/reset/airoha,en7581-reset.h>
 +
 +/ {
