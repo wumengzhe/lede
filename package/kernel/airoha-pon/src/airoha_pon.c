@@ -34,12 +34,17 @@
  *
  * OMCI framing (from xpon_netif.c omciHdr): OMCI is an Ethernet frame with
  *   dst MAC 00:00:00:00:00:02, src 00:00:00:00:00:01, EtherType 0x88b5.
- * In the Airoha reference BSP this frame rides the vendor "PWAN" QDMA
- * subsystem (v2/xpon_10g/src/pwan). That subsystem is Airoha-private; this
- * driver exposes the OMCI frame over a virtual "omci" netdevice so the same
- * framing reaches whichever transport the kernel provides. NOTE: real OLT
- * delivery currently requires the Airoha PWAN backend (see PON_PORTING.md);
- * without it the frame is queued but not put on the fibre (tagged TODO).
+ * In the Airoha reference BSP (v2/xpon_10g) the OMCI frame is delivered to
+ * the fibre by the on-die CMAC engine: the 48-byte G.988 message is DMA-mapped
+ * and handed to gponDevSetCmac0Start(GPON_CMAC_UPSTREAM, ...) which computes
+ * the MIC and emits it on the dedicated OMCI GEM port (XGSPON: GEM_PORT_CFG
+ * @0x5274, id 0x048). The public Sirherobrine23/airoha_kernel tree ships an
+ * OPEN GPON OMCI transport (net/omci.h + airoha_gpon_omci.c) over the standard
+ * airoha_eth QDMA path - NOT the private PWAN subsystem - which proves OMCI
+ * does not require PWAN. For XGSPON (this device) that open tree is GPON-only,
+ * so this standalone driver configures the OMCI channel registers
+ * (hal_xgpon_omci_setup) and leaves the CMAC-DMA data pump as the documented
+ * remaining blocker (PON_PORTING.md section 4-B).
  *
  * PON mode: enum pon_mode from pon_abi.h. 1=XGPON, 7=XGSPON (upstream ref
  * default). The SoC mode is selected via sysPonMode-style global; the exact
@@ -116,14 +121,13 @@ static int xpon_mode_param = PON_MODE_XGSPON;
 module_param_named(sys_xpon_mode, xpon_mode_param, int, 0644);
 MODULE_PARM_DESC(sys_xpon_mode, "PON mode: 1=XGPON, 7=XGSPON (default)");
 
-/* OMCI TX DMA submission gate. The OMCI *framing* (EtherType 0x88b5 over
- * the omci netdevice) is implemented here. The actual on-fibre delivery
- * needs the Airoha PWAN QDMA backend; until that is wired, frames are
- * queued but not transmitted. Set omci_tx_enable=1 to attempt the netdev
- * path (still gated by PWAN TODO). */
+/* OMCI TX path selector (debug aid). The real backend never puts frames on
+ * the fibre yet (MAC CMAC DMA data-pump unimplemented; see hal_send_omci and
+ * PON_PORTING.md section 4-B). This flag is retained only so the sim path can
+ * be observed. Default 0 = safe. */
 static bool omci_tx_enable;
 module_param_named(omci_tx_enable, omci_tx_enable, bool, 0444);
-MODULE_PARM_DESC(omci_tx_enable, "0=safe (default), 1=queue OMCI via omci netdev (PWAN TODO)");
+MODULE_PARM_DESC(omci_tx_enable, "debug: OMCI tx path (real backend still returns -EOPNOTSUPP; sim echoes)");
 
 /* ------------------------------------------------------------------ */
 /* Device / GPIO state                                                 */
@@ -285,21 +289,6 @@ static void omci_netdev_destroy(struct air_pon *p)
 /* HAL backend operations                                              */
 /* ------------------------------------------------------------------ */
 
-/* QDMA OMCI TX descriptor (reverse-engineered, see PON_OMCI_TX_RE.md)  */
-struct gwan_tx_desc {
-	__le32 word0;
-	__le32 word1;
-} __packed;
-
-static void gwan_build_tx_desc(struct gwan_tx_desc *d, const struct air_pon_omci *m)
-{
-	u32 len = m->len > 0xffff ? 0xffff : m->len;
-
-	d->word0 = cpu_to_le32(((len & 0xffff) << 14) | (1u << 8));
-	d->word1 = cpu_to_le32((1u << 31) | (0x7fu << 24) |
-			       (0x2u << 20) | (0x1fu << 6) | (0x1fu << 0));
-}
-
 /* Laser enable/disable via PON_PHY_FPGA_RG_TX_OFF.
  * on=1 -> write 0 (cancel TX off); on=0 -> write 1 (force TX off). */
 static void hal_laser_enable(int on)
@@ -329,6 +318,31 @@ static void hal_laser_enable(int on)
 #define XGSPON_VND_ID_OFF	0x500C
 #define XGSPON_VS_SN_OFF	0x5010
 
+/* XGSPON OMCI channel registers. Offsets are relative to mac_base
+ * (0x1fb64000) and live in the +0x5000 XGSPON MAC window. Facts extracted
+ * as register layout only (no source copied) from Airoha AN7581
+ * xgpon_mac_reg_c_header.h + the gpon_dvt.c init table.
+ *   TCONT_ID_CFG      @ 0x5250 : wr_tcont_id[13:0], tcont_id_index[24:20],
+ *                                   wr_tcont_id_vld[16], tcont_cmd[31]
+ *   GEM_PORT_CFG      @ 0x5274 : gem_port_id[15:0], gpid_vld[18],
+ *                                   gpid_type[17], gpid_us_encrypt[16],
+ *                                   gpid_cmd[31]
+ *   GEM_PORT_STS      @ 0x5278
+ *   TX_OMCI_PRE_GET   @ 0x528C : tx_pre_get_omci_en[0], tx_limit_get_omci_en[8],
+ *                                   tx_limit_get_omci_size[16:31]
+ *   RX_OMCI_PRE_GET   @ 0x5290 : rx_omci_intr_eth_en[0]
+ *   OMCI_LEN_CTRL     @ 0x59BC : max_omci_len[13:0]
+ * The OMCI GEM port id follows the GPON OMCC convention (0x048). */
+#define XGSPON_TCONT_ID_CFG_OFF	0x5250
+#define XGSPON_GEM_PORT_CFG_OFF	0x5274
+#define XGSPON_GEM_PORT_STS_OFF	0x5278
+#define XGSPON_TX_OMCI_PRE_GET_OFF	0x528C
+#define XGSPON_RX_OMCI_PRE_GET_OFF	0x5290
+#define XGSPON_OMCI_LEN_CTRL_OFF	0x59BC
+#define XGSPON_OMCI_GEM_PORT	0x048
+
+#define RF(v, s)	((u32)(v) << (s))
+
 static void hal_set_serial(struct air_pon *p)
 {
 	u32 v;
@@ -345,38 +359,72 @@ static void hal_set_serial(struct air_pon *p)
 		 p->serial, p->serial + 4);
 }
 
+/* Configure the XGSPON OMCI management channel in the PON MAC.
+ *
+ * This brings the OMCI path to a *configured* state: the dedicated OMCI GEM
+ * port (0x048) is allocated, the OMCI TX/RX "pre-get" (CPU/FE hand-off)
+ * registers are enabled, and the max OMCI length is set. These are exactly
+ * the register writes the vendor DVT table applies before OMCI starts
+ * (TX_OMCI_PRE_GET = 0x300101 -> pre-get enable + 48-byte limit;
+ *  RX_OMCI_PRE_GET = 0x1   -> route RX OMCI interrupt to the FE/ethernet).
+ *
+ * What is intentionally NOT done here (documented gap, see PON_PORTING.md
+ * section 4-B):
+ *   * T-CONT 0 alloc-id binding to the ONU-ID. That requires the ONU-ID
+ *     assigned by the OLT during O4/O5 ranging; it is applied later, not at
+ *     activate time.
+ *   * The OMCI *frame data pump*: pushing the 48-byte G.988 message into the
+ *     MAC for transmission. The reference BSP does this via the on-die CMAC
+ *     engine (gponDevSetCmac0Start with the message's DMA bus address,
+ *     GPON_CMAC_UPSTREAM) which computes the MIC and emits it on the OMCI
+ *     GEM port. That DMA/CMAC path is not part of this standalone driver and
+ *     is the remaining blocker for real OLT delivery. */
+static void hal_xgpon_omci_setup(struct air_pon *p)
+{
+	if (!p || !p->mac_base)
+		return;
+
+	/* Allocate the OMCI GEM port (id 0x048, valid, command trigger). */
+	writel(RF(XGSPON_OMCI_GEM_PORT, 0) | RF(1, 18) | RF(1, 31),
+	       p->mac_base + XGSPON_GEM_PORT_CFG_OFF);
+
+	/* TX OMCI pre-get: enable CPU pre-get + size limit 48 bytes. */
+	writel(0x300101, p->mac_base + XGSPON_TX_OMCI_PRE_GET_OFF);
+	/* RX OMCI pre-get: route RX OMCI interrupt to the FE. */
+	writel(0x1, p->mac_base + XGSPON_RX_OMCI_PRE_GET_OFF);
+	/* Max OMCI message length: 53 (48-byte G.988 basic + 4 CRC + 1). */
+	writel(RF(53, 0), p->mac_base + XGSPON_OMCI_LEN_CTRL_OFF);
+
+	dev_info(p->dev, "XGSPON OMCI channel configured (gem=%#x); frame data-pump pending\n",
+		 XGSPON_OMCI_GEM_PORT);
+}
+
 /* Forward a raw OMCI message to the PON MAC.
- * Real backend: encapsulate as EtherType 0x88b5 Ethernet and push via the
- * omci netdevice (PWAN TODO for actual on-fibre delivery).
- * Sim backend: echo back as an indication so the userspace stack is
- * exercised end-to-end without hardware. */
+ *
+ * Sim backend: echo the message back as an indication so the userspace OMCI
+ * stack (omcid2) is exercised end-to-end without hardware.
+ *
+ * Real backend: the OMCI *channel* is configured at activate time
+ * (hal_xgpon_omci_setup: OMCI GEM port + TX/RX pre-get). The actual on-fibre
+ * *data pump* - handing the 48-byte G.988 message to the MAC's CMAC engine
+ * via DMA (reference: gponDevSetCmac0Start, GPON_CMAC_UPSTREAM, which
+ * computes the MIC and emits it on the OMCI GEM port) - is NOT implemented
+ * in this standalone driver. We therefore return -EOPNOTSUPP so omcid2 knows
+ * the frame was not delivered, instead of silently queueing it. See
+ * PON_PORTING.md section 4-B for the resolution path. */
 static int hal_send_omci(const struct air_pon_omci *m)
 {
 	struct air_pon *p = g_pon;
-	struct sk_buff *skb;
-	u8 *eth;
 
-	if (backend_param == BACKEND_REAL) {
-		if (!p || !p->omci_netdev)
-			return -ENODEV;
-		skb = alloc_skb(m->len + ETH_HLEN + 2, GFP_KERNEL);
-		if (!skb)
-			return -ENOMEM;
-		skb_reserve(skb, 2);
-		eth = skb_put(skb, ETH_HLEN);
-		ether_addr_copy(eth, omci_olt_mac);
-		ether_addr_copy(eth + ETH_ALEN, omci_dev_mac);
-		eth[12] = (OMCI_ETHERTYPE >> 8) & 0xff;
-		eth[13] = OMCI_ETHERTYPE & 0xff;
-		skb_put_data(skb, m->msg, m->len);
-		skb->dev = p->omci_netdev;
-		skb->protocol = cpu_to_be16(OMCI_ETHERTYPE);
-		dev_queue_xmit(skb);
+	if (backend_param == BACKEND_SIM) {
+		if (p)
+			ind_push(m);
 		return 0;
 	}
-	if (p)
-		ind_push(m);
-	return 0;
+
+	dev_warn_once(p ? p->dev : NULL,
+		      "OMCI TX not delivered: XGSPON frame data-pump (MAC CMAC DMA) not implemented\n");
+	return -EOPNOTSUPP;
 }
 
 static void hal_get_status(struct air_pon_status *s)
@@ -435,6 +483,7 @@ static void hal_activate(int on)
 			hal_laser_enable(1);		/* bring the laser up */
 			pon_mac_replay_seq(p);		/* MAC init sequence */
 			hal_set_serial(p);		/* ONU serial -> XGSPON MAC */
+			hal_xgpon_omci_setup(p);	/* OMCI GEM port + pre-get */
 			/* TODO: apply SoC XGSPON/XGPON mode register
 			 * (gponDevSetWanMode / sysPonMode) once extracted. */
 			if (p->omci_netdev)

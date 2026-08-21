@@ -45,7 +45,8 @@
  └─────────────────────────┘            │   - PON MAC 初始化序列回放        │
                                          │   - OMCI 虚拟网口 (0x88b5)       │
                                          └──────────────┬───────────────────┘
-                                                        │  ⚠ 真实上纤需 Airoha PWAN QDMA 后端
+                                                        │  真实上纤：OMCI 经 OMCI GEM 端口 + MAC CMAC DMA 投递
+                                                        │  （非 PWAN 专有；见 §4-B / §4.1）
                                                         ▼
                                                   XPON PHY / 光纤 ──► OLT
 ```
@@ -54,6 +55,7 @@
 - PON MAC core `0x1fb64000`；GPON 子块 `+0x4000`、XGPON 子块 `+0x5000`、EPON 子块 `+0x6000`
 - PON PHY `0x1faf0000`；`PON_PHY_FPGA_RG_TX_OFF` `0x1fa2ff24`（写 0=激光开，写 1=强制 TX off）
 - OMCI 成帧：Ethernet，dst `00:00:00:00:00:02`、src `00:00:00:00:00:01`、EtherType `0x88b5`
+- XGSPON OMCI 通道寄存器（相对 mac_base `0x1fb64000`，在 +0x5000 窗口内，clean-room 提取自 `xgpon_mac_reg_c_header.h` + `gpon_dvt.c`）：`GEM_PORT_CFG@0x5274`（gem_port_id[15:0]/gpid_vld[18]/gpid_cmd[31]）、`TX_OMCI_PRE_GET@0x528C`（tx_pre_get_omci_en[0]/tx_limit_get_omci_en[8]/tx_limit_get_omci_size[16:31]，DVT 值 `0x300101`）、`RX_OMCI_PRE_GET@0x5290`（rx_omci_intr_eth_en[0]，DVT 值 `0x1`）、`OMCI_LEN_CTRL@0x59BC`（max_omci_len[13:0]）、`TCONT_ID_CFG@0x5250`（wr_tcont_id[13:0]/tcont_id_index[24:20]/wr_tcont_id_vld[16]/tcont_cmd[31]）、OMCI GEM 端口号 `0x048`。
 
 ---
 
@@ -66,18 +68,31 @@
 - ✅ **init 脚本**：把 SN/LOID/密码/mode 经 env 传给 omcid2；modprobe 默认 `hal_backend=1`（real）。
 - ✅ **LuCI 状态页**：显示 ONU 状态、模式、激光、收/发功率、偏置、温度、电压、FEC、LOS、TX-FAULT、序列号、LOID。
 - ✅ **ABI 同步**：userspace `pon_abi.h` 已与内核版逐字节对齐（之前字段号错位会导致 `ponctl` 编译失败/读错），并修内核 `spin_unlock_irqirqrestore` 笔误、新增 genl `SET_PROV`。
-- ✅ **PON MAC 序列号寄存器已编程**（本 session，§4-A 部分解决）：从 Airoha AN7581 XGSPON MAC 寄存器图（`xgpon_mac_reg_c_header.h`，clean-room 提取）取得 `VENDOR_ID@0x500C` / `VS_SN@0x5010`（偏移相对 PON MAC core `0x1fb64000`，已含 +0x5000 XGSPON 窗口基）。`hal_set_serial()` 在 `hal_activate()` 与 genl `SET_PROV`（`serial_no`）两条路径写入 `sn[0..3]→VENDOR_ID`、`sn[4..7]→VS_SN`，使 O3/O4 ranging 的 `Serial_Number_ONU` PLOAM 携带正确身份（`NBEL`+`B45F`）。XGSPON 模式为软件态（参考默认 XGSPON），无独立模式寄存器需写。
+- ✅ **PON MAC 序列号寄存器已编程**（前 session，§4-A 已闭合）：从 Airoha AN7581 XGSPON MAC 寄存器图（`xgpon_mac_reg_c_header.h`，clean-room 提取）取得 `VENDOR_ID@0x500C` / `VS_SN@0x5010`。`hal_set_serial()` 写入 `sn[0..3]→VENDOR_ID`、`sn[4..7]→VS_SN`，使 `Serial_Number_ONU` PLOAM 携带正确身份（`NBEL`+`B45F`）。
+- ✅ **PON MAC OMCI 通道已配置**（本 session，§4-B 部分解决）：从 `xgpon_mac_reg_c_header.h` + `gpon_dvt.c` 提取 XGSPON OMCI 寄存器，`hal_xgpon_omci_setup()` 在 `hal_activate()` 上电路径分配 OMCI GEM 端口（0x048）、使能 `TX_OMCI_PRE_GET=0x300101` / `RX_OMCI_PRE_GET=0x1`、设 `OMCI_LEN_CTRL=53`。但 OMCI **帧数据泵**（MAC CMAC DMA 投递 48 字节 G.988 报文）仍未实现，见 §4-B。
 
 ---
 
-## 4. 仍未打通（诚实的上机阻塞点）
+## 4. 仍未打通 / 剩余阻塞点（诚实）
 
 | 阻塞点 | 说明 | 需要什么 |
 |--------|------|----------|
-| **A. PON MAC 序列号寄存器** | ✅ **本 session 已解决**：`VENDOR_ID`/`VS_SN` 由 `hal_set_serial()` 编程（见上）。`LOID`/`密码` **不是 PON MAC 寄存器**——它们是 OMCI 层语义（ONU2-G ME 的 Password 属性、LOID 经 OMCI 下发），归 §4-B 的传输通道负责；XGSPON 模式为软件态（默认 XGSPON），无需专门寄存器。 | —（已闭合） |
-| **B. OMCI 真实上纤传输（PWAN QDMA）** | OMCI 帧已按 `0x88b5` 封装并经虚拟 `omci` 网口，但 `ndo_start_xmit` 当前丢帧并标 `PWAN TODO`——Airoha 私有 PWAN QDMA 子系统（`v2/xpon_10g/src/pwan`）未开源，无法 clean-room 复刻。OLT 鉴权（LOID/密码）与 MIB 协商全部走 OMCI，因此 **§4-B 是上机真正“用起来”的唯一硬阻塞**。 | 要么引入 Airoha 的 PWAN 后端（专有，需授权），要么找到不走 QDMA 的 OMCI DMA 通道（如参考 `pwan/gpon_wan.c` 中是否暴露独立 OMCI ring）。 |
+| **A. PON MAC 序列号寄存器** | ✅ **已闭合**（前 session）：`VENDOR_ID`/`VS_SN` 由 `hal_set_serial()` 编程。`LOID`/`密码` 不是 PON MAC 寄存器，归 OMCI 层（§4-B）。XGSPON 模式为软件态，无独立模式寄存器。 | —（已闭合） |
+| **B. OMCI 帧数据泵（XGSPON）** | ⚠️ **通道已配置，数据泵未实现**。从 `airoha_kernel` 的开放 GPON 实现（`net/omci.h` + `airoha_gpon_omci.c` + `airoha_eth_xmit_xpon_oam`）已确认：**OMCI 不需要 Airoha 私有 PWAN**——它走标准以太网 QDMA + 专用 OMCI GEM 端口（`GPON_OMCI_ID 0x048`）。本驱动的 `hal_xgpon_omci_setup()` 已按此思路配置 XGSPON 通道（GEM 端口 0x048、`TX_OMCI_PRE_GET=0x300101`、`RX_OMCI_PRE_GET=0x1`、`OMCI_LEN_CTRL`）。但把 **48 字节 G.988 报文真正投递进 MAC** 需走片上 **CMAC 引擎**：参考 BSP 用 `gponDevSetCmac0Start(phy_dma_addr, len, GPON_CMAC_UPSTREAM)` 计算 MIC 并发射（见 `pwan/gpon_wan.c`）。这条 CMAC-DMA 数据泵在本独立驱动里尚未实现，real 后端 `hal_send_omci()` 现返回 `-EOPNOTSUPP`（明确告知 omcid2 未送达，而非静默丢弃）。 | 二选一：(1) 实现 XGSPON CMAC-DMA 数据泵（需 CMAC 寄存器图 / `gponDevSetCmac0Start` 编程序列，clean-room 提取或 Airoha 授权）；(2) 把 `airoha_kernel` 的开放 `net/omci` + `airoha_eth` QDMA + `airoha_xpon` 栈移植进本树，并补 XGSPON OMCI 数据路径（该树目前 GPON-only）。 |
 
-> 结论：**当前代码能让光口“物理发光”（OLT 看得到光），并完成 O3/O4 序列号 ranging（序列号已编程）；但无法完成与 OLT 的 GTC 注册下行的 LOID/密码鉴权 + OMCI 协商**，因为 §4-B 的 OMCI 上纤传输尚未取得。这是上机真正“用起来”的硬阻塞，不是配置问题。
+> **关键结论（2026-08-21 更新）**：所谓"PWAN 是 OMCI 上纤的硬依赖"已被证伪——`airoha_kernel` 用开放以太网 QDMA 路径即可传 OMCI（GPON）。本机为 **XGSPON**，通道寄存器已配置；唯一真实缺口是 **XGSPON 帧数据泵（MAC CMAC DMA）**，该路径在公开资料中落在 `gponDevSetCmac0Start`（CMAC 引擎），需要其寄存器编程序列才能 clean-room 复刻。当前状态：光口**物理发光** + **O3/O4 序列号 ranging（序列号已编程）** 已具备；卡在 OMCI 报文的 MAC 投递这一步。
+
+### 4.1 参考仓库评估：Sirherobrine23/airoha_kernel（2026-08-21 新发现，★很有价值）
+
+`https://github.com/Sirherobrine23/airoha_kernel` —— Linux 6.18 内核树，分支 `airoha_en7523_all`，针对 Airoha SoC（EN7523/EN7528/AN7581）整合主线程驱动。对 §4-B 的决定性价值：
+
+- **开放 OMCI 子系统 `net/omci.h`（GPL-2.0）**：内核态 `omci_device_register(parent, ifindex, caps, ops, priv)` 向用户态 OMCI 守护进程暴露标准接口（`omci_device_xmit/receive/set_tcont/set_gem_port/...`），`airoha_gpon_omci.c` 是其 Airoha 后端实现。证明 OMCI 有**开放、标准的内核框架**，不必依赖厂商私有栈。
+- **OMCI 传输 = 标准以太网 QDMA，非 PWAN**：`airoha_gpon_omci_xmit()` → `airoha_eth_xmit_xpon_oam(gdm_dev, skb, gem_port_id)`，经 `airoha_eth` 的 QDMA 引擎发出；专用 OMCI GEM 端口由 `GPON_OMCI_ID 0x048`（`OMCI_PORT_VLD | gem_port_id`）使能。这彻底推翻了"PWAN 必备"假设。
+- **已克隆到本地**：`E:/WorkBuddy/OpenWrt/_src/_refs/airoha_kernel`（sparse-checkout `drivers/net/ethernet/airoha`），含 `airoha_xpon.c`(142K)、`airoha_gpon_omci.c`、`airoha_ploam.c`、`airoha_qdma.c`、`airoha_eth.c`、`net/omci.h`（经 uapi）。
+- **局限（对本机 XGSPON）**：该驱动文件头明确是 **GPON** 后端（`airoha_gpon_omci.c` 注 "EN7523 GPON OMCI"），`gpon_cb_set_omci_gem()` 硬编码 `GPON_OMCI_ID 0x048` 与 `gpon_write`，**无 XGSPON 分支**；`airoha_xpon.c` 虽映射 `xgspon_reg = base + 0x5000` 且含 `AIROHA_XPON_MODE_XGSPON`，但注释 "Add a larger resource-size case here when XGSPON support lands" 表明 XGSPON 完整支持尚未落地。故**直接移植该树仍不能让 XGSPON OMCI 上纤**，需补 XGSPON 数据路径。
+- **本机 OpenWrt 树现状**：`target/linux/airoha` 已含 `an7581`/`an7583`/`en7523` 子目标，但**不含 `airoha_eth`/`xpon_oam`/`net/omci`**（grep 无匹配）。即平台在、开放驱动栈不在——移植需把 `airoha_eth`+QDMA+`net/omci`+`airoha_xpon` 一并搬入并适配 DTS。
+
+**结论**：`airoha_kernel` 是 §4-B 的"地图"，证明了正确架构（开放以太网 QDMA + OMCI GEM 端口 + `net/omci` 框架），但本机 XGSPON 的最后一公里（CMAC-DMA 数据泵 / XGSPON 适配）仍需补。两条现实路径见 §4-B 末行。
 
 
 
@@ -102,7 +117,9 @@ ponctl status                 # 看 state / laser / 收光
 
 ## 6. 下一步（按价值排序）
 
-1. ✅ **PON MAC 序列号寄存器**（§4-A）——本 session 已闭合：`hal_set_serial()` 编程 `VENDOR_ID`/`VS_SN`，由 genl `SET_PROV`(`serial_no`) 或 `hal_activate()` 触发。
-2. **确认/接入 OMCI 传输通道**（§4-B，唯一剩余硬阻塞）：优先反汇编/审阅 `v2/xpon_10g/src/pwan/gpon_wan.c` 与 `xpon_netif.c`，确认 AN7581 是否暴露可绕过 PWAN QDMA 的 OMCI 专用 DMA ring；否则需 Airoha 授权后端（PWAN 固件/驱动）。
-3. 用本设备出厂 `omci.log` 对照补全 G.988 ME 属性表（卡片/ANI-G 光阈值等），提高 MIB-UPLOAD 通过率。
-4. `ponctl` 增加 `apply` 时经 `SET_PROV` 下发 mode/fec/serial（handler 已就位）。
+1. ✅ **PON MAC 序列号寄存器**（§4-A）——已闭合：`hal_set_serial()` 编程 `VENDOR_ID`/`VS_SN`。
+2. ✅ **PON MAC OMCI 通道配置**（§4-B 部分）——本 session 已落地：`hal_xgpon_omci_setup()` 分配 OMCI GEM 端口 + 使能 TX/RX pre-get + `OMCI_LEN_CTRL`。
+3. **🔴 XGSPON OMCI 帧数据泵（§4-B 唯一剩余硬阻塞）**：二选一——(a) clean-room 提取并实现片上 **CMAC 引擎** 的 OMCI DMA 投递（对应参考 `gponDevSetCmac0Start(GPON_CMAC_UPSTREAM, phy_addr, len)`，需 CMAC 寄存器图）；或 (b) 将 `airoha_kernel` 的开放 `net/omci` + `airoha_eth` QDMA + `airoha_xpon` 栈移植进 `target/linux/airoha` 并补 XGSPON 数据路径（该树 GPON-only）。完成后 `hal_send_omci()` real 分支即可真正把 G.988 报文投上光纤。
+4. OMCI 下行接收：配置 `RX_OMCI_PRE_GET` 后，需把 MAC 收到的 OMCI 帧经中断/ring 送回 `/dev/airoha_pon` 的 read()（当前 read() 走 sim 指示队列；real 下行收包路径待接）。
+5. 用本设备出厂 `omci.log` 对照补全 G.988 ME 属性表，提高 MIB-UPLOAD 通过率。
+6. `ponctl` 增加 `apply` 时经 `SET_PROV` 下发 mode/fec/serial（handler 已就位）。
