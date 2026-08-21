@@ -1,0 +1,88 @@
+From: wmz <wmz@openwrt.local>
+Subject: [PATCH] net: airoha: add xPON OAM (OMCI) TX support
+
+Add a dedicated OMCI transport path to the airoha_eth driver so the
+Airoha PON MAC (XGSPON) can emit G.988 OMCI frames on the OMCC GEM
+port (0x048):
+
+- airoha_eth_xmit_xpon_oam() submits an OMCI frame with the QDMA
+  TXMSG OAM flag set and the GEM port id carried in the SP_TAG field
+  (bits 14..29), on a dedicated queue (7), mirroring the vendor
+  xpon_10g.ko gwan_prepare_tx_message() descriptor layout.
+- airoha_dev_xmit() honors a per-skb mark (bit0 = OAM frame, bits
+  31..1 = gem_port_id) to flag such frames and set the OAM/TAG bits.
+- honor the openwrt,netdev-name DT property so the PON GDM port gets
+  a stable name (e.g. "pon0") that the PON management driver can
+  resolve.
+
+Signed-off-by: wmz <wmz@openwrt.local>
+---
+ drivers/net/ethernet/airoha/airoha_eth.c | 55 +++++++++++++++++++++++++++++++
+ 1 file changed, 55 insertions(+)
+
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -1963,6 +1963,35 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
++static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
++				   struct net_device *dev);
++
++#define AIROHA_XPON_OAM_MARK		BIT(0)
++#define AIROHA_XPON_OAM_QUEUE		7
++
++/* Submit an OMCI frame on the PON GDM port. The QDMA TXMSG descriptor is
++ * built with the OAM flag set and gem_port_id in the SP_TAG field (bits
++ * 14..29); the PON MAC picks the frame up and emits it on the OMCC GEM
++ * port. Queue 7 is dedicated to OMCI traffic. */
++int airoha_eth_xmit_xpon_oam(struct net_device *netdev, struct sk_buff *skb,
++			     u16 gem_port_id)
++{
++	struct airoha_gdm_port *port;
++
++	if (!netdev || !skb ||
++	    gem_port_id > FIELD_MAX(QDMA_ETH_TXMSG_SP_TAG_MASK))
++		return -EINVAL;
++
++	port = netdev_priv(netdev);
++	if (!port->qdma)
++		return -ENODEV;
++
++	skb->dev = netdev;
++	skb_set_queue_mapping(skb, AIROHA_XPON_OAM_QUEUE);
++	skb->mark = ((u32)gem_port_id << 1) | AIROHA_XPON_OAM_MARK;
++	return airoha_dev_xmit(skb, netdev) == NETDEV_TX_OK ? 0 : -EBUSY;
++}
++EXPORT_SYMBOL_GPL(airoha_eth_xmit_xpon_oam);
++
+ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
+ 				   struct net_device *dev)
+ {
+@@ -1985,6 +2014,9 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
+ 	qid = skb_get_queue_mapping(skb) % ARRAY_SIZE(qdma->q_tx);
+ 	tag = airoha_get_dsa_tag(skb, dev);
++	if (skb->mark & AIROHA_XPON_OAM_MARK)
++		tag = skb->mark >> 1;
+ 
+ 	msg0 = FIELD_PREP(QDMA_ETH_TXMSG_CHAN_MASK,
+ 			  qid / AIROHA_NUM_QOS_QUEUES) |
+@@ -1993,6 +2025,9 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
+ 			  qid % AIROHA_NUM_QOS_QUEUES) |
+ 	       FIELD_PREP(QDMA_ETH_TXMSG_SP_TAG_MASK, tag);
++	if (skb->mark & AIROHA_XPON_OAM_MARK)
++		msg0 |= FIELD_PREP(QDMA_ETH_TXMSG_OAM_MASK, 1);
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL)
+ 		msg0 |= FIELD_PREP(QDMA_ETH_TXMSG_TCO_MASK, 1) |
+ 			FIELD_PREP(QDMA_ETH_TXMSG_UCO_MASK, 1) |
+@@ -3060,6 +3093,14 @@ static int airoha_eth_probe_port(struct platform_device *pdev,
+ 	dev->dev.of_node = np;
+ 	dev->irq = qdma->irq_banks[0].irq;
+ 	SET_NETDEV_DEV(dev, eth->dev);
++	/* Honor openwrt,netdev-name so the PON GDM port can be addressed
++	 * by a stable name (e.g. "pon0") from the PON management driver. */
++	{
++		const char *name;
++		if (!of_property_read_string(np, "openwrt,netdev-name", &name))
++			strscpy(dev->name, name, IFNAMSIZ);
++	}
+ 
+ 	/* reserve hw queues for HTB offloading */
+ 	err = netif_set_real_num_tx_queues(dev, AIROHA_NUM_TX_RING);

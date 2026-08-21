@@ -86,7 +86,7 @@
 #include <linux/netlink.h>
 #include <linux/genetlink.h>
 #include <net/genetlink.h>
-#include <net/netlink.h>
+#include <net/net_namespace.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
@@ -96,6 +96,12 @@
 
 #include "pon_abi.h"
 #include "pon_mac_seq.h"
+
+/* OMCI transport: the frame is delivered to the SoC QDMA engine owned by
+ * airoha_eth, tagged as an OAM frame on the OMCC GEM port (0x048). Provided
+ * by the airoha_eth xPON OAM patch (049-net-airoha-xpon-oam.patch). */
+extern int airoha_eth_xmit_xpon_oam(struct net_device *netdev,
+				    struct sk_buff *skb, u16 gem_port_id);
 
 /* ------------------------------------------------------------------ */
 /* Register map (extracted facts, see header)                          */
@@ -164,6 +170,7 @@ struct air_pon {
 	void __iomem		*phy_base;	/* PON PHY regs (real backend) */
 	void __iomem		*tx_off_base;	/* laser TX_OFF (real backend) */
 	struct net_device	*omci_netdev;	/* OMCI-over-Ethernet xport */
+	struct net_device	*gdm2_ndev;	/* PON GDM2 (pon0) xPON netdev */
 	struct gpio_desc	*tx_disable;	/* active-low => laser on */
 	struct gpio_desc	*rx_sd;
 	struct gpio_desc	*tx_sd;
@@ -229,20 +236,17 @@ static void ind_push(const struct air_pon_omci *m)
 static netdev_tx_t omci_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	struct air_pon *p = netdev_priv(ndev);
+	struct net_device *gdm2 = p ? p->gdm2_ndev : NULL;
 
-	if (!omci_tx_enable) {
-		dev_dbg(p ? p->dev : ndev->dev.parent,
-			"OMCI TX dropped (omci_tx_enable=0 / QDMA data-pump TODO)\n");
+	if (!gdm2) {
+		dev_dbg(ndev->dev.parent,
+			"OMCI TX dropped: pon0 (GDM2) netdev not available\n");
 		dev_kfree_skb(skb);
 		return NETDEV_TX_OK;
 	}
-	/* TODO(xpon_oam): submit skb to airoha_eth QDMA with gem=0x048.
-	 * Reference: OEM xpon_10g.ko gwan_prepare_tx_message (QDMA TXMSG
-	 * descriptor: gem_port in bits 14..29, OAM flag) + airoha_kernel
-	 * airoha_eth_xmit_xpon_oam(). */
-	dev_dbg(p ? p->dev : ndev->dev.parent,
-		"OMCI TX queued len=%u (QDMA data-pump TODO)\n", skb->len);
-	dev_kfree_skb(skb);
+	/* Deliver on the OMCC GEM port via the QDMA OAM path. */
+	if (airoha_eth_xmit_xpon_oam(gdm2, skb, XGSPON_OMCI_GEM_PORT))
+		dev_kfree_skb(skb);
 	return NETDEV_TX_OK;
 }
 
@@ -557,38 +561,59 @@ out:
 static int hal_send_omci(const struct air_pon_omci *m)
 {
 	struct air_pon *p = g_pon;
+	struct sk_buff *skb;
+	struct ethhdr *eth;
+	u8 *payload;
+	int r;
 
 	if (backend_param == BACKEND_SIM) {
 		if (p)
 			ind_push(m);
 		return 0;
 	}
+	if (!p || !p->gdm2_ndev || !m || m->len < 1 ||
+	    m->len > AIR_PON_OMCI_MAX)
+		return -EINVAL;
 
-	/* Hardware-verifiable step even while the frame data-pump is pending:
-	 * run the message through the on-die CMAC engine and log the MIC. A
-	 * correct MIC here proves the MAC engine, OMCI IK RAM and DMA are live
-	 * (the same path the real egress will use). */
-	if (omci_mic_enable && p && p->mac_base && m && m->len >= 8 &&
-	    m->len <= AIR_PON_OMCI_MAX) {
+	/* Hardware-verifiable step on the same path the real egress uses:
+	 * run the message through the on-die CMAC engine and log the MIC. */
+	if (omci_mic_enable && p->mac_base && m->len >= 8) {
 		u8 ik[16] = { 0 }, mic[4];
-		int r;
+		int r2;
 
 		if (strlen(omci_ik) == 32 &&
 		    hex2bin(ik, omci_ik, sizeof(ik)) == 0)
 			dev_dbg(p->dev, "using OMCI IK override\n");
 		hal_omci_set_ik0(p, ik);
-		r = hal_omci_compute_mic(p, m->msg, m->len, mic);
-		if (r == 0)
+		r2 = hal_omci_compute_mic(p, m->msg, m->len, mic);
+		if (r2 == 0)
 			dev_info(p->dev,
-				 "OMCI MIC OK len=%u mic=%02x%02x%02x%02x (egress pending)\n",
+				 "OMCI MIC OK len=%u mic=%02x%02x%02x%02x\n",
 				 m->len, mic[0], mic[1], mic[2], mic[3]);
 		else
-			dev_warn(p->dev, "OMCI MIC failed (%d)\n", r);
+			dev_warn(p->dev, "OMCI MIC failed (%d)\n", r2);
 	}
 
-	dev_warn_once(p ? p->dev : NULL,
-		      "OMCI TX not delivered: XGSPON frame data-pump (MAC CMAC DMA) not implemented\n");
-	return -EOPNOTSUPP;
+	/* Build the OMCI-on-Ethernet frame (dst 00:..:02, EtherType 0x88b5)
+	 * and hand it to the QDMA OAM path. */
+	skb = netdev_alloc_skb(p->gdm2_ndev, ETH_HLEN + m->len);
+	if (!skb)
+		return -ENOMEM;
+	skb_reserve(skb, NET_IP_ALIGN);
+	skb_put(skb, ETH_HLEN + m->len);
+	eth = (struct ethhdr *)skb->data;
+	ether_addr_copy(eth->h_dest, omci_olt_mac);
+	ether_addr_copy(eth->h_source, omci_dev_mac);
+	eth->h_proto = htons(OMCI_ETHERTYPE);
+	payload = skb->data + ETH_HLEN;
+	memcpy(payload, m->msg, m->len);
+
+	r = airoha_eth_xmit_xpon_oam(p->gdm2_ndev, skb,
+				     XGSPON_OMCI_GEM_PORT);
+	if (r)
+		dev_warn_ratelimited(p->dev,
+				     "OMCI TX submit failed (%d)\n", r);
+	return r;
 }
 
 static void hal_get_status(struct air_pon_status *s)
@@ -648,6 +673,16 @@ static void hal_activate(int on)
 			pon_mac_replay_seq(p);		/* MAC init sequence */
 			hal_set_serial(p);		/* ONU serial -> XGSPON MAC */
 			hal_xgpon_omci_setup(p);	/* OMCI GEM port + pre-get */
+			/* Resolve the PON GDM2 (pon0) netdev for OMCI TX. */
+			if (!p->gdm2_ndev) {
+				p->gdm2_ndev = dev_get_by_name(&init_net, "pon0");
+				if (p->gdm2_ndev)
+					dev_info(p->dev, "PON GDM2 netdev: %s\n",
+						 p->gdm2_ndev->name);
+				else
+					dev_warn(p->dev,
+						 "pon0 (GDM2) netdev not found; OMCI TX disabled\n");
+			}
 			/* TODO: apply SoC XGSPON/XGPON mode register
 			 * (gponDevSetWanMode / sysPonMode) once extracted. */
 			if (p->omci_netdev)
@@ -1062,6 +1097,8 @@ static void air_pon_remove(struct platform_device *pdev)
 	atomic_set(&p->stop, 1);
 	wake_up_interruptible(&p->ind_wait);
 	cancel_delayed_work_sync(&p->sim_work);
+	if (p->gdm2_ndev)
+		dev_put(p->gdm2_ndev);
 	omci_netdev_destroy(p);
 	genl_unregister_family(&air_pon_genl_family);
 	misc_deregister(&air_pon_misc);
