@@ -26,6 +26,16 @@ define U-Boot/an7581_rfb
   BL31_IMAGE:=an7581-bl31.bin
 endef
 
+define U-Boot/an7581_bell-xg-040g-md
+  NAME:=Nokia Bell XG-040G-MD
+  UBOOT_CONFIG:=an7581_nokia_xg-040g-md
+  BUILD_DEVICES:=airoha_an7581-bell-xg-040g-md
+  BUILD_SUBTARGET:=an7581
+  UBOOT_IMAGE:=u-boot.fip
+  BL2_IMAGE:=an7581-bl2.bin
+  BL31_IMAGE:=an7581-bl31.bin
+endef
+
 define U-Boot/an7583_rfb
   NAME:=AN7583 Reference Board
   UBOOT_CONFIG:=an7583_evb
@@ -38,6 +48,7 @@ endef
 
 UBOOT_TARGETS := \
 	an7581_rfb \
+	an7581_bell-xg-040g-md \
 	an7583_rfb
 
 UBOOT_CUSTOMIZE_CONFIG := \
