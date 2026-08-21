@@ -85,6 +85,8 @@
 #include <linux/delay.h>
 #include <linux/netlink.h>
 #include <linux/genetlink.h>
+#include <net/genetlink.h>
+#include <net/netlink.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
@@ -254,7 +256,6 @@ static int omci_packet_rcv(struct sk_buff *skb, struct net_device *ndev,
 			   struct packet_type *pt, struct net_device *orig)
 {
 	struct air_pon_omci rec;
-	u8 *p = skb->data;
 
 	if (skb->len < 2)
 		goto drop;
@@ -622,7 +623,7 @@ static void pon_mac_replay_seq(struct air_pon *p)
 			writel(v, reg);
 		}
 	}
-	dev_info(p->dev, "PON MAC init sequence replayed (%d ops, mode=%d)\n",
+	dev_info(p->dev, "PON MAC init sequence replayed (%zu ops, mode=%d)\n",
 		 PON_MAC_SEQ_N, p->mode);
 }
 
@@ -718,8 +719,11 @@ static ssize_t air_pon_read(struct file *filp, char __user *buf,
 		spin_unlock_irqrestore(&p->fifo_lock, flags);
 		return -EMSGSIZE;
 	}
-	kfifo_out(&p->ind_fifo, &rec.len, 2);
-	kfifo_out(&p->ind_fifo, rec.msg, rec.len);
+	if (kfifo_out(&p->ind_fifo, &rec.len, 2) != 2 ||
+	    kfifo_out(&p->ind_fifo, rec.msg, rec.len) != rec.len) {
+		spin_unlock_irqrestore(&p->fifo_lock, flags);
+		return -EIO;
+	}
 	spin_unlock_irqrestore(&p->fifo_lock, flags);
 
 	if (copy_to_user(buf, &rec, rec.len + 2))
