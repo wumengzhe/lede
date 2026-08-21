@@ -53,6 +53,13 @@ define Build/Prepare
 	$(CP) ./src/* $(PKG_BUILD_DIR)/
 endef
 
+# Firmware-only package: the blobs are prebuilt, there is nothing to
+# compile. Override the default Build/Compile (which would cd into
+# $(PKG_BUILD_DIR) and run make -> "No targets specified and no makefile
+# found").
+define Build/Compile
+endef
+
 define Package/airoha-xpon-npu-firmware/install
 	$(INSTALL_DIR) $(1)/lib/firmware/airoha
 	# The in-tree NPU driver (drivers/net/ethernet/airoha/airoha_npu.c,
