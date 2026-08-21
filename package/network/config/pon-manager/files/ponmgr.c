@@ -73,7 +73,7 @@ static int g_active;		/* laser enabled */
 				 (nla)->nla_len >= sizeof(struct nlattr) && \
 				 (nla)->nla_len <= (len))
 #define GENLMSG_DATA(nlh)	((void *)((char *)NLMSG_DATA(nlh) + GENL_HDRLEN))
-#define GENLMSG_PAYLOAD(nlh)	(NLMSG_PAYLOAD(nlh) - GENL_HDRLEN)
+#define GENLMSG_PAYLOAD(nlh)	(NLMSG_PAYLOAD(nlh, GENL_HDRLEN))
 
 int nl_put_attr_inline(uint8_t *buf, int *off, int type,
 		       const void *data, int len)
