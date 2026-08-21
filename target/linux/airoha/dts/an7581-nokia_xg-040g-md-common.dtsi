@@ -13,9 +13,7 @@
 		 * (rootfs) is squashfs+ro and preinit runs from there; the
 		 * factory nvram lies on the same NAND, so ubi.mtd must point at
 		 * it before rootfs can be assembled. */
-		bootargs-append = " ubi.mtd=rootfs,2048 rootfstype=squashfs"
-				  " loglevel=8 ubi.block=0,rootfs ro"
-				  " init=/etc/preinit";
+		bootargs-append = " ubi.mtd=rootfs,2048 rootfstype=squashfs loglevel=8 ubi.block=0,rootfs ro init=/etc/preinit";
 	};
 	gpio-keys {
 		compatible = "gpio-keys";
