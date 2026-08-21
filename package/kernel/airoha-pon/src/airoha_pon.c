@@ -41,10 +41,20 @@
  * @0x5274, id 0x048). The public Sirherobrine23/airoha_kernel tree ships an
  * OPEN GPON OMCI transport (net/omci.h + airoha_gpon_omci.c) over the standard
  * airoha_eth QDMA path - NOT the private PWAN subsystem - which proves OMCI
- * does not require PWAN. For XGSPON (this device) that open tree is GPON-only,
- * so this standalone driver configures the OMCI channel registers
- * (hal_xgpon_omci_setup) and leaves the CMAC-DMA data pump as the documented
- * remaining blocker (PON_PORTING.md section 4-B).
+ * does not require PWAN. That open tree is EN7523/GPON-only (its xpon_oam TX
+ * is gated by !airoha_is(eth, airoha_en7523)), so it does not cover AN7581
+ * XGSPON. Confirmed against the OEM AN7581 xpon_10g.ko (from this device's
+ * stock firmware): the OMCI upstream submit builds a QDMA-style TX descriptor
+ * (gwan_prepare_tx_message: GEM-port tag in bits 14..29, TXMSG OAM flag) and
+ * computes the MIC on the CMAC engine (gponDevSetCmac0Start: SW0_ENCSTART
+ * @0x5400, SW0_ENCINFO @0x5414, INT_STATUS @0x5044 bit 21). Therefore the
+ * remaining blocker is the AN7581 QDMA data-pump: the frame must reach the
+ * SoC QDMA engine that airoha_eth owns, which needs the xpon_oam hook
+ * backported into this tree's 6.12 airoha_eth (see PON_PORTING.md 4-B).
+ * This driver therefore: configures the OMCI channel registers
+ * (hal_xgpon_omci_setup), programs the OMCI IK + computes the MIC on the
+ * CMAC engine (hal_omci_compute_mic, verifiable on hardware), and honestly
+ * returns -EOPNOTSUPP until the QDMA data-pump lands.
  *
  * PON mode: enum pon_mode from pon_abi.h. 1=XGPON, 7=XGSPON (upstream ref
  * default). The SoC mode is selected via sysPonMode-style global; the exact
@@ -79,6 +89,8 @@
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/version.h>
+#include <linux/dma-mapping.h>
+#include <linux/kernel.h>
 
 #include "pon_abi.h"
 #include "pon_mac_seq.h"
@@ -128,6 +140,17 @@ MODULE_PARM_DESC(sys_xpon_mode, "PON mode: 1=XGPON, 7=XGSPON (default)");
 static bool omci_tx_enable;
 module_param_named(omci_tx_enable, omci_tx_enable, bool, 0444);
 MODULE_PARM_DESC(omci_tx_enable, "debug: OMCI tx path (real backend still returns -EOPNOTSUPP; sim echoes)");
+
+/* CMAC MIC debug knobs: compute the G.988 message-integrity check on every
+ * TX attempt via the on-die CMAC engine (hardware-verifiable even though the
+ * frame data-pump is still pending), and override the OMCI integrity key
+ * (hex, 16 bytes; default all-zero until the OLT provisions it via OMCI). */
+static bool omci_mic_enable;
+module_param_named(omci_mic_enable, omci_mic_enable, bool, 0644);
+MODULE_PARM_DESC(omci_mic_enable, "1=compute OMCI MIC via on-die CMAC on TX attempt");
+static char omci_ik[40];
+module_param_string(omci_ik, omci_ik, sizeof(omci_ik), 0644);
+MODULE_PARM_DESC(omci_ik, "OMCI integrity key, 32 hex chars (default zeros)");
 
 /* ------------------------------------------------------------------ */
 /* Device / GPIO state                                                 */
@@ -195,23 +218,28 @@ static void ind_push(const struct air_pon_omci *m)
 /* ------------------------------------------------------------------ */
 
 /* netdev start_xmit: the frame is already an OMCI Ethernet skb. Real
- * on-fibre delivery requires the Airoha PWAN QDMA backend; until that
- * is present we free the skb and report success (so the stack does not
- * block) but tag it clearly as not transmitted. */
+ * on-fibre delivery requires submitting it to the SoC QDMA engine that
+ * airoha_eth owns, tagged with the OMCI GEM port (0x048) + OAM flag
+ * (the xpon_oam hook - see PON_PORTING.md 4-B). Until that hook is
+ * backported into this tree's 6.12 airoha_eth we free the skb and report
+ * success (so the stack does not block) but tag it clearly as not
+ * transmitted. */
 static netdev_tx_t omci_ndo_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	struct air_pon *p = netdev_priv(ndev);
 
 	if (!omci_tx_enable) {
 		dev_dbg(p ? p->dev : ndev->dev.parent,
-			"OMCI TX dropped (omci_tx_enable=0 / PWAN backend TODO)\n");
+			"OMCI TX dropped (omci_tx_enable=0 / QDMA data-pump TODO)\n");
 		dev_kfree_skb(skb);
 		return NETDEV_TX_OK;
 	}
-	/* TODO(PWAN): hand skb to Airoha QDMA WAN OMCI queue
-	 * (v2/xpon_10g/src/pwan/gpon_wan.c:gwan_prepare_tx_message). */
+	/* TODO(xpon_oam): submit skb to airoha_eth QDMA with gem=0x048.
+	 * Reference: OEM xpon_10g.ko gwan_prepare_tx_message (QDMA TXMSG
+	 * descriptor: gem_port in bits 14..29, OAM flag) + airoha_kernel
+	 * airoha_eth_xmit_xpon_oam(). */
 	dev_dbg(p ? p->dev : ndev->dev.parent,
-		"OMCI TX queued len=%u (PWAN backend TODO)\n", skb->len);
+		"OMCI TX queued len=%u (QDMA data-pump TODO)\n", skb->len);
 	dev_kfree_skb(skb);
 	return NETDEV_TX_OK;
 }
@@ -341,6 +369,27 @@ static void hal_laser_enable(int on)
 #define XGSPON_OMCI_LEN_CTRL_OFF	0x59BC
 #define XGSPON_OMCI_GEM_PORT	0x048
 
+/* XGSPON CMAC (AES-CMAC MIC engine) - offsets confirmed against the OEM
+ * AN7581 xpon_10g.ko disassembly (gponDevSetCmac0Start: SW0_ENCSTART=0x5400,
+ * SW0_ENCINFO=0x5414 with enckidx[18:16]/encdic[1:0], INT_STATUS=0x5044 with
+ * sw0_mic_done_int[21]) and the Airoha XGSPON register header. */
+#define XGSPON_INT_STATUS_OFF	0x5044
+#define XGSPON_INT_SW0_MIC_DONE	(1U << 21)
+#define XGSPON_OIK0_0_OFF	0x5380	/* OMCI IK0 key RAM (16 B, BE words) */
+#define XGSPON_OIK0_1_OFF	0x5384
+#define XGSPON_OIK0_2_OFF	0x5388
+#define XGSPON_OIK0_3_OFF	0x538C
+#define XGSPON_SW0_ENCSTART_OFF	0x5400
+#define XGSPON_SW0_MADDR_OFF	0x5404
+#define XGSPON_SW0_RADDR_OFF	0x5408
+#define XGSPON_SW0_KADDR_OFF	0x540C
+#define XGSPON_SW0_ENCLEN_OFF	0x5410
+#define XGSPON_SW0_ENCINFO_OFF	0x5414
+#define CMAC_KEYIDX_OMCI0	2	/* GPON_CMAC_OMCI_IDX0 */
+#define CMAC_DIR_UPSTREAM	2	/* GPON_CMAC_UPSTREAM */
+#define CMAC_MIC_RESULT_LEN	5	/* 4-byte MIC + 1 completion flag */
+#define CMAC_POLL_RETRY		3000
+
 #define RF(v, s)	((u32)(v) << (s))
 
 static void hal_set_serial(struct air_pon *p)
@@ -399,6 +448,90 @@ static void hal_xgpon_omci_setup(struct air_pon *p)
 		 XGSPON_OMCI_GEM_PORT);
 }
 
+/* Program the OMCI integrity key 0 (16 bytes) into the CMAC key RAM.
+ * Byte order per reference gponDevSetOmciIk0(): BE words, key[12..15] first. */
+static void hal_omci_set_ik0(struct air_pon *p, const u8 *ik)
+{
+	u32 v;
+
+	v = ((u32)ik[12] << 24) | ((u32)ik[13] << 16) | ((u32)ik[14] << 8) | ik[15];
+	writel(v, p->mac_base + XGSPON_OIK0_0_OFF);
+	v = ((u32)ik[8] << 24) | ((u32)ik[9] << 16) | ((u32)ik[10] << 8) | ik[11];
+	writel(v, p->mac_base + XGSPON_OIK0_1_OFF);
+	v = ((u32)ik[4] << 24) | ((u32)ik[5] << 16) | ((u32)ik[6] << 8) | ik[7];
+	writel(v, p->mac_base + XGSPON_OIK0_2_OFF);
+	v = ((u32)ik[0] << 24) | ((u32)ik[1] << 16) | ((u32)ik[2] << 8) | ik[3];
+	writel(v, p->mac_base + XGSPON_OIK0_3_OFF);
+}
+
+/* Compute the 4-byte OMCI MIC for a G.988 message on the on-die CMAC engine.
+ * Register sequence matches the OEM AN7581 xpon_10g.ko (gponDevSetCmac0Start):
+ *   ENCINFO(keyidx=OMCI_IK0, dir=UPSTREAM) -> ENCLEN -> MADDR/RADDR ->
+ *   clear INT_STATUS[21] -> ENCSTART|1 -> poll INT_STATUS[21] -> check the
+ *   result buffer's completion flag (last byte == 1) -> copy 4-byte MIC.
+ * Returns 0 on success, -errno otherwise. */
+static int hal_omci_compute_mic(struct air_pon *p, const u8 *msg, u16 len, u8 mic[4])
+{
+	struct device *dev = p->dev;
+	void *src = NULL, *res = NULL;
+	dma_addr_t src_phys = 0, res_phys = 0;
+	u32 info, istat;
+	int retry = CMAC_POLL_RETRY;
+	int ret = -EIO;
+
+	if (!p || !p->mac_base)
+		return -ENODEV;
+
+	src = dma_alloc_coherent(dev, len, &src_phys, GFP_KERNEL);
+	if (!src)
+		return -ENOMEM;
+	res = dma_alloc_coherent(dev, CMAC_MIC_RESULT_LEN, &res_phys, GFP_KERNEL);
+	if (!res) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	memcpy(src, msg, len);
+	memset(res, 0, CMAC_MIC_RESULT_LEN);
+
+	/* key index (OMCI_IK0 = 2) << 16 | direction (UPSTREAM = 2) */
+	info = readl(p->mac_base + XGSPON_SW0_ENCINFO_OFF);
+	info &= ~((0x7u << 16) | (0x3u << 0));
+	info |= ((u32)CMAC_KEYIDX_OMCI0 << 16) | ((u32)CMAC_DIR_UPSTREAM << 0);
+	writel(info, p->mac_base + XGSPON_SW0_ENCINFO_OFF);
+
+	/* message length | result length << 16, then DMA addresses */
+	writel((u32)len | ((u32)CMAC_MIC_RESULT_LEN << 16),
+	       p->mac_base + XGSPON_SW0_ENCLEN_OFF);
+	writel((u32)src_phys, p->mac_base + XGSPON_SW0_MADDR_OFF);
+	writel((u32)res_phys, p->mac_base + XGSPON_SW0_RADDR_OFF);
+
+	/* clear done bit, then start the engine */
+	istat = readl(p->mac_base + XGSPON_INT_STATUS_OFF);
+	writel(istat | XGSPON_INT_SW0_MIC_DONE,
+	       p->mac_base + XGSPON_INT_STATUS_OFF);
+	writel(readl(p->mac_base + XGSPON_SW0_ENCSTART_OFF) | 1,
+	       p->mac_base + XGSPON_SW0_ENCSTART_OFF);
+
+	while (retry--) {
+		istat = readl(p->mac_base + XGSPON_INT_STATUS_OFF);
+		if (!(istat & XGSPON_INT_SW0_MIC_DONE))
+			continue;
+		writel(istat | XGSPON_INT_SW0_MIC_DONE,
+		       p->mac_base + XGSPON_INT_STATUS_OFF);
+		if (((u8 *)res)[CMAC_MIC_RESULT_LEN - 1] == 1) {
+			memcpy(mic, res, 4);
+			ret = 0;
+		}
+		break;
+	}
+out:
+	if (src)
+		dma_free_coherent(dev, len, src, src_phys);
+	if (res)
+		dma_free_coherent(dev, CMAC_MIC_RESULT_LEN, res, res_phys);
+	return ret;
+}
+
 /* Forward a raw OMCI message to the PON MAC.
  *
  * Sim backend: echo the message back as an indication so the userspace OMCI
@@ -420,6 +553,28 @@ static int hal_send_omci(const struct air_pon_omci *m)
 		if (p)
 			ind_push(m);
 		return 0;
+	}
+
+	/* Hardware-verifiable step even while the frame data-pump is pending:
+	 * run the message through the on-die CMAC engine and log the MIC. A
+	 * correct MIC here proves the MAC engine, OMCI IK RAM and DMA are live
+	 * (the same path the real egress will use). */
+	if (omci_mic_enable && p && p->mac_base && m && m->len >= 8 &&
+	    m->len <= AIR_PON_OMCI_MAX) {
+		u8 ik[16] = { 0 }, mic[4];
+		int r;
+
+		if (strlen(omci_ik) == 32 &&
+		    hex2bin(ik, omci_ik, sizeof(ik)) == 0)
+			dev_dbg(p->dev, "using OMCI IK override\n");
+		hal_omci_set_ik0(p, ik);
+		r = hal_omci_compute_mic(p, m->msg, m->len, mic);
+		if (r == 0)
+			dev_info(p->dev,
+				 "OMCI MIC OK len=%u mic=%02x%02x%02x%02x (egress pending)\n",
+				 m->len, mic[0], mic[1], mic[2], mic[3]);
+		else
+			dev_warn(p->dev, "OMCI MIC failed (%d)\n", r);
 	}
 
 	dev_warn_once(p ? p->dev : NULL,
