@@ -25,6 +25,10 @@
 
 #include "pon_abi.h"
 
+/* generic-netlink payload accessors (not in the UAPI headers) */
+#define GENLMSG_DATA(nlh)	((void *)((char *)NLMSG_DATA(nlh) + GENL_HDRLEN))
+#define GENLMSG_PAYLOAD(nlh)	(NLMSG_PAYLOAD(nlh, GENL_HDRLEN))
+
 static uint16_t g_family_id;
 
 static int nl_put_attr(uint8_t *buf, int *off, int type,
