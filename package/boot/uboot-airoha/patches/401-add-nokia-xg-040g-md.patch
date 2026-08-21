@@ -192,13 +192,10 @@
 +_bootmenu_update_title=setenv _bootmenu_update_title ; setenv bootmenu_title "$bootmenu_title       [33m$ver[0m"
 --- /dev/null
 +++ b/dts/upstream/src/arm64/airoha/an7581-nokia-xg-040g-md.dts
-@@ -0,0 +1,100 @@
+@@ -0,0 +1,54 @@
 +// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 +/dts-v1/;
 +
-+#include <dt-bindings/leds/common.h>
-+#include <dt-bindings/gpio/gpio.h>
-+#include <dt-bindings/input/input.h>
 +#include "en7581.dtsi"
 +#include "an7581-nokia-xg-040g-md-u-boot.dtsi"
 +
@@ -219,49 +216,6 @@
 +		reg = <0x0 0x80000000 0x0 0x20000000>;
 +	};
 +
-+	keys {
-+		compatible = "gpio-keys";
-+
-+		button-0 {
-+			label = "reset";
-+			linux,code = <KEY_RESTART>;
-+			gpios = <&en7581_pinctrl 0 GPIO_ACTIVE_LOW>;
-+		};
-+	};
-+
-+	leds {
-+		compatible = "gpio-leds";
-+
-+		led-0 {
-+			label = "green:power";
-+			gpios = <&en7581_pinctrl 17 GPIO_ACTIVE_LOW>;
-+		};
-+
-+		led-1 {
-+			label = "green:wan";
-+			gpios = <&en7581_pinctrl 18 GPIO_ACTIVE_LOW>;
-+		};
-+
-+		led-2 {
-+			label = "red:wan";
-+			gpios = <&en7581_pinctrl 19 GPIO_ACTIVE_LOW>;
-+		};
-+
-+		led-3 {
-+			label = "green:wan-online";
-+			gpios = <&en7581_pinctrl 20 GPIO_ACTIVE_LOW>;
-+		};
-+
-+		led-4 {
-+			label = "green:usb-2";
-+			gpios = <&en7581_pinctrl 34 GPIO_ACTIVE_LOW>;
-+		};
-+
-+		led-5 {
-+			label = "green:usb-1";
-+			gpios = <&en7581_pinctrl 35 GPIO_ACTIVE_LOW>;
-+		};
-+	};
 +};
 +
 +&snfi {
@@ -295,7 +249,7 @@
 +};
 --- /dev/null
 +++ b/dts/upstream/src/arm64/airoha/an7581-nokia-xg-040g-md-u-boot.dtsi
-@@ -0,0 +1,127 @@
+@@ -0,0 +1,124 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +
 +#include <dt-bindings/reset/airoha,en7581-reset.h>
@@ -419,8 +373,4 @@
 +
 +&uart1 {
 +	bootph-all;
-+};
-+
-+&gdm1 {
-+	status = "okay";
 +};
