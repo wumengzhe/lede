@@ -66,6 +66,7 @@
 - ✅ **init 脚本**：把 SN/LOID/密码/mode 经 env 传给 omcid2；modprobe 默认 `hal_backend=1`（real）。
 - ✅ **LuCI 状态页**：显示 ONU 状态、模式、激光、收/发功率、偏置、温度、电压、FEC、LOS、TX-FAULT、序列号、LOID。
 - ✅ **ABI 同步**：userspace `pon_abi.h` 已与内核版逐字节对齐（之前字段号错位会导致 `ponctl` 编译失败/读错），并修内核 `spin_unlock_irqirqrestore` 笔误、新增 genl `SET_PROV`。
+- ✅ **PON MAC 序列号寄存器已编程**（本 session，§4-A 部分解决）：从 Airoha AN7581 XGSPON MAC 寄存器图（`xgpon_mac_reg_c_header.h`，clean-room 提取）取得 `VENDOR_ID@0x500C` / `VS_SN@0x5010`（偏移相对 PON MAC core `0x1fb64000`，已含 +0x5000 XGSPON 窗口基）。`hal_set_serial()` 在 `hal_activate()` 与 genl `SET_PROV`（`serial_no`）两条路径写入 `sn[0..3]→VENDOR_ID`、`sn[4..7]→VS_SN`，使 O3/O4 ranging 的 `Serial_Number_ONU` PLOAM 携带正确身份（`NBEL`+`B45F`）。XGSPON 模式为软件态（参考默认 XGSPON），无独立模式寄存器需写。
 
 ---
 
@@ -73,10 +74,12 @@
 
 | 阻塞点 | 说明 | 需要什么 |
 |--------|------|----------|
-| **A. PON MAC 序列号/密码/模式寄存器** | 当前驱动只做 TX_OFF + 通用 MAC 初始化序列，**未把 ONU 序列号、LOID/密码、XGPON/XGSPON 模式写进 PON MAC 寄存器**。GTC 层（PLOAM 序列号/密码交互）因此没真正编程，OLT 多半停在 O3/O4 或报“密码错”。 | 从 Airoha 参考 BSP 提取 PON MAC 的 serial/password/wan-mode 寄存器偏移与位域（clean-room，只取寄存器事实）。 |
-| **B. OMCI 真实上纤传输（PWAN QDMA）** | OMCI 帧已按 `0x88b5` 封装并经虚拟 `omci` 网口，但 `ndo_start_xmit` 当前丢帧并标 `PWAN TODO`——Airoha 私有 PWAN QDMA 子系统（`v2/xpon_10g/src/pwan`）未开源，无法 clean-room 复刻。 | 要么引入 Airoha 的 PWAN 后端（专有，需授权），要么找到不走 QDMA 的 OMCI DMA 通道。 |
+| **A. PON MAC 序列号寄存器** | ✅ **本 session 已解决**：`VENDOR_ID`/`VS_SN` 由 `hal_set_serial()` 编程（见上）。`LOID`/`密码` **不是 PON MAC 寄存器**——它们是 OMCI 层语义（ONU2-G ME 的 Password 属性、LOID 经 OMCI 下发），归 §4-B 的传输通道负责；XGSPON 模式为软件态（默认 XGSPON），无需专门寄存器。 | —（已闭合） |
+| **B. OMCI 真实上纤传输（PWAN QDMA）** | OMCI 帧已按 `0x88b5` 封装并经虚拟 `omci` 网口，但 `ndo_start_xmit` 当前丢帧并标 `PWAN TODO`——Airoha 私有 PWAN QDMA 子系统（`v2/xpon_10g/src/pwan`）未开源，无法 clean-room 复刻。OLT 鉴权（LOID/密码）与 MIB 协商全部走 OMCI，因此 **§4-B 是上机真正“用起来”的唯一硬阻塞**。 | 要么引入 Airoha 的 PWAN 后端（专有，需授权），要么找到不走 QDMA 的 OMCI DMA 通道（如参考 `pwan/gpon_wan.c` 中是否暴露独立 OMCI ring）。 |
 
-> 结论：**当前代码能让光口“物理发光”（OLT 看得到光），但无法完成与 OLT 的 GTC 注册 + OMCI 协商**，因为 A/B 两个寄存器/传输事实尚未取得。这两项是上机真正“用起来”的硬阻塞，不是配置问题。
+> 结论：**当前代码能让光口“物理发光”（OLT 看得到光），并完成 O3/O4 序列号 ranging（序列号已编程）；但无法完成与 OLT 的 GTC 注册下行的 LOID/密码鉴权 + OMCI 协商**，因为 §4-B 的 OMCI 上纤传输尚未取得。这是上机真正“用起来”的硬阻塞，不是配置问题。
+
+
 
 ---
 
@@ -99,7 +102,7 @@ ponctl status                 # 看 state / laser / 收光
 
 ## 6. 下一步（按价值排序）
 
-1. **提取 PON MAC serial/password/wan-mode 寄存器**（§4-A）——这是离“真正注册”最近的一步；取得后写入 `pon_mac_seq.h` / `hal_activate()`。
-2. **确认/接入 OMCI 传输通道**（§4-B）：优先确认 AN7581 是否有绕过 PWAN 的 OMCI DMA；否则需 Airoha 授权后端。
+1. ✅ **PON MAC 序列号寄存器**（§4-A）——本 session 已闭合：`hal_set_serial()` 编程 `VENDOR_ID`/`VS_SN`，由 genl `SET_PROV`(`serial_no`) 或 `hal_activate()` 触发。
+2. **确认/接入 OMCI 传输通道**（§4-B，唯一剩余硬阻塞）：优先反汇编/审阅 `v2/xpon_10g/src/pwan/gpon_wan.c` 与 `xpon_netif.c`，确认 AN7581 是否暴露可绕过 PWAN QDMA 的 OMCI 专用 DMA ring；否则需 Airoha 授权后端（PWAN 固件/驱动）。
 3. 用本设备出厂 `omci.log` 对照补全 G.988 ME 属性表（卡片/ANI-G 光阈值等），提高 MIB-UPLOAD 通过率。
-4. `ponctl` 增加 `apply` 时经 `SET_PROV` 下发 mode/fec（已留 handler）。
+4. `ponctl` 增加 `apply` 时经 `SET_PROV` 下发 mode/fec/serial（handler 已就位）。

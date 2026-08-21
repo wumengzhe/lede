@@ -150,6 +150,10 @@ struct air_pon {
 	s32			temperature;
 	u32			voltage;
 	u8			fec;
+	u8			serial[PON_SERIAL_LEN]; /* ONU serial (vendor 4 + SN 4
+							for the MAC PLOAM; the rest is
+							carried by OMCI ONU-G) */
+	u8			serial_len;
 
 	struct kfifo		ind_fifo;
 	spinlock_t		fifo_lock;
@@ -308,6 +312,39 @@ static void hal_laser_enable(int on)
 	dev_info(p->dev, "laser %s (TX_OFF <- %u)\n", on ? "ON" : "OFF", on ? 0 : 1);
 }
 
+/* Program the ONU serial number into the XGSPON MAC serial-number
+ * registers so the Serial_Number_ONU PLOAM sent during O3/O4 ranging
+ * carries the correct identity.
+ *
+ * Register facts (clean-room extracted from the Airoha AN7581 XGSPON MAC
+ * register map, xgpon_mac_reg_c_header.h; offsets are relative to the PON
+ * MAC core base 0x1fb64000, i.e. mac_base, and already include the
+ * +0x5000 XGSPON window base):
+ *   VENDOR_ID @ 0x500C : vendor_id[31:0]  = sn[0]<<24 | sn[1]<<16 |
+ *                                              sn[2]<<8  | sn[3]   (4 ASCII)
+ *   VS_SN     @ 0x5010 : vs_sn[31:0]      = sn[4]<<24 | sn[5]<<16 |
+ *                                              sn[6]<<8  | sn[7]   (4 ASCII)
+ * Only the first 8 bytes of the serial (vendor 4 + vs_sn 4) program the
+ * MAC; the OMCI ONU-G ME carries the full 12-byte XGPON serial. */
+#define XGSPON_VND_ID_OFF	0x500C
+#define XGSPON_VS_SN_OFF	0x5010
+
+static void hal_set_serial(struct air_pon *p)
+{
+	u32 v;
+
+	if (!p || !p->mac_base || p->serial_len < 8)
+		return;
+	v = ((u32)p->serial[0] << 24) | ((u32)p->serial[1] << 16) |
+	    ((u32)p->serial[2] << 8)  | (u32)p->serial[3];
+	writel(v, p->mac_base + XGSPON_VND_ID_OFF);
+	v = ((u32)p->serial[4] << 24) | ((u32)p->serial[5] << 16) |
+	    ((u32)p->serial[6] << 8)  | (u32)p->serial[7];
+	writel(v, p->mac_base + XGSPON_VS_SN_OFF);
+	dev_info(p->dev, "PON MAC serial programmed: '%.4s%.4s' (VENDOR_ID/VS_SN)\n",
+		 p->serial, p->serial + 4);
+}
+
 /* Forward a raw OMCI message to the PON MAC.
  * Real backend: encapsulate as EtherType 0x88b5 Ethernet and push via the
  * omci netdevice (PWAN TODO for actual on-fibre delivery).
@@ -397,6 +434,7 @@ static void hal_activate(int on)
 			p->mode = xpon_mode_param;
 			hal_laser_enable(1);		/* bring the laser up */
 			pon_mac_replay_seq(p);		/* MAC init sequence */
+			hal_set_serial(p);		/* ONU serial -> XGSPON MAC */
 			/* TODO: apply SoC XGSPON/XGPON mode register
 			 * (gponDevSetWanMode / sysPonMode) once extracted. */
 			if (p->omci_netdev)
@@ -613,6 +651,16 @@ static int genl_set_prov(struct sk_buff *skb, struct genl_info *info)
 	xpon_mode_param = (int)mode;
 	if (info->attrs[PON_ATTR_FEC])
 		g_pon->fec = nla_get_u8(info->attrs[PON_ATTR_FEC]);
+	if (info->attrs[PON_ATTR_SERIAL]) {
+		u8 *s = nla_data(info->attrs[PON_ATTR_SERIAL]);
+		int l = nla_len(info->attrs[PON_ATTR_SERIAL]);
+
+		if (l > PON_SERIAL_LEN)
+			l = PON_SERIAL_LEN;
+		memcpy(g_pon->serial, s, l);
+		g_pon->serial_len = (u8)l;
+		hal_set_serial(g_pon);
+	}
 	dev_info(g_pon->dev, "provisioned: mode=%u fec=%u\n", mode, g_pon->fec);
 	return 0;
 }

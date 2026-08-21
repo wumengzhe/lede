@@ -14,6 +14,12 @@
 
 #include <linux/types.h>
 
+/* Length of the PON ONU serial number.
+ * GPON/XGSPON MAC PLOAM serial = 8 bytes (vendor id 4 + vs_sn 4).
+ * The full 12-byte XGPON serial number (vendor 4 + SN 8) is carried by
+ * the OMCI ONU-G ME and is seeded separately by the omcid2 daemon. */
+#define PON_SERIAL_LEN		12
+
 /* ------------------------------------------------------------------ */
 /* netlink family                                                      */
 /* ------------------------------------------------------------------ */
@@ -41,6 +47,9 @@ enum {
 	PON_ATTR_FEC,		/* u8 (provisioning) */
 	PON_ATTR_MODE,		/* u32, enum pon_mode */
 	PON_ATTR_AUTH_METHOD,	/* u32, big-endian serial (provisioning) */
+	PON_ATTR_SERIAL,	/* binary, up to PON_SERIAL_LEN: ONU serial
+				 * (vendor 4 + SN 4 for the MAC PLOAM; the
+				 * kernel writes VENDOR_ID/VS_SN registers) */
 	PON_ATTR_MAX,
 };
 

@@ -331,6 +331,17 @@ static int prov_apply(struct uci_section *s)
 	am = (buf[0] == 'p') ? 2 : (buf[0] == 's') ? 3 : 1; /* loid=1, pwd=2, sn=3 */
 	nl_put_attr_inline(attrs, &off, PON_ATTR_AUTH_METHOD, &am, 4);
 
+	/* ONU serial -> MAC PLOAM serial-number registers (VENDOR_ID/VS_SN).
+	 * The kernel writes the first 8 bytes (vendor 4 + vs_sn 4) to the
+	 * XGSPON MAC; the full 12-byte XGPON serial is carried by OMCI ONU-G. */
+	uci_get_str(s, "serial_no", buf, sizeof(buf), "");
+	if (buf[0]) {
+		int sl = (int)strlen(buf);
+		if (sl > PON_SERIAL_LEN)
+			sl = PON_SERIAL_LEN;
+		nl_put_attr_inline(attrs, &off, PON_ATTR_SERIAL, buf, sl);
+	}
+
 	{
 		int mode = mode_from_uci(s);
 		if (set_kernel_mode(mode) == 0)

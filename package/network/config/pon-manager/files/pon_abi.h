@@ -20,6 +20,9 @@
 
 #include <stdint.h>
 
+/* Length of the PON ONU serial number (see kernel pon_abi.h). */
+#define PON_SERIAL_LEN		12
+
 /* ------------------------------------------------------------------ */
 /* netlink family                                                      */
 /* ------------------------------------------------------------------ */
@@ -47,6 +50,7 @@ enum {
 	PON_ATTR_FEC,		/* u8 (provisioning) */
 	PON_ATTR_MODE,		/* u32, enum pon_mode */
 	PON_ATTR_AUTH_METHOD,	/* u32, big-endian serial (provisioning) */
+	PON_ATTR_SERIAL,	/* binary, up to PON_SERIAL_LEN: ONU serial */
 	PON_ATTR_MAX,
 };
 
