@@ -38,7 +38,6 @@
 #include <libubox/uloop.h>
 #include <libubox/blobmsg.h>
 #include <libubox/utils.h>
-#include <libubus/ubus.h>
 #include <uci.h>
 
 #include "ponmgr.h"
