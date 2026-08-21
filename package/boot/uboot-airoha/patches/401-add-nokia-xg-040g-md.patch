@@ -192,7 +192,7 @@
 +_bootmenu_update_title=setenv _bootmenu_update_title ; setenv bootmenu_title "$bootmenu_title       [33m$ver[0m"
 --- /dev/null
 +++ b/dts/upstream/src/arm64/airoha/an7581-nokia-xg-040g-md.dts
-@@ -0,0 +1,99 @@
+@@ -0,0 +1,100 @@
 +// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 +/dts-v1/;
 +
@@ -200,6 +200,7 @@
 +#include <dt-bindings/gpio/gpio.h>
 +#include <dt-bindings/input/input.h>
 +#include "en7581.dtsi"
++#include "an7581-nokia-xg-040g-md-u-boot.dtsi"
 +
 +/ {
 +	model = "Nokia XG-040G-MD";
