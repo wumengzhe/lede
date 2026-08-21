@@ -255,15 +255,23 @@ static const struct net_device_ops omci_netdev_ops = {
 static int omci_packet_rcv(struct sk_buff *skb, struct net_device *ndev,
 			   struct packet_type *pt, struct net_device *orig)
 {
-	struct air_pon_omci rec;
+	struct air_pon_omci *rec;
 
 	if (skb->len < 2)
 		goto drop;
-	rec.len = min_t(u16, (u16)(skb->len - 14), AIR_PON_OMCI_MAX);
-	if (rec.len == 0)
+	/* struct air_pon_omci is ~2 KiB (2048-byte msg); this handler runs in
+	 * NET_RX softirq context, so keep the big object off the stack. */
+	rec = kmalloc(sizeof(*rec), GFP_ATOMIC);
+	if (!rec)
 		goto drop;
-	memcpy(rec.msg, skb->data + 14, rec.len);
-	ind_push(&rec);
+	rec->len = min_t(u16, (u16)(skb->len - 14), AIR_PON_OMCI_MAX);
+	if (rec->len == 0) {
+		kfree(rec);
+		goto drop;
+	}
+	memcpy(rec->msg, skb->data + 14, rec->len);
+	ind_push(rec);
+	kfree(rec);
 drop:
 	consume_skb(skb);
 	return NET_RX_SUCCESS;
@@ -669,17 +677,23 @@ static void sim_work_fn(struct work_struct *w)
 		PON_STATE_O1_INIT, PON_STATE_O2_STANDBY, PON_STATE_O3_SERIAL_NUM,
 		PON_STATE_O4_RANGING, PON_STATE_O5_OPERATION,
 	};
-	struct air_pon_omci ind = { .len = 4 };
+	struct air_pon_omci *ind;
 
 	if (!p || atomic_read(&p->stop))
 		return;
+	ind = kzalloc(sizeof(*ind), GFP_KERNEL);
+	if (!ind)
+		return;
+	ind->len = 4;
 	if (p->sim_step >= (int)ARRAY_SIZE(seq)) {
+		kfree(ind);
 		p->state = PON_STATE_O5_OPERATION;
 		return;
 	}
 	p->state = seq[p->sim_step];
-	ind.msg[0] = 0x0A; ind.msg[1] = (u8)p->sim_step;
-	ind_push(&ind);
+	ind->msg[0] = 0x0A; ind->msg[1] = (u8)p->sim_step;
+	ind_push(ind);
+	kfree(ind);
 	p->rx_power = -2300 + p->sim_step * 200;
 	p->sim_step++;
 	schedule_delayed_work(&p->sim_work, msecs_to_jiffies(1000));
@@ -693,58 +707,84 @@ static ssize_t air_pon_read(struct file *filp, char __user *buf,
 			    size_t count, loff_t *ppos)
 {
 	struct air_pon *p = g_pon;
-	struct air_pon_omci rec;
+	struct air_pon_omci *rec;
 	unsigned long flags;
 	int ret;
+	ssize_t n;
 
 	if (!p)
 		return -ENODEV;
+	rec = kzalloc(sizeof(*rec), GFP_KERNEL);
+	if (!rec)
+		return -ENOMEM;
 	if (kfifo_is_empty(&p->ind_fifo)) {
-		if (filp->f_flags & O_NONBLOCK)
+		if (filp->f_flags & O_NONBLOCK) {
+			kfree(rec);
 			return -EAGAIN;
+		}
 		ret = wait_event_interruptible(p->ind_wait,
 				!kfifo_is_empty(&p->ind_fifo) ||
 				atomic_read(&p->stop));
-		if (ret)
+		if (ret) {
+			kfree(rec);
 			return ret;
-		if (atomic_read(&p->stop))
+		}
+		if (atomic_read(&p->stop)) {
+			kfree(rec);
 			return 0;
+		}
 	}
 	spin_lock_irqsave(&p->fifo_lock, flags);
-	if (kfifo_out_peek(&p->ind_fifo, &rec.len, 2) != 2) {
+	if (kfifo_out_peek(&p->ind_fifo, &rec->len, 2) != 2) {
 		spin_unlock_irqrestore(&p->fifo_lock, flags);
+		kfree(rec);
 		return 0;
 	}
-	if (count < (size_t)rec.len + 2) {
+	if (count < (size_t)rec->len + 2) {
 		spin_unlock_irqrestore(&p->fifo_lock, flags);
+		kfree(rec);
 		return -EMSGSIZE;
 	}
-	if (kfifo_out(&p->ind_fifo, &rec.len, 2) != 2 ||
-	    kfifo_out(&p->ind_fifo, rec.msg, rec.len) != rec.len) {
+	if (kfifo_out(&p->ind_fifo, &rec->len, 2) != 2 ||
+	    kfifo_out(&p->ind_fifo, rec->msg, rec->len) != rec->len) {
 		spin_unlock_irqrestore(&p->fifo_lock, flags);
+		kfree(rec);
 		return -EIO;
 	}
 	spin_unlock_irqrestore(&p->fifo_lock, flags);
 
-	if (copy_to_user(buf, &rec, rec.len + 2))
-		return -EFAULT;
-	return rec.len + 2;
+	n = rec->len + 2;
+	ret = copy_to_user(buf, rec, n);
+	kfree(rec);
+	return ret ? -EFAULT : n;
 }
 
 static long air_pon_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct air_pon *p = g_pon;
-	struct air_pon_omci omci;
 	struct air_pon_status st;
 	u8 laser;
 
 	switch (cmd) {
-	case AIR_PON_SEND_OMCI:
-		if (copy_from_user(&omci, (void __user *)arg, sizeof(omci)))
+	case AIR_PON_SEND_OMCI: {
+		struct air_pon_omci *omci;
+		int r;
+
+		omci = kzalloc(sizeof(*omci), GFP_KERNEL);
+		if (!omci)
+			return -ENOMEM;
+		if (copy_from_user(omci, (void __user *)arg, sizeof(*omci))) {
+			kfree(omci);
 			return -EFAULT;
-		if (omci.len == 0 || omci.len > AIR_PON_OMCI_MAX)
+		}
+		if (omci->len == 0 || omci->len > AIR_PON_OMCI_MAX) {
+			kfree(omci);
 			return -EINVAL;
-		return hal_send_omci(&omci);
+		}
+		r = hal_send_omci(omci);
+		kfree(omci);
+		return r;
+	}
 
 	case AIR_PON_GET_STATUS:
 		hal_get_status(&st);
