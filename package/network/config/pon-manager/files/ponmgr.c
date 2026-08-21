@@ -33,6 +33,7 @@
 #include <sys/un.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <linux/genetlink.h>
 #include <net/if.h>
 
 #include <libubox/uloop.h>
@@ -62,10 +63,17 @@ static int g_active;		/* laser enabled */
 /* genl plumbing                                                       */
 /* ------------------------------------------------------------------ */
 
-static struct nlattr {
-	uint16_t	nla_len;
-	uint16_t	nla_type;
-} __attribute__((packed));
+/* struct nlattr comes from <linux/netlink.h>. The iteration/payload
+ * helpers below are libnl-style and are NOT part of the UAPI headers. */
+#define NLA_DATA(nla)		((void *)((char *)(nla) + NLA_HDRLEN))
+#define NLA_NEXT(nla, attrlen)	((attrlen) -= NLA_ALIGN((nla)->nla_len), \
+				 (struct nlattr *)((char *)(nla) + \
+				  NLA_ALIGN((nla)->nla_len)))
+#define NLA_OK(nla, len)	((len) >= (int)sizeof(struct nlattr) && \
+				 (nla)->nla_len >= sizeof(struct nlattr) && \
+				 (nla)->nla_len <= (len))
+#define GENLMSG_DATA(nlh)	((void *)((char *)NLMSG_DATA(nlh) + GENL_HDRLEN))
+#define GENLMSG_PAYLOAD(nlh)	(NLMSG_PAYLOAD(nlh) - GENL_HDRLEN)
 
 int nl_put_attr_inline(uint8_t *buf, int *off, int type,
 		       const void *data, int len)
@@ -525,8 +533,19 @@ int main(int argc, char **argv)
 	}
 
 	ctx = uci_alloc_context();
-	if (uci_load(ctx, "pon", &pkg) == 0)
-		s = uci_lookup_section(ctx, pkg, "config", "pon");
+	s = NULL;
+	if (uci_load(ctx, "pon", &pkg) == 0) {
+		/* /etc/config/pon: 'config pon "config"' - find by type so
+		 * it works whether or not the section keeps its name. */
+		struct uci_element *e;
+
+		uci_foreach_element(&pkg->sections, e) {
+			if (!strcmp(uci_to_section(e)->type, "pon")) {
+				s = uci_to_section(e);
+				break;
+			}
+		}
+	}
 
 	/* honour the UCI enabled flag; activation itself happens when the
 	 * operator presses Activate (ponctl) or on link-up requests */

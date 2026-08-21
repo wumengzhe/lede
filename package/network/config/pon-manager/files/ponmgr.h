@@ -27,10 +27,6 @@ int genl_pon_cmd(int cmd, const uint8_t *attrs, int attrs_len,
 int nl_put_attr_inline(uint8_t *buf, int *off, int type,
 		       const void *data, int len);
 
-/* OMCI frame plane */
-int omci_send(const uint8_t *msg, uint16_t len);
-void omci_activate(void);
-
 /* UCI */
 int uci_get_str(struct uci_section *s, const char *opt,
 		char *out, size_t outsz, const char *def);
