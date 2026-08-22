@@ -121,6 +121,8 @@ extern int airoha_eth_xmit_xpon_oam(struct net_device *netdev,
 
 /* OMCI-on-Ethernet framing (Airoha reference: xpon_netif.c omciHdr) */
 #define OMCI_ETHERTYPE		0x88b5
+/* OMCC (OMCI) GEM port id - fixed convention in GPON/XGSPON */
+#define XGSPON_OMCI_GEM_PORT	0x048
 static const u8 omci_dev_mac[ETH_ALEN] = {0x00,0x00,0x00,0x00,0x00,0x01};
 static const u8 omci_olt_mac[ETH_ALEN] = {0x00,0x00,0x00,0x00,0x00,0x02};
 
@@ -380,7 +382,6 @@ static void hal_laser_enable(int on)
 #define XGSPON_TX_OMCI_PRE_GET_OFF	0x528C
 #define XGSPON_RX_OMCI_PRE_GET_OFF	0x5290
 #define XGSPON_OMCI_LEN_CTRL_OFF	0x59BC
-#define XGSPON_OMCI_GEM_PORT	0x048
 
 /* XGSPON CMAC (AES-CMAC MIC engine) - offsets confirmed against the OEM
  * AN7581 xpon_10g.ko disassembly (gponDevSetCmac0Start: SW0_ENCSTART=0x5400,
