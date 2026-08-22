@@ -17,12 +17,12 @@ port (0x048):
 
 Signed-off-by: wmz <wmz@openwrt.local>
 ---
- drivers/net/ethernet/airoha/airoha_eth.c | 55 +++++++++++++++++++++++++++++++
- 1 file changed, 55 insertions(+)
+ drivers/net/ethernet/airoha/airoha_eth.c | 60 +++++++++++++++++++++++++++++++
+ 1 file changed, 60 insertions(+)
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1963,6 +1963,35 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
+@@ -1963,3 +1963,33 @@
 +static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 +				   struct net_device *dev);
 +
@@ -56,23 +56,21 @@ Signed-off-by: wmz <wmz@openwrt.local>
  static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
  				   struct net_device *dev)
  {
-@@ -1985,6 +2014,9 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
+@@ -1985,4 +2015,6 @@
  	qid = skb_get_queue_mapping(skb) % ARRAY_SIZE(qdma->q_tx);
  	tag = airoha_get_dsa_tag(skb, dev);
 +	if (skb->mark & AIROHA_XPON_OAM_MARK)
 +		tag = skb->mark >> 1;
  
  	msg0 = FIELD_PREP(QDMA_ETH_TXMSG_CHAN_MASK,
- 			  qid / AIROHA_NUM_QOS_QUEUES) |
-@@ -1993,6 +2025,9 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
+@@ -1993,4 +2025,6 @@
  			  qid % AIROHA_NUM_QOS_QUEUES) |
  	       FIELD_PREP(QDMA_ETH_TXMSG_SP_TAG_MASK, tag);
 +	if (skb->mark & AIROHA_XPON_OAM_MARK)
 +		msg0 |= FIELD_PREP(QDMA_ETH_TXMSG_OAM_MASK, 1);
  	if (skb->ip_summed == CHECKSUM_PARTIAL)
  		msg0 |= FIELD_PREP(QDMA_ETH_TXMSG_TCO_MASK, 1) |
- 			FIELD_PREP(QDMA_ETH_TXMSG_UCO_MASK, 1) |
-@@ -3060,6 +3093,14 @@ static int airoha_eth_probe_port(struct platform_device *pdev,
+@@ -3060,6 +3094,13 @@
  	dev->dev.of_node = np;
  	dev->irq = qdma->irq_banks[0].irq;
  	SET_NETDEV_DEV(dev, eth->dev);
