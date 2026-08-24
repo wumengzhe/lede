@@ -220,3 +220,19 @@ define Device/nokia_xg-040g-md-3rdparty
   ARTIFACTS := bl31-uboot.fip preloader.bin
 endef
 TARGET_DEVICES += nokia_xg-040g-md-3rdparty
+
+define Device/nokia_xg-040g-md-3rdparty
+  $(call Device/nokia_xg-040g-md-common)
+  DEVICE_VARIANT := (3rdparty tcboot UBI)
+  DEVICE_DTS := an7581-nokia_xg-040g-md-3rdparty
+  UBOOTENV_IN_UBI := 1
+  KERNEL_IN_UBI := 1
+  IMAGES := sysupgrade.bin
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES += kmod-airoha-xpon-en757x
+  SUPPORTED_DEVICES += nokia,xg-040g-md-ubi nokia,xg-040g-md
+  ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot nokia_xg-040g-md
+  ARTIFACT/preloader.bin := an7581-preloader nokia_xg-040g-md
+  ARTIFACTS := bl31-uboot.fip preloader.bin
+endef
+TARGET_DEVICES += nokia_xg-040g-md-3rdparty
