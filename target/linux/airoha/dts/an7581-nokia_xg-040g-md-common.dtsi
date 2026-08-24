@@ -8,13 +8,6 @@
 #include "an758x-nokia_xg-040g-common.dtsi"
 
 / {
-	chosen {
-		/* Factory UBI boot args from an7581-xg-040g-md.dts. UBI block 0
-		 * (rootfs) is squashfs+ro and preinit runs from there; the
-		 * factory nvram lies on the same NAND, so ubi.mtd must point at
-		 * it before rootfs can be assembled. */
-		bootargs-append = " ubi.mtd=rootfs,2048 rootfstype=squashfs loglevel=8 ubi.block=0,rootfs ro init=/etc/preinit";
-	};
 	gpio-keys {
 		compatible = "gpio-keys";
 
@@ -82,60 +75,22 @@
 		regulator-name = "fixed-3.3V";
 	};
 
-	/*
-	 * Per-port USB VBUS power switches. Pin assignments come from the
-	 * stock hwconfig (hcfg.conf): Usb.1.PowerOn.Pin=23, Usb.2.PowerOn.Pin=25.
-	 * (The prior gpio24 "both ports at once" wiring did not match the
-	 * vendor per-board config and is replaced here.)
-	 */
-	reg_usb1_5v: regulator-usb1-5v {
+	reg_usb_5v: regulator-usb-5v {
 		compatible = "regulator-fixed";
 		enable-active-high;
-		gpio = <&en7581_pinctrl 23 GPIO_ACTIVE_HIGH>;
+		gpio = <&en7581_pinctrl 24 GPIO_ACTIVE_HIGH>;
 		regulator-boot-on;
 		regulator-max-microvolt = <5000000>;
 		regulator-min-microvolt = <5000000>;
-		regulator-name = "usb1-5v";
-	};
-
-	reg_usb2_5v: regulator-usb2-5v {
-		compatible = "regulator-fixed";
-		enable-active-high;
-		gpio = <&en7581_pinctrl 25 GPIO_ACTIVE_HIGH>;
-		regulator-boot-on;
-		regulator-max-microvolt = <5000000>;
-		regulator-min-microvolt = <5000000>;
-		regulator-name = "usb2-5v";
-	};
-
-	usb1-power {
-		compatible = "regulator-output";
-		vout-supply = <&reg_usb1_5v>;
-	};
-
-	usb2-power {
-		compatible = "regulator-output";
-		vout-supply = <&reg_usb2_5v>;
+		regulator-name = "usb-5v";
 	};
 
 	/*
-	 * Airoha XGS-PON optical management plane, served by kmod-airoha-pon.
-	 * Laser / signal-detect GPIOs per stock hwconfig (hcfg.conf):
-	 *   Pon.TxDisable.Pin=38 (active-low)  Pon.Txsd.Pin=37  (active-high)
-	 *   Pon.Rxsd.Pin=36     (active-high)  Pon.TxFault.Pin=40 (active-high)
-	 * TxDisable powers the BOSA laser; the remaining three are board inputs.
+	 * Controls both USB ports at once
 	 */
-	pon: pon {
-		compatible = "airoha,pon";
-		/* The optical link is terminated by the on-die PON MAC / XPON PHY
-		 * (0x1fa80000 pon_pcs block), not by the NPU: the stock xpon.ko
-		 * has no NPU/mailbox references and npu.ko is a WiFi/PPE offload
-		 * firmware loader (see Tools/re_notes_omci_mailbox.md, rev 2).
-		 * kmod-airoha-pon therefore drives the MAC registers directly. */
-		tx-disable-gpios = <&en7581_pinctrl 38 GPIO_ACTIVE_LOW>;
-		tx-sd-gpios = <&en7581_pinctrl 37 GPIO_ACTIVE_HIGH>;
-		rx-sd-gpios = <&en7581_pinctrl 36 GPIO_ACTIVE_HIGH>;
-		tx-fault-gpios = <&en7581_pinctrl 40 GPIO_ACTIVE_HIGH>;
+	usb-power {
+		compatible = "regulator-output";
+		vout-supply = <&reg_usb_5v>;
 	};
 };
 
@@ -157,21 +112,21 @@
 	gswp2_led0_pins: gswp2-led0-pins {
 		mux {
 			function = "phy2_led0";
-			pins = "gpio34";
+			pins = "gpio44";
 		};
 	};
 
 	gswp3_led0_pins: gswp3-led0-pins {
 		mux {
 			function = "phy3_led0";
-			pins = "gpio35";
+			pins = "gpio45";
 		};
 	};
 
 	gswp4_led0_pins: gswp4-led0-pins {
 		mux {
 			function = "phy4_led0";
-			pins = "gpio42";
+			pins = "gpio46";
 		};
 	};
 };
@@ -179,7 +134,7 @@
 &mdio {
 	/* Airoha EN8811 2.5Gbps phy */
 	en8811: ethernet-phy@f {
-		compatible = "ethernet-phy-id03a2.a411", "ethernet-phy-ieee802.3-c45";
+		compatible = "ethernet-phy-id03a2.a411";
 		reg = <0xf>;
 
 		reset-gpios = <&en7581_pinctrl 31 GPIO_ACTIVE_LOW>;
@@ -212,18 +167,6 @@
 	status = "okay";
 
 	label = "lan2";
-};
-
-&gsw_port3 {
-	status = "okay";
-
-	label = "lan3";
-};
-
-&gsw_port4 {
-	status = "okay";
-
-	label = "lan4";
 };
 
 &gsw_phy2 {
@@ -301,7 +244,7 @@
 	phy-mode = "2500base-x";
 
 	nvmem-cell-names = "mac-address";
-	nvmem-cells = <&macaddr_factory_3e 0>;
+	nvmem-cells = <&macaddr_factory_3e (0)>;
 };
 
 &usb0 {
@@ -331,32 +274,5 @@
 	usb_port2: port@1 {
 		reg = <1>;
 		#trigger-source-cells = <0>;
-	};
-};
-
-/*
- * PON (XGS-PON) data-plane MAC. The SoC `gdm2` is wired to the internal
- * `pon_pcs` (compatible "airoha,an7581-pcs-pon", enabled in the common dtsi);
- * the airoha_eth driver therefore presents this port as `pon0`, which is what
- * board.d/99-airoha-pon binds as the WAN interface for netifd/pon-manager.
- *
- * The NPU XPON-HAL firmware (airoha-en7581-npu-firmware) drives pon_pcs to
- * synchronise with the OLT; we expose a fixed 10G link so `pon0` is always
- * available as the WAN device. Optical sync / LOS is reported through pon_pcs
- * and surfaced to userspace by kmod-airoha-pon + ponmgr.
- */
-&gdm2 {
-	status = "okay";
-
-	openwrt,netdev-name = "pon0";
-
-	phy-mode = "10gbase-r";
-
-	nvmem-cell-names = "mac-address";
-	nvmem-cells = <&macaddr_factory_3e 1>;
-
-	fixed-link {
-		speed = <10000>;
-		full-duplex;
 	};
 };

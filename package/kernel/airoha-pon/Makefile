@@ -1,87 +1,122 @@
 # SPDX-License-Identifier: GPL-2.0-only
-#
-# kmod-airoha-pon - Airoha AN7581 PON (XPON) management-plane kernel driver
-#
-# The PON *data* plane (gdm2 + pon_pcs) is driven by the upstream airoha_eth
-# driver and presented as the `pon0` network device (named via the board DTS).
-# This module is the management plane + OMCI transport:
-#   - generic-netlink family "airoha_pon" (ABI shared with pon-manager)
-#   - char device /dev/airoha_pon carrying raw OMCI G.988 frames
-#   - BOSA laser enable/disable GPIO + Rxsd/Txsd/TxFault board inputs
-# It does NOT create a netdev.
-#
-# The real optical synchronisation is performed by the on-die PON MAC /
-# XPON PHY (0x1fa80000), which this driver programs directly with the
-# reverse-engineered init sequence (pon_mac_seq.h). The `hal_backend`
-# module param selects the engine:
-#   0 = sim   synthesises O5 bring-up + echoes OMCI so the whole userspace
-#             stack is exercisable without a working optical path
-#   1 = real  replays the PON MAC init sequence and drives the BOSA laser /
-#             status GPIOs. OMCI frame TX (the QDMA descriptor protocol of
-#             stock xpon.ko) is the remaining open RE item, reported as
-#             -EOPNOTSUPP until ported. NOTE: the NPU plays no role in PON
-#             (the stock npu.ko is a WiFi/PPE offload firmware loader), see
-#             Tools/re_notes_omci_mailbox.md (rev 2).
-# The shipped /etc/modprobe.d/airoha-pon.conf selects hal_backend=1, because
-# on an ONT the real path is the point; edit it to fall back to the simulator.
 
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=airoha-pon
 PKG_RELEASE:=1
-
-PKG_MAINTAINER:=OpenWrt Airoha porting <local>
-PKG_LICENSE:=GPL-2.0
+PKG_LICENSE:=GPL-2.0-only
+PKG_MAINTAINER:=coolsnowwolf <coolsnowwolf@gmail.com>
 
 include $(INCLUDE_DIR)/package.mk
 
-define KernelPackage/airoha-pon
+define KernelPackage/airoha-pon/Default
   SUBMENU:=Network Devices
-  TITLE:=Airoha AN7581 PON (XPON) management-plane driver
-  FILES:=$(PKG_BUILD_DIR)/airoha_pon.ko
-  AUTOLOAD:=$(call AutoProbe,airoha_pon,1)
-  DEPENDS:=@TARGET_airoha
+  DEPENDS:=+kmod-i2c-core
+  KCONFIG:=
 endef
 
-define KernelPackage/airoha-pon/description
-  Management-plane kernel driver for the Airoha AN7581 on-die PON
-  (XGS-PON/GPON) interface.
-
-  The PON data plane is the SoC gdm2 MAC + internal pon_pcs, surfaced by the
-  upstream airoha_eth driver as the `pon0` WAN network device. This module
-  registers a generic-netlink family named "airoha_pon" (ABI shared with the
-  pon-manager daemon) and drives the BOSA laser enable/disable GPIO and reads
-  the Rxsd/Txsd/TxFault board inputs.
-
-  The real optical synchronisation is performed by the Airoha NPU firmware
-  (XPON HAL), which this driver reaches over the NPU mailbox transport added by
-  target patch 110-01. Select the engine with the `hal_backend` module param
-  (1 = real, the shipped default; 0 = simulator, which synthesises an O1..O5
-  bring-up and echoes OMCI so provisioning, the netlink contract, laser GPIO
-  control and diagnostics all stay exercisable without the proprietary blob).
+define KernelPackage/airoha-gpon-en757x
+  $(call KernelPackage/airoha-pon/Default)
+  DEPENDS+=@TARGET_airoha_en7523
+  TITLE:=Airoha EN757x GPON driver (v1)
+  VARIANT:=v1
+  FILES:= \
+	$(PKG_BUILD_DIR)/gpon-en757x/xpon_phy/phy.ko \
+	$(PKG_BUILD_DIR)/gpon-en757x/xpon/xpon.ko
+  AUTOLOAD:=$(call AutoProbe,phy xpon)
 endef
 
-define Package/kmod-airoha-pon/conffiles
-/etc/modprobe.d/airoha-pon.conf
+define KernelPackage/airoha-gpon-en757x/description
+ Kernel modules for the v1 Airoha EN7570 and EN7571 GPON MAC and PHY.
 endef
 
-define Build/Prepare
-	$(INSTALL_DIR) $(PKG_BUILD_DIR)
-	$(CP) ./src/* $(PKG_BUILD_DIR)/
+define KernelPackage/airoha-xpon-en757x
+  $(call KernelPackage/airoha-pon/Default)
+  DEPENDS+=@(TARGET_airoha_an7581||TARGET_airoha_an7583)
+  TITLE:=Airoha EN757x xPON driver (v2)
+  VARIANT:=v2
+  FILES:= \
+	$(PON_BSP_DIR)/airoha_ecnt_hook.ko \
+	$(PON_BSP_DIR)/airoha_ecnt_scu.ko \
+	$(PON_BSP_DIR)/airoha_ecnt_pon_phy.ko \
+	$(PON_BSP_DIR)/airoha_ecnt_olt_phy.ko \
+	$(PON_BSP_DIR)/airoha_arht_board.ko \
+	$(PON_BSP_DIR)/airoha_arht_serdes.ko \
+	$(PON_BSP_DIR)/airoha_an7583_combo_phy.ko \
+	$(PKG_BUILD_DIR)/xpon-en757x/xpon_phy_10g/phy_10g.ko \
+	$(PKG_BUILD_DIR)/xpon-en757x/xpon_10g/xpon_10g.ko
+  AUTOLOAD:=$(call AutoProbe,airoha_ecnt_hook airoha_ecnt_scu airoha_ecnt_pon_phy airoha_ecnt_olt_phy airoha_arht_board airoha_arht_serdes airoha_an7583_combo_phy phy_10g xpon_10g)
 endef
 
+define KernelPackage/airoha-xpon-en757x/description
+ Kernel modules for the v2 Airoha EN7581 and AN7583 GPON and EPON MAC and PHY.
+endef
+
+PON_BSP_DIR:=$(PKG_BUILD_DIR)/bsp
+PON_INCLUDE_FLAGS:= \
+	-I$(PON_BSP_DIR)/include \
+	-I$(PON_BSP_DIR)/include/global_inc \
+	-I$(PON_BSP_DIR)/include/global_inc/version \
+	-I$(PON_BSP_DIR)/an7583/pon_pma/inc \
+	-I$(PON_BSP_DIR)/qdma
+PON_V2_CPU_CFLAGS:= \
+	-D__IMEM= \
+	-DTCSUPPORT_CPU_ARMV8=1 \
+	-DTCSUPPORT_CPU_ARMV8_64=1 \
+	-DTCSUPPORT_CPU_EN7581=1 \
+	-DTCSUPPORT_BOARD_SELECT=1 \
+	-DCONFIG_USE_MT7520_ASIC=1 \
+	$(if $(CONFIG_TARGET_airoha_an7583),-DTCSUPPORT_CPU_AN7583=1)
+PON_V2_CPU_MAKE:=TCSUPPORT_CPU_EN7581=1 $(if $(CONFIG_TARGET_airoha_an7583),TCSUPPORT_CPU_AN7583=1)
+
+ifeq ($(BUILD_VARIANT),v1)
 define Build/Compile
-	$(MAKE) -C "$(LINUX_DIR)" \
-		$(KERNEL_MAKE_FLAGS) \
-		CONFIG_AIROHA_PON=m \
-		M="$(PKG_BUILD_DIR)" \
+	+$(KERNEL_MAKE) $(PKG_JOBS) M="$(PKG_BUILD_DIR)/gpon-en757x/xpon_phy" \
+		KCFLAGS="$(PON_INCLUDE_FLAGS) -DTCSUPPORT_CPU_EN7521=1" \
+		MODULES_PHY_DIR="$(PKG_BUILD_DIR)/gpon-en757x/xpon_phy" \
+		MODULES_QDMA_7512_DIR="$(PON_BSP_DIR)/qdma" \
+		TCSUPPORT_CPU_EN7521=1 \
+		modules
+	+$(KERNEL_MAKE) $(PKG_JOBS) M="$(PKG_BUILD_DIR)/gpon-en757x/xpon" \
+		KCFLAGS="$(PON_INCLUDE_FLAGS) -DTCSUPPORT_CPU_EN7521=1" \
+		MODULES_XPON_WAN_DIR="$(PKG_BUILD_DIR)/gpon-en757x/xpon" \
+		MODULES_QDMA_7512_DIR="$(PON_BSP_DIR)/qdma" \
+		MODULES_FE_7512_DIR="$(PKG_BUILD_DIR)/gpon-en757x/raeth" \
+		GLOBAL_INC_DIR="$(PON_BSP_DIR)/include/global_inc" \
+		TCSUPPORT_WAN_GPON=1 \
+		TCSUPPORT_CPU_EN7521=1 \
 		modules
 endef
+endif
 
-define KernelPackage/airoha-pon/install
-	$(INSTALL_DIR) $(1)/etc/modprobe.d
-	$(INSTALL_DATA) ./files/airoha-pon.conf $(1)/etc/modprobe.d/airoha-pon.conf
+ifeq ($(BUILD_VARIANT),v2)
+define Build/Compile
+	+$(KERNEL_MAKE) $(PKG_JOBS) M="$(PON_BSP_DIR)" \
+		AIROHA_PON_CFLAGS="$(PON_INCLUDE_FLAGS) $(PON_V2_CPU_CFLAGS)" \
+		$(PON_V2_CPU_MAKE) \
+		modules
+	+$(KERNEL_MAKE) $(PKG_JOBS) M="$(PKG_BUILD_DIR)/xpon-en757x/xpon_phy_10g" \
+		KCFLAGS="$(PON_INCLUDE_FLAGS) $(PON_V2_CPU_CFLAGS)" \
+		KBUILD_EXTRA_SYMBOLS="$(PON_BSP_DIR)/Module.symvers" \
+		MODULES_PHY_10G_DIR="$(PKG_BUILD_DIR)/xpon-en757x/xpon_phy_10g" \
+		MODULES_QDMA_DIR="$(PON_BSP_DIR)/qdma" \
+		$(PON_V2_CPU_MAKE) \
+		modules
+	+$(KERNEL_MAKE) $(PKG_JOBS) M="$(PKG_BUILD_DIR)/xpon-en757x/xpon_10g" \
+		KCFLAGS="$(PON_INCLUDE_FLAGS) $(PON_V2_CPU_CFLAGS) -DTCSUPPORT_WAN_GPON=1 -DTCSUPPORT_WAN_EPON=1" \
+		KBUILD_MODPOST_WARN=1 \
+		KBUILD_EXTRA_SYMBOLS="$(PON_BSP_DIR)/Module.symvers $(PKG_BUILD_DIR)/xpon-en757x/xpon_phy_10g/Module.symvers" \
+		XPON_BSP_MODULES_XPON_10G_DRIVER="$(PKG_BUILD_DIR)/xpon-en757x/xpon_10g" \
+		XPON_BSP_GLOBAL_INC_PRIVATE="$(PON_BSP_DIR)/include/global_inc" \
+		XPON_BSP_GLOBAL_INC_PUBLIC="$(PON_BSP_DIR)/include/global_inc" \
+		XPON_BSP_ECNT_HOOK_DIR="$(PON_BSP_DIR)" \
+		TCSUPPORT_WAN_GPON=1 \
+		TCSUPPORT_WAN_EPON=1 \
+		$(PON_V2_CPU_MAKE) \
+		modules
 endef
+endif
 
-$(eval $(call KernelPackage,airoha-pon))
+$(eval $(call KernelPackage,airoha-gpon-en757x))
+$(eval $(call KernelPackage,airoha-xpon-en757x))
