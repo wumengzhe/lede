@@ -265,6 +265,7 @@ function action_apply()
 		local lmm = clean(luci.http.formvalue("lan_mac") or "")
 		local hn  = clean(luci.http.formvalue("hostname") or "")
 		local lip = clean(luci.http.formvalue("lan_ip") or "")
+		local oldip = (luci.sys.exec("uci -q get network.lan.ipaddr 2>/dev/null") or ""):gsub("%s+", "")
 		local schedule = clean(luci.http.formvalue("schedule") or "")
 
 		if wm ~= "" and not mac_ok(wm) then json_response({ ok = false, err = "WAN MAC 格式错误" }); return end
@@ -293,7 +294,9 @@ function action_apply()
 		slog("apply cmd='" .. cmd .. "'")
 		local out, code = run(cmd)
 		slog("apply out='" .. out:gsub("\n","\\n") .. "' (len=" .. #out .. " code=" .. tostring(code) .. ")")
-		json_response({ ok = (code == 0), log = out })
+		json_response({ ok = (code == 0), log = out,
+			old_lan_ip = oldip,
+			new_lan_ip = (lip ~= "" and lip or oldip) })
 	end
 
 	local ok, err = xpcall(body, function(e) slog("action_apply THREW: " .. tostring(e)) end)
