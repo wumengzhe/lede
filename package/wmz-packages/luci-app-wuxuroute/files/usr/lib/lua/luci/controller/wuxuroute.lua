@@ -61,63 +61,68 @@ local function run(cmd)
 	return out or "", 0
 end
 
--- 直接输出 JSON，避开 luci.http.write_json() 自带的 XSSI 前缀
---   <!--/*--><![CDATA[/*><!--*/-->...<!--*/-->
--- 让前端不用任何剥前缀逻辑（防劫持我们改用 HTTPS + 同源 X-Requested-With）。
--- 若上层 luci.json 不可用则降级到手工 JSON（严格按 RFC 8259 转义）。
+-- JSON 输出统一走 luci.http.write_json（LuCI 官方接口，内部已含
+-- prepare_content + 编码 + write，各版本行为一致）。它自带的 XSSI 前缀
+-- 由前端 parseLuciJSON 自动剥离，无需手工处理。
 --
--- *** 重要约定：源文件字节级不允许出现裸控制字符（0x00..0x1F / 0x7F）***
--- 之前一版在 fallback 里写 s:gsub('\b', ...) / s:gsub('\f', ...) / 长注释里
--- 嵌 "[0x01-0x19]"，结果源码字节里含 BS(0x08) / FF(0x0C) / 0x01 / 0x19。
--- LuCI 的 ucodebridge 加载 controller 时被这些字节干扰，报
--- "unexpected symbol near '<'"（uhttpd 502，浏览器 LuCI 全挂）。
--- 修复：fallback 手工 JSON 完全用 s:byte() 按字节遍历，
--- 不再用 string pattern，从根上杜绝控制字符进源码。
-local function json_response(tbl)
-	luci.http.prepare_content("application/json")
-	local ok, enc = pcall(require("luci.json").encode, tbl or {})
-	if ok and type(enc) == "string" then
-		slog("resp enc_len=" .. #enc .. " head='" .. enc:sub(1, 80) .. "'")
-		local wok, werr = pcall(luci.http.write, enc)
-		if not wok then
-			local emsg = tostring(werr):gsub("'", "'\\''")
-			pcall(luci.sys.call, "logger -t wuxuroute-cgi 'json_response write FAIL: " .. emsg .. "' 2>/dev/null")
-		end
-		return
-	end
+-- 重要约定：源文件字节级不允许出现裸控制字符（0x00..0x1F / 0x7F）。
+-- 之前一版在 fallback 里写 s:gsub(...) 并嵌注释，导致源码字节含
+-- BS(0x08) / FF(0x0C) / 0x01 / 0x19，ucodebridge 加载时报
+-- unexpected symbol near '<'，浏览器 LuCI 全挂。本版全程用 s:byte()
+-- 按字节遍历，且转义一律用 string.char()，从根上杜绝特殊字符进源码。
+--
+-- 手写 prepare_content + 手工 encode 在部分 luci 版本会抛错导致 ajax 500，
+-- 故统一用 write_json。整段包 xpcall，任何异常都落 syslog，绝不让 uhttpd 兜底成 500。
 
-	-- 退化：纯 byte 级 JSON 序列化（按 RFC 8259 转义）
-	-- 永远不写 string pattern；逐字节处理，避免源码污染。
+-- 退化用：纯 byte 级 JSON 序列化（RFC 8259 转义），仅当 write_json 失败时使用。
+local function manual_json(tbl)
+	local BS = string.char(92)
+	local DQ = string.char(34)
 	local function qstr(s)
 		s = tostring(s or "")
 		local out = {}
 		for i = 1, #s do
 			local b = s:byte(i)
-			if     b == 34 then out[#out+1] = '\\"'
-			elseif b == 92 then out[#out+1] = '\\\\'
-			elseif b == 10 then out[#out+1] = '\\n'
-			elseif b == 13 then out[#out+1] = '\\r'
-			elseif b ==  9 then out[#out+1] = '\\t'
-			elseif b < 32 or b == 127 then out[#out+1] = ' '
+			if     b == 34 then out[#out+1] = BS .. DQ
+			elseif b == 92 then out[#out+1] = BS .. BS
+			elseif b == 10 then out[#out+1] = BS .. string.char(110)
+			elseif b == 13 then out[#out+1] = BS .. string.char(114)
+			elseif b ==  9 then out[#out+1] = BS .. string.char(116)
+			elseif b < 32 or b == 127 then out[#out+1] = string.char(32)
 			else out[#out+1] = s:sub(i, i)
 			end
 		end
-		return '"' .. table.concat(out) .. '"'
+		return DQ .. table.concat(out) .. DQ
 	end
 	local pieces = {}
 	for k, v in pairs(tbl or {}) do
-		if type(v) == "string"  then pieces[#pieces+1] = '"' .. tostring(k) .. '":' .. qstr(v)
-		elseif type(v) == "boolean" then pieces[#pieces+1] = '"' .. tostring(k) .. '":' .. tostring(v)
-		elseif type(v) == "number"  then pieces[#pieces+1] = '"' .. tostring(k) .. '":' .. tostring(v)
-		elseif type(v) == "table"   then pieces[#pieces+1] = '"' .. tostring(k) .. '":' .. tostring(v.ok or "")
+		if     type(v) == "string"  then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. qstr(v)
+		elseif type(v) == "boolean" then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. tostring(v)
+		elseif type(v) == "number"  then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. tostring(v)
+		elseif type(v) == "table"   then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. tostring(v.ok or "")
+		else pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. DQ .. DQ
 		end
 	end
-	local fenc = "{" .. table.concat(pieces, ",") .. "}"
-	slog("json_response FALLBACK used, enc='" .. fenc:sub(1, 120) .. "'")
-	local wok, werr = pcall(luci.http.write, fenc)
-	if not wok then
-		local emsg = tostring(werr):gsub("'", "'\\''")
-		pcall(luci.sys.call, "logger -t wuxuroute-cgi 'json_response write FAIL: " .. emsg .. "' 2>/dev/null")
+	return "{" .. table.concat(pieces, ",") .. "}"
+end
+
+local function json_response(tbl)
+	local function log_err(msg)
+		local m = tostring(msg)
+		slog("json_response ERR: " .. m)
+	end
+	local ok = xpcall(function()
+		local wok, werr = pcall(luci.http.write_json, tbl or {})
+		if not wok then
+			log_err("write_json failed: " .. tostring(werr) .. " -- fallback manual")
+			pcall(luci.http.prepare_content, "application/json")
+			pcall(luci.http.write, manual_json(tbl))
+		else
+			slog("json_response OK (write_json)")
+		end
+	end, function(e) log_err("THREW: " .. tostring(e)) end)
+	if not ok then
+		pcall(luci.http.write, "{" .. DQ .. "ok" .. DQ .. ":false," .. DQ .. "err" .. DQ .. ":" .. DQ .. "internal" .. DQ .. "}")
 	end
 end
 
