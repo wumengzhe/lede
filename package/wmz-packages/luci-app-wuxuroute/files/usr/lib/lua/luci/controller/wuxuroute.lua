@@ -61,54 +61,63 @@ local function run(cmd)
 	return out or "", 0
 end
 
--- 直接输出 JSON，避开 luci.http.write_json() 自动加的 XSSI 前缀
+-- 直接输出 JSON，避开 luci.http.write_json() 自带的 XSSI 前缀
 --   <!--/*--><![CDATA[/*><!--*/-->...<!--*/-->
 -- 让前端不用任何剥前缀逻辑（防劫持我们改用 HTTPS + 同源 X-Requested-With）。
 -- 若上层 luci.json 不可用则降级到手工 JSON（严格按 RFC 8259 转义）。
+--
+-- *** 重要约定：源文件字节级不允许出现裸控制字符（0x00..0x1F / 0x7F）***
+-- 之前一版在 fallback 里写 s:gsub('\b', ...) / s:gsub('\f', ...) / 长注释里
+-- 嵌 "[0x01-0x19]"，结果源码字节里含 BS(0x08) / FF(0x0C) / 0x01 / 0x19。
+-- LuCI 的 ucodebridge 加载 controller 时被这些字节干扰，报
+-- "unexpected symbol near '<'"（uhttpd 502，浏览器 LuCI 全挂）。
+-- 修复：fallback 手工 JSON 完全用 s:byte() 按字节遍历，
+-- 不再用 string pattern，从根上杜绝控制字符进源码。
 local function json_response(tbl)
 	luci.http.prepare_content("application/json")
 	local ok, enc = pcall(require("luci.json").encode, tbl or {})
-	if not ok or type(enc) ~= "string" then
-		-- 退化：手工写最小 JSON（只支持 ok/log/err/mac/hostname/wifi/values 这类字段）
-		-- 严格按 RFC 8259：必须转义 " \\ \b \f \n \r \t 与控制字符（U+0000..U+001F）
-		local function q(s)
-			s = tostring(s or "")
-			s = s:gsub('\\', '\\\\')
-			s = s:gsub('"',  '\\"')
-			s = s:gsub('\b', '\\b')
-			s = s:gsub('\f', '\\f')
-			s = s:gsub('\n', '\\n')
-			s = s:gsub('\r', '\\r')
-			s = s:gsub('\t', '\\t')
-			-- 剩余控制字符（NUL/SOH/STX 等 0x00-0x07 段）虽然   
- 
- 	 已处理，
-			-- 但剩余 NUL 等真实罕见；字符类 [%c] / [-] lua 版本差异大，
-			-- 这里不替换以免触发 pattern error；让极少数 NUL 进 JSON，前端报 SyntaxError
-			-- 也比 controller 死 500 强。
-			return '"' .. s .. '"'
+	if ok and type(enc) == "string" then
+		slog("resp enc_len=" .. #enc .. " head='" .. enc:sub(1, 80) .. "'")
+		local wok, werr = pcall(luci.http.write, enc)
+		if not wok then
+			local emsg = tostring(werr):gsub("'", "'\\''")
+			pcall(luci.sys.call, "logger -t wuxuroute-cgi 'json_response write FAIL: " .. emsg .. "' 2>/dev/null")
 		end
-		local pieces = {}
-		for k, v in pairs(tbl or {}) do
-			if type(v) == "string" then
-				pieces[#pieces + 1] = '"' .. k .. '":' .. q(v)
-			elseif type(v) == "boolean" or type(v) == "number" then
-				pieces[#pieces + 1] = '"' .. k .. '":' .. tostring(v)
-			elseif type(v) == "table" and v.ok ~= nil then
-				pieces[#pieces + 1] = '"' .. k .. '":' .. tostring(v.ok)
+		return
+	end
+
+	-- 退化：纯 byte 级 JSON 序列化（按 RFC 8259 转义）
+	-- 永远不写 string pattern；逐字节处理，避免源码污染。
+	local function qstr(s)
+		s = tostring(s or "")
+		local out = {}
+		for i = 1, #s do
+			local b = s:byte(i)
+			if     b == 34 then out[#out+1] = '\\"'
+			elseif b == 92 then out[#out+1] = '\\\\'
+			elseif b == 10 then out[#out+1] = '\\n'
+			elseif b == 13 then out[#out+1] = '\\r'
+			elseif b ==  9 then out[#out+1] = '\\t'
+			elseif b < 32 or b == 127 then out[#out+1] = ' '
+			else out[#out+1] = s:sub(i, i)
 			end
 		end
-		enc = "{" .. table.concat(pieces, ",") .. "}"
-		slog("json_response FALLBACK used, enc='" .. enc:sub(1, 120) .. "'")
+		return '"' .. table.concat(out) .. '"'
 	end
-	-- 记录响应大小 + 前 80 字符，便于查"响应截断/换行错位"问题
-	slog("resp enc_len=" .. #enc .. " head='" .. enc:sub(1, 80) .. "'")
-	-- 整段函数包 pcall：哪怕 json_response 炸了，下游 action 仍能返 500 的可读错误
-	local _ok, _perr = pcall(luci.http.write, enc)
-	if not _ok then
-		pcall(luci.sys.call, "logger -t wuxuroute-cgi 'json_response write FAIL: "
-			.. tostring(_perr):gsub("'", "'\''")
-			.. "' 2>/dev/null")
+	local pieces = {}
+	for k, v in pairs(tbl or {}) do
+		if type(v) == "string"  then pieces[#pieces+1] = '"' .. tostring(k) .. '":' .. qstr(v)
+		elseif type(v) == "boolean" then pieces[#pieces+1] = '"' .. tostring(k) .. '":' .. tostring(v)
+		elseif type(v) == "number"  then pieces[#pieces+1] = '"' .. tostring(k) .. '":' .. tostring(v)
+		elseif type(v) == "table"   then pieces[#pieces+1] = '"' .. tostring(k) .. '":' .. tostring(v.ok or "")
+		end
+	end
+	local fenc = "{" .. table.concat(pieces, ",") .. "}"
+	slog("json_response FALLBACK used, enc='" .. fenc:sub(1, 120) .. "'")
+	local wok, werr = pcall(luci.http.write, fenc)
+	if not wok then
+		local emsg = tostring(werr):gsub("'", "'\\''")
+		pcall(luci.sys.call, "logger -t wuxuroute-cgi 'json_response write FAIL: " .. emsg .. "' 2>/dev/null")
 	end
 end
 
