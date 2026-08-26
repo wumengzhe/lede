@@ -44,7 +44,22 @@ tb.description = [[
   <span id="qc-status" style="margin-left:1em"></span>
 </div>
 <div id="qc-status-box" style="margin-bottom:1em"></div>
-<pre id="qc-debug" style="display:none;max-height:200px;overflow:auto;background:#f5f5f5;border:1px solid #ddd;padding:6px;font-size:11px;white-space:pre-wrap;margin-bottom:1em"></pre>
+<style>
+#qc-modal .cbi-button-apply, #qc-modal .cbi-button-reset { padding:6px 16px; cursor:pointer; font-size:14px; }
+#qc-modal .cbi-button-apply { background:#2e8b57; color:#fff; border:1px solid #26734a; }
+#qc-modal .cbi-button-apply:hover { background:#26734a; }
+#qc-modal .cbi-button-reset { background:#eee; color:#333; border:1px solid #ccc; }
+#qc-modal .cbi-button-reset:hover { background:#e0e0e0; }
+#qc-modal ul { margin:8px 0; }
+#qc-modal b { color:#222; }
+</style>
+<div id="qc-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
+  <div style="background:#fff;color:#222;border-radius:8px;max-width:480px;width:92%;box-shadow:0 8px 30px rgba(0,0,0,.3);font-family:inherit">
+    <div id="qc-modal-title" style="padding:14px 18px;font-size:16px;font-weight:bold;color:#fff;border-top-left-radius:8px;border-top-right-radius:8px"></div>
+    <div id="qc-modal-body" style="padding:16px 18px;font-size:14px;line-height:1.6"></div>
+    <div id="qc-modal-foot" style="padding:12px 18px;border-top:1px solid #eee;text-align:right;display:flex;gap:10px;justify-content:flex-end"></div>
+  </div>
+</div>
 <script type="text/javascript">
 (function(){
 	function $(id){return document.getElementById(id);}
@@ -58,14 +73,7 @@ tb.description = [[
 	function dbg(tag, info){
 		var line = '[' + new Date().toISOString().substr(11,8) + '] ' + tag + ': ' + info;
 		try { console.log(line); } catch(e){}
-		var box = $('qc-debug');
-		if (box){
-			var t = box.textContent || '';
-			var lines = t.split('\n');
-			if (lines.length > 60) lines = lines.slice(-60);
-			box.textContent = lines.join('\n') + (t ? '\n' : '') + line;
-			box.style.display = 'block';
-		}
+	/* 页面不再显示日志，调试信息仅输出到浏览器控制台 */
 	}
 	// 解析 JSON：见下方 parseLuciJSON（关键 1）
 	function parseLuciJSON(text){
@@ -235,31 +243,14 @@ tb.description = [[
 			if (data.lan_mac)    setVal('lan_mac',  data.lan_mac);
 			if (data.hostname)   setVal('hostname', data.hostname);
 			if (data.lan_ip)     setVal('lan_ip',   data.lan_ip);
+			window.__qc_lan_ip = data.lan_ip || '';
 			var count = parseInt(data.wifi_count || '0', 10);
 			for (var i=0; i<count; i++){
 				if (data['wifi_' + i + '_mac']) setVal('wifi_mac_' + i, data['wifi_' + i + '_mac']);
 			}
 		});
 		// 实时状态
-		jsonCall(L.url('admin/network/wuxuroute/status'), '', function(err, d){
-			if (err || !d) return;
-			function row(k, v){ return '<tr><td style="padding:2px 8px;font-weight:bold">' + k + '</td><td style="padding:2px 8px">' + v + '</td></tr>'; }
-			var html = '<table class="cbi-table" style="border-collapse:collapse">';
-			html += row('WAN', d.wan_mac || '-');
-			html += row('LAN', d.lan_mac || '-');
-			html += row('主机名', d.hostname || '-');
-			html += row('LAN IP', d.lan_ip || '-');
-			var c = parseInt(d.wifi_count || '0', 10);
-			for (var i=0; i<c; i++){
-				var s = d['wifi_' + i + '_ssid'] || ('SSID#' + i);
-				var cm = d['wifi_' + i + '_config_mac'] || '未设置';
-				var em = d['wifi_' + i + '_effective_mac'] || '未知';
-				html += row(s, '配置: ' + cm + ' / 实际: ' + em);
-			}
-			html += '</table>';
-			var box = $('qc-status-box');
-			if (box) box.innerHTML = html;
-		});
+		refreshStatus();
 		// 定时同步
 		syncScheduleUI();
 	});
@@ -306,10 +297,44 @@ tb.description = [[
 	});
 
 	$('qc-apply') && $('qc-apply').addEventListener('click', function(){
-		jsonCall(L.url('admin/network/wuxuroute/apply'), buildBody(true), function(err, d){
-			if (err) { status('应用失败: ' + err, false); return; }
-			status(d && d.log ? d.log : '应用成功', d && d.ok);
-		});
+		var oldIp = window.__qc_lan_ip || '';
+		var newIp = (getVal('lan_ip') || '').trim();
+		var ipChanged = (newIp && oldIp && newIp !== oldIp);
+		function doApply(){
+			jsonCall(L.url('admin/network/wuxuroute/apply'), buildBody(true), function(err, d){
+				if (err){ showModal({title:'应用失败', kind:'error', bodyHtml:'网络错误，请重试。'}); return; }
+				if (!d || !d.ok){
+					showModal({title:'应用失败', kind:'error', bodyHtml: escapeHtml((d && d.err) ? d.err : '未知错误')});
+					return;
+				}
+				var rows = [];
+				if (getVal('wan_mac'))  rows.push('WAN MAC：' + escapeHtml(getVal('wan_mac')));
+				if (getVal('lan_mac'))  rows.push('LAN MAC：' + escapeHtml(getVal('lan_mac')));
+				if (newIp)              rows.push('LAN IP：' + escapeHtml(newIp) + (ipChanged ? '（已变更）' : ''));
+				if (getVal('hostname')) rows.push('主机名：' + escapeHtml(getVal('hostname')));
+				var wfs = wifiFields();
+				for (var i=0;i<wfs.length;i++){ if (wfs[i].value) rows.push('WiFi MAC：' + escapeHtml(wfs[i].value)); }
+				var body = '<p style="margin:0 0 8px">配置已成功应用。</p>';
+				if (rows.length) body += '<ul style="margin:0;padding-left:18px">' + rows.map(function(r){return '<li>'+r+'</li>';}).join('') + '</ul>';
+				if (ipChanged){
+					var url = location.protocol + '//' + newIp + (location.port ? ':' + location.port : '') + '/';
+					body += '<p style="margin:10px 0 0;color:#c0392b">管理地址已变更为 <b>' + escapeHtml(newIp) + '</b>，网络将短暂中断，随后自动跳转到新地址。</p>';
+					showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'前往新地址', cancelText:'留在本页',
+						redirectUrl:url, countdown:4, onOk:function(){ setTimeout(function(){ window.location.href = url; }, 2500); }});
+				} else {
+					body += '<p style="margin:10px 0 0;color:#2e8b57">所有更改已生效。</p>';
+					showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'确定', onOk:function(){ refreshStatus(); }});
+				}
+			});
+		}
+		if (ipChanged){
+			var url = location.protocol + '//' + newIp + (location.port ? ':' + location.port : '') + '/';
+			var cbody = '<p style="margin:0 0 8px">你正在将路由器管理地址从 <b>' + escapeHtml(oldIp) + '</b> 变更为 <b>' + escapeHtml(newIp) + '</b>。</p>'
+				+ '<p style="margin:0">应用后 LAN 口 IP 会变化，网络将短暂中断，页面会自动跳转到新地址 <b>' + escapeHtml(url) + '</b>。是否继续？</p>';
+			showModal({title:'确认修改管理地址', kind:'warn', bodyHtml:cbody, okText:'继续并应用', cancelText:'取消', onOk:doApply});
+		} else {
+			doApply();
+		}
 	});
 
 	$('qc-reboot') && $('qc-reboot').addEventListener('click', function(){
@@ -326,6 +351,76 @@ tb.description = [[
 			setTimeout(function(){ window.location.reload(); }, 1500);
 		});
 	});
+
+	// ---------- 当前生效状态刷新（供弹窗与状态框复用） ----------
+	function escapeHtml(s){
+		return String(s == null ? '' : s)
+			.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+			.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+	}
+	function refreshStatus(){
+		jsonCall(L.url('admin/network/wuxuroute/status'), '', function(err, d){
+			if (err || !d) return;
+			function row(k, v){ return '<tr><td style="padding:2px 8px;font-weight:bold">'+escapeHtml(k)+'</td><td style="padding:2px 8px">'+escapeHtml(v)+'</td></tr>'; }
+			var html = '<table class="cbi-table" style="border-collapse:collapse">';
+			html += row('WAN', d.wan_mac || '-');
+			html += row('LAN', d.lan_mac || '-');
+			html += row('主机名', d.hostname || '-');
+			html += row('LAN IP', d.lan_ip || '-');
+			window.__qc_lan_ip = (d.lan_ip || '');
+			var c = parseInt(d.wifi_count || '0', 10);
+			for (var i=0;i<c;i++){
+				var s = d['wifi_' + i + '_ssid'] || ('SSID#' + i);
+				var cm = d['wifi_' + i + '_config_mac'] || '未设置';
+				var em = d['wifi_' + i + '_effective_mac'] || '未知';
+				html += row(s, '配置: ' + cm + ' / 实际: ' + em);
+			}
+			html += '</table>';
+			var box = $('qc-status-box');
+			if (box) box.innerHTML = html;
+		});
+	}
+
+	// ---------- 结果弹窗（替代页面内日志） ----------
+	function showModal(opts){
+		opts = opts || {};
+		var ov = $('qc-modal'); if (!ov) return;
+		var title = $('qc-modal-title'), body = $('qc-modal-body'), foot = $('qc-modal-foot');
+		title.textContent = opts.title || '';
+		title.style.background = (opts.kind === 'error') ? '#c0392b' : (opts.kind === 'warn' ? '#e67e22' : '#2e8b57');
+		body.innerHTML = opts.bodyHtml || '';
+		foot.innerHTML = '';
+		var autoTimer = null;
+		function addBtn(label, primary, fn){
+			var b = document.createElement('button');
+			b.type = 'button';
+			b.className = 'btn ' + (primary ? 'cbi-button-apply' : 'cbi-button-reset');
+			b.textContent = label;
+			b.addEventListener('click', function(){
+				if (autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+				if (fn) fn();
+				closeModal();
+			});
+			foot.appendChild(b);
+		}
+		if (opts.cancelText) addBtn(opts.cancelText, false, opts.onCancel);
+		if (opts.okText)     addBtn(opts.okText, true, opts.onOk);
+		if (opts.countdown && opts.redirectUrl){
+			var n = opts.countdown;
+			var pri = foot.querySelector('.cbi-button-apply');
+			var base = opts.okText || '确定';
+			if (pri){
+				pri.textContent = base + ' (' + n + 's)';
+				autoTimer = setInterval(function(){
+					n--;
+					if (n <= 0){ clearInterval(autoTimer); autoTimer = null; window.location.href = opts.redirectUrl; }
+					else { pri.textContent = base + ' (' + n + 's)'; }
+				}, 1000);
+			}
+		}
+		ov.style.display = 'flex';
+	}
+	function closeModal(){ var ov = $('qc-modal'); if (ov) ov.style.display = 'none'; }
 })();
 </script>
 ]]
