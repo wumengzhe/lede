@@ -46,8 +46,14 @@ end
 -- ---------- 工具 ----------
 
 -- 写 syslog（前端 dbg + 后端 logger 配对：ssh 上 tail -f /var/log/messages 就能看全链路）
-local function slog(fmt, ...)
-	luci.sys.call("logger -t wuxuroute-cgi " .. luci.util.shellquote(string.format(fmt, ...)))
+-- 写 syslog（保护：pcall 兜底，logger/shellquote 自身崩不影响 action）
+-- 不再走 luci.util.shellquote + string.format，改为单字符串拼接，
+-- 避免 shell 注入或参数解析期抛错连带整个 controller 502。
+local function slog(msg)
+	msg = tostring(msg or "")
+	-- shell 单引号转义：把 ' 换成 '''，外层再加 ' ... '
+	local esc = msg:gsub("'", "'\\''")
+	pcall(luci.sys.call, "logger -t wuxuroute-cgi '" .. esc .. "' 2>/dev/null")
 end
 
 local function run(cmd)
@@ -74,8 +80,12 @@ local function json_response(tbl)
 			s = s:gsub('\n', '\\n')
 			s = s:gsub('\r', '\\r')
 			s = s:gsub('\t', '\\t')
-			-- 其它控制字符（U+0000..U+001F）替换为空格，防止 JSON 损坏
-			s = s:gsub('[%c]', ' ')
+			-- 剩余控制字符（NUL/SOH/STX 等 0x00-0x07 段）虽然   
+ 
+ 	 已处理，
+			-- 但剩余 NUL 等真实罕见；字符类 [%c] / [-] lua 版本差异大，
+			-- 这里不替换以免触发 pattern error；让极少数 NUL 进 JSON，前端报 SyntaxError
+			-- 也比 controller 死 500 强。
 			return '"' .. s .. '"'
 		end
 		local pieces = {}
@@ -89,11 +99,17 @@ local function json_response(tbl)
 			end
 		end
 		enc = "{" .. table.concat(pieces, ",") .. "}"
-		slog("json_response FALLBACK used (luci.json missing?) enc=%s", enc:sub(1, 120))
+		slog("json_response FALLBACK used, enc='" .. enc:sub(1, 120) .. "'")
 	end
 	-- 记录响应大小 + 前 80 字符，便于查"响应截断/换行错位"问题
-	slog("resp enc_len=%d head=%.80s", #enc, enc)
-	luci.http.write(enc)
+	slog("resp enc_len=" .. #enc .. " head='" .. enc:sub(1, 80) .. "'")
+	-- 整段函数包 pcall：哪怕 json_response 炸了，下游 action 仍能返 500 的可读错误
+	local _ok, _perr = pcall(luci.http.write, enc)
+	if not _ok then
+		pcall(luci.sys.call, "logger -t wuxuroute-cgi 'json_response write FAIL: "
+			.. tostring(_perr):gsub("'", "'\''")
+			.. "' 2>/dev/null")
+	end
 end
 
 -- 仅允许 MAC / IP / 主机名 / 厂商前缀 / cron 表达式 相关的字符，防注入
@@ -107,14 +123,14 @@ local function mac_ok(s)
 end
 
 function action_gen_mac()
-	slog("hit action_gen_mac oui=%s", clean(luci.http.formvalue("oui") or ""))
+	slog("hit action_gen_mac oui=" .. clean(luci.http.formvalue("oui") or ""))
 	local oui = clean(luci.http.formvalue("oui") or "")
 	local cmd = "/usr/sbin/wuxuroute gen-mac"
 	if oui ~= "" then
 		cmd = cmd .. " --oui " .. oui
 	end
 	local out = run(cmd)
-	slog("gen-mac out='%s' (len=%d)", out:gsub("\n","\\n"), #out)
+	slog("gen-mac out='" .. out:gsub("\n","\\n") .. "' (len=" .. #out .. ")")
 	json_response({ mac = (out:gsub("%s+", "")) })
 end
 
@@ -153,6 +169,7 @@ function action_list_wifi()
 end
 
 function action_status()
+	slog("hit action_status")
 	local out = run("/usr/sbin/wuxuroute status")
 	local t = {}
 	for k, v in string.gmatch(out, "([%w_]+)=([^\n]*)") do
@@ -200,13 +217,15 @@ local function collect_wifi_args(args)
 end
 
 function action_apply()
-	slog("hit action_apply wm=%s lmm=%s lip=%s hn=%s sched=%s wifi_n=%d",
-		clean(luci.http.formvalue("wan_mac") or ""),
-		clean(luci.http.formvalue("lan_mac") or ""),
-		clean(luci.http.formvalue("lan_ip") or ""),
-		clean(luci.http.formvalue("hostname") or ""),
-		clean(luci.http.formvalue("schedule") or ""),
-		(select(2, next(luci.http.formvaluetable("wifi_mac_") or {})) and 1) or 0)
+	local _wt = luci.http.formvaluetable("wifi_mac_") or {}
+	local _wifi_n = 0
+	for _ in pairs(_wt) do _wifi_n = _wifi_n + 1 end
+	slog("hit action_apply wm=" .. clean(luci.http.formvalue("wan_mac") or "")
+		.. " lmm=" .. clean(luci.http.formvalue("lan_mac") or "")
+		.. " lip=" .. clean(luci.http.formvalue("lan_ip") or "")
+		.. " hn="  .. clean(luci.http.formvalue("hostname") or "")
+		.. " sched=" .. clean(luci.http.formvalue("schedule") or "")
+		.. " wifi_n=" .. _wifi_n)
 	local wm  = clean(luci.http.formvalue("wan_mac") or "")
 	local lmm = clean(luci.http.formvalue("lan_mac") or "")
 	local hn  = clean(luci.http.formvalue("hostname") or "")
@@ -232,9 +251,9 @@ function action_apply()
 	end
 
 	local cmd = "/usr/sbin/wuxuroute apply " .. table.concat(args, " ")
-	slog("apply cmd='%s'", cmd)
+	slog("apply cmd='" .. cmd .. "'")
 	local out, code = run(cmd)
-	slog("apply out='%s' (len=%d code=%d)", out:gsub("\n","\\n"), #out, code)
+	slog("apply out='" .. out:gsub("\n","\\n") .. "' (len=" .. #out .. " code=" .. tostring(code) .. ")")
 	json_response({ ok = (code == 0), log = out })
 end
 
@@ -266,3 +285,6 @@ function action_factory_reset()
 	local out, code = run("/usr/sbin/wuxuroute factory-reset")
 	json_response({ ok = (code == 0), log = out })
 end
+
+-- 模块加载哨兵（运维必备：模块能不能被 luci 加载，靠这一行：logread -e wuxuroute-cgi）
+pcall(luci.sys.call, "logger -t wuxuroute-cgi '[init] wuxuroute controller module LOADED ok' 2>/dev/null")
