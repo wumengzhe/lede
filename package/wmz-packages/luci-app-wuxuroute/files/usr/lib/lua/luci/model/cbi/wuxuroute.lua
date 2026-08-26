@@ -44,6 +44,7 @@ tb.description = [[
   <span id="qc-status" style="margin-left:1em"></span>
 </div>
 <div id="qc-status-box" style="margin-bottom:1em"></div>
+<pre id="qc-debug" style="display:none;max-height:200px;overflow:auto;background:#f5f5f5;border:1px solid #ddd;padding:6px;font-size:11px;white-space:pre-wrap;margin-bottom:1em"></pre>
 <script type="text/javascript">
 (function(){
 	function $(id){return document.getElementById(id);}
@@ -53,7 +54,20 @@ tb.description = [[
 		s.textContent = msg || '';
 		s.style.color = ok ? '#0a0' : '#c00';
 	}
-	// ---------- 关键 1：解析 JSON 时对 XSSI 包装和纯 JSON 都不挑剔 ----------
+	// ---------- 调试日志：写 UI + console（便于 ssh tail /var/log/messages 配合） ----------
+	function dbg(tag, info){
+		var line = '[' + new Date().toISOString().substr(11,8) + '] ' + tag + ': ' + info;
+		try { console.log(line); } catch(e){}
+		var box = $('qc-debug');
+		if (box){
+			var t = box.textContent || '';
+			var lines = t.split('\n');
+			if (lines.length > 60) lines = lines.slice(-60);
+			box.textContent = lines.join('\n') + (t ? '\n' : '') + line;
+			box.style.display = 'block';
+		}
+	}
+	// 解析 JSON：见下方 parseLuciJSON（关键 1）
 	function parseLuciJSON(text){
 		// 不依赖任何特定 XSSI 形状（不同 luci 版本形状不同）：
 		// 直接定位首/尾最近的 JSON 边界（{ ... } 或 [ ... ]），
@@ -67,12 +81,7 @@ tb.description = [[
 		var ea = s.lastIndexOf('}'), eb = s.lastIndexOf(']');
 		var end = Math.max(ea, eb);
 		if (end <= start) return JSON.parse(s);
-		try { return JSON.parse(s.substring(start, end + 1)); }
-		catch (e) {
-			// 兜底：尝试把单引号转双引号再 parse（防御 luci 偶发错误地返回 js 文本）
-			var t = s.substring(start, end + 1).replace(/'/g, '"');
-			return JSON.parse(t);
-		}
+		return JSON.parse(s.substring(start, end + 1));
 	}
 	function jsonCall(url, body, cb){
 		var xhr = new XMLHttpRequest();
@@ -80,45 +89,36 @@ tb.description = [[
 		xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
 		xhr.onreadystatechange = function(){
 			if (xhr.readyState !== 4) return;
+			dbg('xhr', url + ' status=' + xhr.status + ' body=' + (xhr.responseText||'').slice(0, 200));
 			try { cb(null, parseLuciJSON(xhr.responseText)); }
-			catch (e) { cb(e, null); }
+			catch (e) { dbg('parse', e.toString() + ' raw=' + (xhr.responseText||'').slice(0, 200)); cb(e, null); }
 		};
+		xhr.onerror = function(){ dbg('xhr-err', url + ' net fail'); cb(new Error('network error'), null); };
 		xhr.send(body || '');
 	}
-	// ---------- 关键 2：动态发现 CBI 的 sec_ref（不再硬编码 config.0） ----------
-	// SEC_REF 用懒求值：本 IIFE 在「快捷操作」section 的 description <script> 内
-	// 第一时间执行，此时其后续 sections (WAN/LAN/WiFi/...) 的 input 还没渲染，
-	// 即时 querySelector 必然扑空，兜底成 'config.0' 后续 setVal 永远失效。
-	// 改为：声明时不取，等到第一次 setVal/getVal/wifiFields() 真正被事件回调调用
-	// 时（此时整个 CBI 已经渲染完）再查 DOM。
-	var SEC_REF = null;
-	function discoverSecRef(){
-		var inp = document.querySelector('input[name^="cbid.wuxuroute."]');
-		if (inp){
-			var m = inp.name.match(/^cbid\.wuxuroute\.([^.]+)\./);
-			if (m) return m[1];
-		}
-		return 'config.0';  // 兜底
+	// ---------- 关键 2：按 field 名后缀匹配 input（不依赖 sec_ref） ----------
+	// CBI 渲染时不同 anonymous section 是不同的段引用（secA/secB/secC/...）。
+	// 之前用 querySelector('input[name^="cbid.wuxuroute."]') 抓第一个就把 SEC_REF
+	// 锁死在「WAN 口设置」section，其他 section 字段（lan_ip/lan_mac/hostname/wifi_mac_*）
+	// 拼出来的 name 都不存在，setVal 抛 TypeError → 「生成失败」/ 不显示。
+	// 改：按 field 后缀（input[name$=".<field>"]）匹配，跨 section 通用。
+	function setVal(field, v){
+		var inp = document.querySelector('input[name$=".' + field + '"]');
+		if (inp){ inp.value = v; dbg('set', field + '=' + v + ' (input=' + inp.name + ')'); }
+		else   { dbg('set-miss', field + ' -> no input[name$=".' + field + '"]'); }
 	}
-	function qcName(base){
-		if (SEC_REF === null) SEC_REF = discoverSecRef();
-		return 'cbid.wuxuroute.' + SEC_REF + '.' + base;
+	function getVal(field){
+		var inp = document.querySelector('input[name$=".' + field + '"]');
+		return inp ? inp.value : '';
 	}
-	function setVal(name, v){
-		var inputs = document.querySelectorAll('input[name="' + name + '"]');
-		if (inputs && inputs[0]) inputs[0].value = v;
-	}
-	function getVal(name){
-		var inputs = document.querySelectorAll('input[name="' + name + '"]');
-		return (inputs && inputs[0]) ? inputs[0].value : '';
-	}
-	function checkbox(name){
-		var inputs = document.querySelectorAll('input[type="checkbox"][name="' + name + '"]');
-		return (inputs && inputs[0]) ? inputs[0].checked : false;
+	function checkbox(field){
+		var inp = document.querySelector('input[type="checkbox"][name$=".' + field + '"]');
+		return inp ? inp.checked : false;
 	}
 	function wifiFields(){
-		return document.querySelectorAll('input[name^="' + qcName('').replace(/\.$/, '') + '.wifi_mac_"]');
+		return document.querySelectorAll('input[name*=".wifi_mac_"][name^="cbid.wuxuroute."]');
 	}
+	// (旧 setVal/getVal/checkbox/wifiFields 已重定义)
 	function curOui(){
 		var sel = $('qc-oui');
 		return (sel && sel.value) ? sel.value : '';
@@ -129,36 +129,40 @@ tb.description = [[
 		jsonCall(L.url('admin/network/wuxuroute/gen_mac'), body, cb);
 	}
 	function randomInto(target){
+		dbg('rand', 'target=' + target);
 		if (target === 'hostname') {
 			jsonCall(L.url('admin/network/wuxuroute/gen_hostname'), '', function(err, d){
-				if (!err && d && d.hostname) setVal(qcName('hostname'), d.hostname);
+				if (!err && d && d.hostname) setVal('hostname', d.hostname);
+				else { dbg('rand-fail', 'hostname: ' + (err ? err.toString() : JSON.stringify(d))); }
 			});
 		} else {
 			reqMac(function(err, d){
-				if (!err && d && d.mac) setVal(qcName(target), d.mac);
+				if (!err && d && d.mac) setVal(target, d.mac);
+				else { dbg('rand-fail', target + ': ' + (err ? err.toString() : JSON.stringify(d))); }
 			});
 		}
 	}
 	function buildBody(includeAuto){
-		var body = 'wan_mac=' + encodeURIComponent(getVal(qcName('wan_mac'))) +
-			'&lan_mac=' + encodeURIComponent(getVal(qcName('lan_mac'))) +
-			'&hostname=' + encodeURIComponent(getVal(qcName('hostname'))) +
-			'&lan_ip=' + encodeURIComponent(getVal(qcName('lan_ip')));
+		var body = 'wan_mac=' + encodeURIComponent(getVal('wan_mac')) +
+			'&lan_mac=' + encodeURIComponent(getVal('lan_mac')) +
+			'&hostname=' + encodeURIComponent(getVal('hostname')) +
+			'&lan_ip=' + encodeURIComponent(getVal('lan_ip'));
 		var wfs = wifiFields();
 		for (var i=0; i<wfs.length; i++){
 			var m = wfs[i].name.match(/wifi_mac_(\d+)$/);
 			if (m && wfs[i].value) body += '&wifi_mac_' + m[1] + '=' + encodeURIComponent(wfs[i].value);
 		}
 		if (includeAuto){
-			body += '&auto_wan_mac=' + (checkbox(qcName('auto_wan_mac')) ? '1' : '');
-			body += '&auto_lan_mac=' + (checkbox(qcName('auto_lan_mac')) ? '1' : '');
-			body += '&auto_wifi=' + (checkbox(qcName('auto_wifi')) ? '1' : '');
-			body += '&auto_hostname=' + (checkbox(qcName('auto_hostname')) ? '1' : '');
-			body += '&auto_lan_ip=' + (checkbox(qcName('auto_lan_ip')) ? '1' : '');
+			body += '&auto_wan_mac=' + (checkbox('auto_wan_mac') ? '1' : '');
+			body += '&auto_lan_mac=' + (checkbox('auto_lan_mac') ? '1' : '');
+			body += '&auto_wifi=' + (checkbox('auto_wifi') ? '1' : '');
+			body += '&auto_hostname=' + (checkbox('auto_hostname') ? '1' : '');
+			body += '&auto_lan_ip=' + (checkbox('auto_lan_ip') ? '1' : '');
 		}
 		// 定时：直接送 cron 表达式（也兼容旧 0/1/2）
-		var sched = getVal(qcName('schedule'));
+		var sched = getVal('schedule');
 		body += '&schedule=' + encodeURIComponent(sched || '');
+		dbg('body', body);
 		return body;
 	}
 
@@ -190,9 +194,9 @@ tb.description = [[
 		return null;  // 自定义：让用户直接编辑 cron
 	}
 	function syncScheduleUI(){
-		var cronEl  = document.querySelector('input[name="' + qcName('schedule') + '"]');
-		var presEl  = document.querySelector('select[name="' + qcName('_preset') + '"]');
-		var timeEl  = document.querySelector('input[name="' + qcName('_time')   + '"]');
+		var cronEl  = document.querySelector('input[name$=".schedule"]');
+		var presEl  = document.querySelector('select[name$="._preset"]');
+		var timeEl  = document.querySelector('input[name$="._time"]');
 		if (!cronEl || !presEl) return;
 		var init = parseCron(cronEl.value);
 		// ListValue 的 "" 与 "__custom__" 都需要落到"自定义"，但 UI 里没显示"自定义"项
@@ -227,13 +231,13 @@ tb.description = [[
 		// 回填当前值
 		jsonCall(L.url('admin/network/wuxuroute/get'), '', function(err, data){
 			if (err || !data) return;
-			if (data.wan_mac)    setVal(qcName('wan_mac'),  data.wan_mac);
-			if (data.lan_mac)    setVal(qcName('lan_mac'),  data.lan_mac);
-			if (data.hostname)   setVal(qcName('hostname'), data.hostname);
-			if (data.lan_ip)     setVal(qcName('lan_ip'),   data.lan_ip);
+			if (data.wan_mac)    setVal('wan_mac',  data.wan_mac);
+			if (data.lan_mac)    setVal('lan_mac',  data.lan_mac);
+			if (data.hostname)   setVal('hostname', data.hostname);
+			if (data.lan_ip)     setVal('lan_ip',   data.lan_ip);
 			var count = parseInt(data.wifi_count || '0', 10);
 			for (var i=0; i<count; i++){
-				if (data['wifi_' + i + '_mac']) setVal(qcName('wifi_mac_' + i), data['wifi_' + i + '_mac']);
+				if (data['wifi_' + i + '_mac']) setVal('wifi_mac_' + i, data['wifi_' + i + '_mac']);
 			}
 		});
 		// 实时状态
@@ -270,19 +274,19 @@ tb.description = [[
 			var target = t.getAttribute('data-qc-target');
 			reqMac(function(err, d){
 				if (err || !d || !d.mac) { status('生成失败', false); return; }
-				setVal(qcName(target), d.mac);
+				setVal(target, d.mac);
 				status('已生成 ' + d.mac, true);
 			});
 		} else if (v === 'random_hostname') {
 			jsonCall(L.url('admin/network/wuxuroute/gen_hostname'), '', function(err, d){
 				if (err || !d || !d.hostname) { status('生成失败', false); return; }
-				setVal(qcName('hostname'), d.hostname);
+				setVal('hostname', d.hostname);
 				status('已生成 ' + d.hostname, true);
 			});
 		} else if (v === 'random_lan_ip') {
 			var n = (Math.floor(Math.random() * 200) + 2);
 			var ip = '192.168.' + n + '.1';
-			setVal(qcName('lan_ip'), ip);
+			setVal('lan_ip', ip);
 			status('已生成 ' + ip + '（请牢记新 IP！）', true);
 		}
 	});
@@ -292,7 +296,7 @@ tb.description = [[
 		randomInto('lan_mac');
 		randomInto('hostname');
 		var n = (Math.floor(Math.random() * 200) + 2);
-		setVal(qcName('lan_ip'), '192.168.' + n + '.1');
+		setVal('lan_ip', '192.168.' + n + '.1');
 		var wfs = wifiFields();
 		for (var i=0; i<wfs.length; i++){
 			var m = wfs[i].name.match(/wifi_mac_(\d+)$/);

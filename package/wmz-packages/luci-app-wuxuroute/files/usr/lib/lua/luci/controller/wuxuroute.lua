@@ -45,6 +45,11 @@ end
 
 -- ---------- 工具 ----------
 
+-- 写 syslog（前端 dbg + 后端 logger 配对：ssh 上 tail -f /var/log/messages 就能看全链路）
+local function slog(fmt, ...)
+	luci.sys.call("logger -t wuxuroute-cgi " .. luci.util.shellquote(string.format(fmt, ...)))
+end
+
 local function run(cmd)
 	local out = luci.sys.exec(cmd .. " 2>&1")
 	return out or "", 0
@@ -53,13 +58,26 @@ end
 -- 直接输出 JSON，避开 luci.http.write_json() 自动加的 XSSI 前缀
 --   <!--/*--><![CDATA[/*><!--*/-->...<!--*/-->
 -- 让前端不用任何剥前缀逻辑（防劫持我们改用 HTTPS + 同源 X-Requested-With）。
--- 若上层 luci.json 不可用则降级到 nixio 编码或手工 JSON。
+-- 若上层 luci.json 不可用则降级到手工 JSON（严格按 RFC 8259 转义）。
 local function json_response(tbl)
 	luci.http.prepare_content("application/json")
 	local ok, enc = pcall(require("luci.json").encode, tbl or {})
 	if not ok or type(enc) ~= "string" then
-		-- 退化：手工写最小 JSON（只支持 ok/log/err/mac/hostname 这类字符串字段）
-		local function q(s) return '"' .. tostring(s or ""):gsub('[\\"]', {["\\"]="\\\\", ['"']='\\"'}) .. '"' end
+		-- 退化：手工写最小 JSON（只支持 ok/log/err/mac/hostname/wifi/values 这类字段）
+		-- 严格按 RFC 8259：必须转义 " \\ \b \f \n \r \t 与控制字符（U+0000..U+001F）
+		local function q(s)
+			s = tostring(s or "")
+			s = s:gsub('\\', '\\\\')
+			s = s:gsub('"',  '\\"')
+			s = s:gsub('\b', '\\b')
+			s = s:gsub('\f', '\\f')
+			s = s:gsub('\n', '\\n')
+			s = s:gsub('\r', '\\r')
+			s = s:gsub('\t', '\\t')
+			-- 其它控制字符（U+0000..U+001F）替换为空格，防止 JSON 损坏
+			s = s:gsub('[%c]', ' ')
+			return '"' .. s .. '"'
+		end
 		local pieces = {}
 		for k, v in pairs(tbl or {}) do
 			if type(v) == "string" then
@@ -71,7 +89,10 @@ local function json_response(tbl)
 			end
 		end
 		enc = "{" .. table.concat(pieces, ",") .. "}"
+		slog("json_response FALLBACK used (luci.json missing?) enc=%s", enc:sub(1, 120))
 	end
+	-- 记录响应大小 + 前 80 字符，便于查"响应截断/换行错位"问题
+	slog("resp enc_len=%d head=%.80s", #enc, enc)
 	luci.http.write(enc)
 end
 
@@ -86,21 +107,25 @@ local function mac_ok(s)
 end
 
 function action_gen_mac()
+	slog("hit action_gen_mac oui=%s", clean(luci.http.formvalue("oui") or ""))
 	local oui = clean(luci.http.formvalue("oui") or "")
 	local cmd = "/usr/sbin/wuxuroute gen-mac"
 	if oui ~= "" then
 		cmd = cmd .. " --oui " .. oui
 	end
 	local out = run(cmd)
+	slog("gen-mac out='%s' (len=%d)", out:gsub("\n","\\n"), #out)
 	json_response({ mac = (out:gsub("%s+", "")) })
 end
 
 function action_gen_hostname()
+	slog("hit action_gen_hostname")
 	local out = run("/usr/sbin/wuxuroute gen-hostname")
 	json_response({ hostname = (out:gsub("^%s+", ""):gsub("%s+$", "")) })
 end
 
 function action_get()
+	slog("hit action_get")
 	local out = run("/usr/sbin/wuxuroute get")
 	local t = {}
 	for k, v in string.gmatch(out, "([%w_]+)=([^\n]*)") do
@@ -110,6 +135,7 @@ function action_get()
 end
 
 function action_list_wifi()
+	slog("hit action_list_wifi")
 	local out = run("/usr/sbin/wuxuroute list-wifi")
 	local list = {}
 	for line in out:gmatch("[^\n]+") do
@@ -174,6 +200,13 @@ local function collect_wifi_args(args)
 end
 
 function action_apply()
+	slog("hit action_apply wm=%s lmm=%s lip=%s hn=%s sched=%s wifi_n=%d",
+		clean(luci.http.formvalue("wan_mac") or ""),
+		clean(luci.http.formvalue("lan_mac") or ""),
+		clean(luci.http.formvalue("lan_ip") or ""),
+		clean(luci.http.formvalue("hostname") or ""),
+		clean(luci.http.formvalue("schedule") or ""),
+		(select(2, next(luci.http.formvaluetable("wifi_mac_") or {})) and 1) or 0)
 	local wm  = clean(luci.http.formvalue("wan_mac") or "")
 	local lmm = clean(luci.http.formvalue("lan_mac") or "")
 	local hn  = clean(luci.http.formvalue("hostname") or "")
@@ -198,11 +231,15 @@ function action_apply()
 		table.insert(args, schedule)
 	end
 
-	local out, code = run("/usr/sbin/wuxuroute apply " .. table.concat(args, " "))
+	local cmd = "/usr/sbin/wuxuroute apply " .. table.concat(args, " ")
+	slog("apply cmd='%s'", cmd)
+	local out, code = run(cmd)
+	slog("apply out='%s' (len=%d code=%d)", out:gsub("\n","\\n"), #out, code)
 	json_response({ ok = (code == 0), log = out })
 end
 
 function action_reboot()
+	slog("hit action_reboot")
 	local wm  = clean(luci.http.formvalue("wan_mac") or "")
 	local lmm = clean(luci.http.formvalue("lan_mac") or "")
 	local hn  = clean(luci.http.formvalue("hostname") or "")
@@ -225,6 +262,7 @@ function action_reboot()
 end
 
 function action_factory_reset()
+	slog("hit action_factory_reset")
 	local out, code = run("/usr/sbin/wuxuroute factory-reset")
 	json_response({ ok = (code == 0), log = out })
 end
