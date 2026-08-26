@@ -192,19 +192,43 @@ cmd_status() {
 	echo "wifi_count=$i"
 }
 
+# 把 MAC 写到接口段（非桥接直接生效）与桥接 device 段（LAN br-lan
+# 必须写 device 段才生效），并尽量在线修改运行中的 netdev MAC。
+# 原实现用接口逻辑名解析出的设备名（如 br-lan）直接
+# uci set network.br-lan.macaddr —— 但 br-lan 只是 @device 段的 name
+# 值，不是 UCI 段名，那条 set 静默失败，导致 LAN MAC 永远不生效。
+apply_mac_to_iface() {
+	local iface="$1" mac="$2"
+	[ -z "$iface" ] && return
+	# 接口段（对直接 ifname 接口有效，且总是真实存在的段）
+	uci set network.${iface}.macaddr="$mac" 2>/dev/null
+	# 解析该接口引用的设备名（bridge 是 br-lan，物理口是 ethX）
+	local dev=""
+	dev=$(uci -q get network.${iface}.device 2>/dev/null)
+	[ -z "$dev" ] && dev=$(uci -q get network.${iface}.ifname 2>/dev/null)
+	if [ -n "$dev" ]; then
+		# 找到 name == dev 的 @device 段（桥接设备段），把 MAC 写在那里
+		local sec
+		sec=$(uci -q show network 2>/dev/null \
+			| sed -n "s/^network\.\(@device\[[0-9]*\]\)\.name='\?${dev}'\?$/\1/p" | head -n1)
+		[ -n "$sec" ] && uci set network.${sec}.macaddr="$mac" 2>/dev/null
+		# 尽量在线改运行中的 MAC（桥接可热改；物理口若忙则忽略，等 reload）
+		if [ -d "/sys/class/net/$dev" ]; then
+			ip link set dev "$dev" address "$mac" 2>/dev/null \
+				|| ifconfig "$dev" hw ether "$mac" 2>/dev/null
+		fi
+	fi
+}
+
 # 把值写入 UCI（不 reload，由调用方决定）
 # 参数: wan_mac lan_mac lan_ip hostname wifi_pairs
 #   wifi_pairs 形如 "0=AA:BB:..;1=CC:.."
 write_to_uci() {
 	local wan_mac="$1" lan_mac="$2" lan_ip="$3" hostname="$4" wifi_pairs="$5"
 
-	local wan_if lan_if
-	wan_if=$(get_default_iface wan)
-	lan_if=$(get_default_iface lan)
-
 	# 1) network
-	[ -n "$wan_mac" ] && uci set network.${wan_if}.macaddr="$wan_mac" 2>/dev/null
-	[ -n "$lan_mac" ] && uci set network.${lan_if}.macaddr="$lan_mac" 2>/dev/null
+	[ -n "$wan_mac" ] && apply_mac_to_iface wan "$wan_mac"
+	[ -n "$lan_mac" ] && apply_mac_to_iface lan "$lan_mac"
 	if [ -n "$lan_ip" ]; then
 		uci set network.lan.ipaddr="$lan_ip"
 		uci set network.lan.force_link='1' 2>/dev/null
@@ -373,6 +397,10 @@ cmd_factory_reset() {
 	# 清空所有手动 macaddr，让驱动恢复出厂 MAC
 	uci -q delete network.wan.macaddr
 	uci -q delete network.lan.macaddr
+	# 同时清掉桥接 device 段里被我们写的 macaddr
+	for sec in $(uci show network 2>/dev/null | sed -n 's/^network\.\(@device\[[0-9]*\]\)\.macaddr=.*/\1/p'); do
+		uci -q delete network.${sec}.macaddr
+	done
 	for sec in $(uci show wireless 2>/dev/null | sed -n 's/^wireless\.\(@wifi-iface\[[0-9]*\]\)=wifi-iface$/\1/p'); do
 		uci -q delete wireless.${sec}.macaddr
 	done
