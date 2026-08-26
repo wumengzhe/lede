@@ -193,7 +193,20 @@ function action_status()
 end
 
 -- 把 auto_* / schedule 保存到 wuxuroute 配置段
+-- 抢救文章：
+“保存简化模式”的路由
+：让 uhttpd 自带的 error500 错误页替换
+为我们自己的有用递效 JSON。
+在任何 action_* 函数里赌出的异常
+都要给 json_response。
+
 local function save_flags()
+	-- 重点是 uci 游标必须每次请求
+	-- 新建（cursor 有状态，不能横向
+	-- 共享）。其他 LuCI 模块也不注
+	-- 入这个全局；不加这一句
+	-- 就会抛 attempt to index a nil value (global ‘uci’)。
+	local uci = require("luci.model.uci").cursor()
 	local function flag(name)
 		if luci.http.formvalue(name) then
 			uci:set("wuxuroute", "@config[0]", name, "1")
@@ -240,35 +253,53 @@ function action_apply()
 		.. " hn="  .. clean(luci.http.formvalue("hostname") or "")
 		.. " sched=" .. clean(luci.http.formvalue("schedule") or "")
 		.. " wifi_n=" .. _wifi_n)
-	local wm  = clean(luci.http.formvalue("wan_mac") or "")
-	local lmm = clean(luci.http.formvalue("lan_mac") or "")
-	local hn  = clean(luci.http.formvalue("hostname") or "")
-	local lip = clean(luci.http.formvalue("lan_ip") or "")
-	local schedule = clean(luci.http.formvalue("schedule") or "")
 
-	if wm ~= "" and not mac_ok(wm) then json_response({ ok = false, err = "WAN MAC 格式错误" }); return end
-	if lmm ~= "" and not mac_ok(lmm) then json_response({ ok = false, err = "LAN MAC 格式错误" }); return end
-	if lip ~= "" and not lip:match("^%d+%.%d+%.%d+%.%d+$") then json_response({ ok = false, err = "LAN IP 格式错误" }); return end
+	-- 整体包 xpcall：任何异常
+	-- (uci 未定义、子脚本闪退、
+	-- uci:commit 失败等等)都会落到 syslog，
+	-- 并由设备的 catch 在出发一
+	-- 个 {ok=false,err="..."} 的就地 JSON，
+	-- 绝不会再被 uhttpd 充效成 500。
+	local function body()
+		local wm  = clean(luci.http.formvalue("wan_mac") or "")
+		local lmm = clean(luci.http.formvalue("lan_mac") or "")
+		local hn  = clean(luci.http.formvalue("hostname") or "")
+		local lip = clean(luci.http.formvalue("lan_ip") or "")
+		local schedule = clean(luci.http.formvalue("schedule") or "")
 
-	local args = {}
-	if wm  ~= "" then table.insert(args, "--wan-mac");  table.insert(args, wm) end
-	if lmm ~= "" then table.insert(args, "--lan-mac");  table.insert(args, lmm) end
-	if lip ~= "" then table.insert(args, "--lan-ip");   table.insert(args, lip) end
-	if hn  ~= "" then table.insert(args, "--hostname"); table.insert(args, hn) end
+		if wm ~= "" and not mac_ok(wm) then json_response({ ok = false, err = "WAN MAC 格式错误" }); return end
+		if lmm ~= "" and not mac_ok(lmm) then json_response({ ok = false, err = "LAN MAC 格式错误" }); return end
+		if lip ~= "" and not lip:match("^%d+%.%d+%.%d+%.%d+$") then json_response({ ok = false, err = "LAN IP 格式错误" }); return end
 
-	if not collect_wifi_args(args) then return end
+		local args = {}
+		if wm  ~= "" then table.insert(args, "--wan-mac");  table.insert(args, wm) end
+		if lmm ~= "" then table.insert(args, "--lan-mac");  table.insert(args, lmm) end
+		if lip ~= "" then table.insert(args, "--lan-ip");   table.insert(args, lip) end
+		if hn  ~= "" then table.insert(args, "--hostname"); table.insert(args, hn) end
+		slog("apply step1 args_built n=" .. #args)
 
-	save_flags()
-	if schedule ~= "" then
-		table.insert(args, "--schedule")
-		table.insert(args, schedule)
+		if not collect_wifi_args(args) then return end
+		slog("apply step2 wifi_collected n=" .. #args)
+
+		save_flags()
+		slog("apply step3 flags_saved")
+
+		if schedule ~= "" then
+			table.insert(args, "--schedule")
+			table.insert(args, schedule)
+		end
+
+		local cmd = "/usr/sbin/wuxuroute apply " .. table.concat(args, " ")
+		slog("apply cmd='" .. cmd .. "'")
+		local out, code = run(cmd)
+		slog("apply out='" .. out:gsub("\n","\\n") .. "' (len=" .. #out .. " code=" .. tostring(code) .. ")")
+		json_response({ ok = (code == 0), log = out })
 	end
 
-	local cmd = "/usr/sbin/wuxuroute apply " .. table.concat(args, " ")
-	slog("apply cmd='" .. cmd .. "'")
-	local out, code = run(cmd)
-	slog("apply out='" .. out:gsub("\n","\\n") .. "' (len=" .. #out .. " code=" .. tostring(code) .. ")")
-	json_response({ ok = (code == 0), log = out })
+	local ok, err = xpcall(body, function(e) slog("action_apply THREW: " .. tostring(e)) end)
+	if not ok then
+		json_response({ ok = false, err = tostring(err) })
+	end
 end
 
 function action_reboot()
