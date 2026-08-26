@@ -53,14 +53,26 @@ tb.description = [[
 		s.textContent = msg || '';
 		s.style.color = ok ? '#0a0' : '#c00';
 	}
-	// ---------- 关键 1：解析 JSON 时剥掉 LuCI XSSI 前缀 ----------
+	// ---------- 关键 1：解析 JSON 时对 XSSI 包装和纯 JSON 都不挑剔 ----------
 	function parseLuciJSON(text){
+		// 不依赖任何特定 XSSI 形状（不同 luci 版本形状不同）：
+		// 直接定位首/尾最近的 JSON 边界（{ ... } 或 [ ... ]），
+		// 把中间的子串交回 JSON.parse。
 		var s = (text == null ? '' : String(text));
-		// LuCI 的 write_json 会加：
-		//   <!--/*--><![CDATA[/*><!--*/-->  ...JSON...  <!--*/-->
-		s = s.replace(/^\s*<!--[\s\S]*?-->/, '');
-		s = s.replace(/\/\*\]\]>\*\/-->\s*$/, '');
-		return JSON.parse(s);
+		var a = s.indexOf('{'), b = s.indexOf('[');
+		var start = -1;
+		if (a >= 0 && (b < 0 || a < b)) start = a;
+		else if (b >= 0) start = b;
+		if (start < 0) return JSON.parse(s);
+		var ea = s.lastIndexOf('}'), eb = s.lastIndexOf(']');
+		var end = Math.max(ea, eb);
+		if (end <= start) return JSON.parse(s);
+		try { return JSON.parse(s.substring(start, end + 1)); }
+		catch (e) {
+			// 兜底：尝试把单引号转双引号再 parse（防御 luci 偶发错误地返回 js 文本）
+			var t = s.substring(start, end + 1).replace(/'/g, '"');
+			return JSON.parse(t);
+		}
 	}
 	function jsonCall(url, body, cb){
 		var xhr = new XMLHttpRequest();
@@ -74,6 +86,12 @@ tb.description = [[
 		xhr.send(body || '');
 	}
 	// ---------- 关键 2：动态发现 CBI 的 sec_ref（不再硬编码 config.0） ----------
+	// SEC_REF 用懒求值：本 IIFE 在「快捷操作」section 的 description <script> 内
+	// 第一时间执行，此时其后续 sections (WAN/LAN/WiFi/...) 的 input 还没渲染，
+	// 即时 querySelector 必然扑空，兜底成 'config.0' 后续 setVal 永远失效。
+	// 改为：声明时不取，等到第一次 setVal/getVal/wifiFields() 真正被事件回调调用
+	// 时（此时整个 CBI 已经渲染完）再查 DOM。
+	var SEC_REF = null;
 	function discoverSecRef(){
 		var inp = document.querySelector('input[name^="cbid.wuxuroute."]');
 		if (inp){
@@ -82,8 +100,10 @@ tb.description = [[
 		}
 		return 'config.0';  // 兜底
 	}
-	var SEC_REF = discoverSecRef();
-	function qcName(base){ return 'cbid.wuxuroute.' + SEC_REF + '.' + base; }
+	function qcName(base){
+		if (SEC_REF === null) SEC_REF = discoverSecRef();
+		return 'cbid.wuxuroute.' + SEC_REF + '.' + base;
+	}
 	function setVal(name, v){
 		var inputs = document.querySelectorAll('input[name="' + name + '"]');
 		if (inputs && inputs[0]) inputs[0].value = v;

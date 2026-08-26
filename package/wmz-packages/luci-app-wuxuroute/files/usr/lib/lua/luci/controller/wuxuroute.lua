@@ -50,9 +50,29 @@ local function run(cmd)
 	return out or "", 0
 end
 
+-- 直接输出 JSON，避开 luci.http.write_json() 自动加的 XSSI 前缀
+--   <!--/*--><![CDATA[/*><!--*/-->...<!--*/-->
+-- 让前端不用任何剥前缀逻辑（防劫持我们改用 HTTPS + 同源 X-Requested-With）。
+-- 若上层 luci.json 不可用则降级到 nixio 编码或手工 JSON。
 local function json_response(tbl)
 	luci.http.prepare_content("application/json")
-	luci.http.write_json(tbl or {})
+	local ok, enc = pcall(require("luci.json").encode, tbl or {})
+	if not ok or type(enc) ~= "string" then
+		-- 退化：手工写最小 JSON（只支持 ok/log/err/mac/hostname 这类字符串字段）
+		local function q(s) return '"' .. tostring(s or ""):gsub('[\\"]', {["\\"]="\\\\", ['"']='\\"'}) .. '"' end
+		local pieces = {}
+		for k, v in pairs(tbl or {}) do
+			if type(v) == "string" then
+				pieces[#pieces + 1] = '"' .. k .. '":' .. q(v)
+			elseif type(v) == "boolean" or type(v) == "number" then
+				pieces[#pieces + 1] = '"' .. k .. '":' .. tostring(v)
+			elseif type(v) == "table" and v.ok ~= nil then
+				pieces[#pieces + 1] = '"' .. k .. '":' .. tostring(v.ok)
+			end
+		end
+		enc = "{" .. table.concat(pieces, ",") .. "}"
+	end
+	luci.http.write(enc)
 end
 
 -- 仅允许 MAC / IP / 主机名 / 厂商前缀 / cron 表达式 相关的字符，防注入
