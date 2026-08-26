@@ -203,7 +203,8 @@ apply_mac_to_iface() {
 	log "mac: ifname=${iface} target=${mac}"
 
 	# 1) 接口段（对直接 ifname 接口有效；bridge 段保留以兼容桥无 device 选项）
-	uci set "network.${iface}.macaddr=${mac}" || log "mac: set network.${iface}.macaddr FAILED"
+	uci set "network.${iface}.macaddr=${mac}" \
+		|| log "mac: set network.${iface}.macaddr FAILED"
 	log "mac: wrote network.${iface}.macaddr=${mac}"
 
 	# 2) 解析该接口引用的设备名（bridge: br-lan；物理口: ethX）
@@ -212,34 +213,64 @@ apply_mac_to_iface() {
 		|| dev=$(uci -q get "network.${iface}.ifname")
 	log "mac: ${iface} resolves to device='${dev}'"
 
-	if [ -n "$dev" ]; then
-		# 找到 name == dev 的 @device 段（桥接设备段），把 MAC 写在那里
-		# sed 容忍缺引号：'network.${iface}.name=br-lan' 或 'name='br-lan''
-		local sec
-		sec=$(uci -q show network 2>/dev/null \
-			| sed -n "s/^network\.\(@device\[[0-9]*\]\)\.name=['\"]\?${dev}['\"]\?$/\1/p" \
-			| head -n1)
-		if [ -n "$sec" ]; then
-			uci set "network.${sec}.macaddr=${mac}" \
-				|| log "mac: set network.${sec}.macaddr FAILED"
-			log "mac: wrote network.${sec}.macaddr=${mac} (device=${dev})"
-		else
-			log "mac: no @device[] section found for device=${dev}"
-		fi
-
-		# 3) 尽量在线改运行中的 netdev（reload+down/up 后通常已被 netifd
-		# 刷过；这里作「立即可见」兜底，不强制要求 device down）
-		if [ -d "/sys/class/net/${dev}" ]; then
-			if ip link set dev "${dev}" address "${mac}" 2>/dev/null; then
-				log "mac: ip link set ${dev} address OK"
-			elif ifconfig "${dev}" hw ether "${mac}" 2>/dev/null; then
-				log "mac: ifconfig ${dev} OK"
-		else
-			NEED_NETIFD_REBUILD=1
-			log "mac: hot-set ${dev} failed; will require netifd down/up via reload_services"
-		fi
-		fi
+	if [ -z "$dev" ]; then
+		log "mac: no device resolved; relying on uci commit only"
+		return 0
 	fi
+
+	# 3) 找到 name == dev 的 @device 段（桥接设备段），把 MAC 写在那里
+	# sed 容忍缺引号：'network.${iface}.name=br-lan' 或 'name='br-lan''
+	local sec
+	sec=$(uci -q show network 2>/dev/null \
+		| sed -n "s/^network\.\(@device\[[0-9]*\]\)\.name=['\"]\?${dev}['\"]\?$/\1/p" \
+		| head -n1)
+	if [ -n "$sec" ]; then
+		uci set "network.${sec}.macaddr=${mac}" \
+			|| log "mac: set network.${sec}.macaddr FAILED"
+		log "mac: wrote network.${sec}.macaddr=${mac} (device=${dev})"
+	else
+		log "mac: no @device[] section found for device=${dev}"
+	fi
+
+	# 4) 尽量在线改运行中的 netdev；失败则交给后台 reload_services 走 netifd 重建。
+	if [ ! -d "/sys/class/net/${dev}" ]; then
+		NEED_NETIFD_REBUILD=1
+		log "mac: device ${dev} not present; will need netifd rebuild via reload_services"
+		return 0
+	fi
+
+	if ip link set dev "${dev}" address "${mac}" 2>/dev/null; then
+		log "mac: ip link set ${dev} address OK"
+		return 0
+	fi
+
+	if ifconfig "${dev}" hw ether "${mac}" 2>/dev/null; then
+		log "mac: ifconfig ${dev} OK"
+		return 0
+	fi
+
+	NEED_NETIFD_REBUILD=1
+	log "mac: hot-set ${dev} failed; will need netifd rebuild via reload_services"
+}
+
+# 把 LAN IP 写到 uci 并标记 NEED_NETIFD_REBUILD。
+# 与改 MAC 不同，IP 没有"在线 ip addr replace"的对等可靠做法
+# （bridge + dhcp + dnsmasq 都耦合在 netifd 上），所有路径最终都要 netifd 重建。
+# 为了不掐断管理口连接，重建交给后台 setsid 进程，前台只负责写 uci + 立即返回。
+apply_ip_to_iface() {
+	local iface="$1" new_ip="$2"
+	[ -z "$iface" ] || [ -z "$new_ip" ] && return
+	local cur
+	cur=$(uci -q get network.${iface}.ipaddr 2>/dev/null)
+	if [ "$cur" = "$new_ip" ]; then
+		log "ip: ${iface} unchanged (${new_ip}); skip"
+		return 0
+	fi
+	log "ip: ${iface} ${cur:-<unset>} -> ${new_ip}"
+	uci set network.${iface}.ipaddr="$new_ip"
+	uci set network.${iface}.force_link='1' 2>/dev/null || true
+	NEED_NETIFD_REBUILD=1
+	log "ip: NEED_NETIFD_REBUILD=1; backend reload_services will rebuild ${iface} for ${new_ip}"
 }
 
 # 把值写入 UCI（不 reload，由调用方决定）
@@ -249,13 +280,10 @@ write_to_uci() {
 	local wan_mac="$1" lan_mac="$2" lan_ip="$3" hostname="$4" wifi_pairs="$5"
 	log "write_to_uci: wan=${wan_mac} lan=${lan_mac} ip=${lan_ip} hn=${hostname} wifi=${wifi_pairs}"
 
-	# 1) network
+	# 1) network: MAC + IP（IP 也属于 network 段）
 	[ -n "$wan_mac" ] && apply_mac_to_iface wan "$wan_mac"
 	[ -n "$lan_mac" ] && apply_mac_to_iface lan "$lan_mac"
-	if [ -n "$lan_ip" ]; then
-		uci set network.lan.ipaddr="$lan_ip"
-		uci set network.lan.force_link='1' 2>/dev/null || true
-	fi
+	[ -n "$lan_ip"  ] && apply_ip_to_iface lan "$lan_ip"
 	uci commit network
 	log "write_to_uci: step1 uci commit network done"
 
@@ -289,34 +317,64 @@ write_to_uci() {
 	fi
 }
 
+# reload_services —— 关键教训（2026-08-26）：
+# 任何同步的 lan/wan down/up、netifd 重启、wifi reload 都会掐断浏览器 ↔ uhttpd
+# 在管理口的 TCP 连接，导致前端 ajax 收到 status=0 / 空 body / "net fail" 假失败，
+# 即使后端已经写完 uci。
+#
+# 解决：把所有"会掐断管理口"的后续动作统统丢到【脱离当前 shell 的后台 detached
+# setsid 进程】，fds 重定向到 /dev/null；cgi 父进程立刻 print apply done 后 return，
+# HTTP 响应正常 flush 到浏览器；后台慢慢重建 netifd，互不干扰。
+#
+# 唯一保留同步动作：hostname 写 /proc/sys/kernel/hostname —— 不动网络栈。
 reload_services() {
-	# 非破坏性：让 netifd 读到 UCI 变更（如 lan_ip 变化），不会拨掉管理口
-	/etc/init.d/network reload 2>/dev/null || true
-	/etc/init.d/dnsmasq reload 2>/dev/null || true
-
-	# 主机名立即生效（写内核，不依赖网络重建）
+	# 1) 同步写 hostname 到内核（不动网络，立即可见）
 	local hn
 	hn=$(uci -q get system.@system[0].hostname 2>/dev/null)
 	[ -n "$hn" ] && echo "$hn" > /proc/sys/kernel/hostname
 
-	# 仅当本次真的改了 wifi MAC 才 reload wifi（避免无谓的无线闪断）
-	[ -n "$WIFI_TOUCHED" ] && /sbin/wifi reload 2>/dev/null || true
+	local need_rebuild="$NEED_NETIFD_REBUILD"
+	local wifi_touched="$WIFI_TOUCHED"
 
-	# 关键教训（2026-08-26）：MAC 已通过 ip link set 热改 + uci 持久化，
-	# 绝大多数设备（含本机）无需重建 netdev。只有当某接口热改失败
-	# （NEED_NETIFD_REBUILD=1）才需要 netifd 重建，且必须【脱离当前 shell
-	# 后台执行】，否则 lan down 会掐断 uhttpd↔浏览器的连接 →
-	# 前端 status=0 / 空 body / "net fail" 假失败（后端其实已成功）。
-	if [ -n "$NEED_NETIFD_REBUILD" ]; then
-		log "reload: hot-set failed on some iface, deferring lan/wan down/up in background"
-		if command -v setsid >/dev/null 2>&1; then
-			setsid sh -c 'sleep 1; ubus call network.interface.lan down 2>/dev/null || /sbin/ifdown lan 2>/dev/null; sleep 1; ubus call network.interface.lan up 2>/dev/null || /sbin/ifup lan 2>/dev/null; ubus call network.interface.wan down 2>/dev/null || /sbin/ifdown wan 2>/dev/null; sleep 1; ubus call network.interface.wan up 2>/dev/null || /sbin/ifup wan 2>/dev/null' >/dev/null 2>&1 </dev/null &
-		else
-			( sleep 1; ubus call network.interface.lan down 2>/dev/null || /sbin/ifdown lan 2>/dev/null; sleep 1; ubus call network.interface.lan up 2>/dev/null || /sbin/ifup lan 2>/dev/null; ubus call network.interface.wan down 2>/dev/null || /sbin/ifdown wan 2>/dev/null; sleep 1; ubus call network.interface.wan up 2>/dev/null || /sbin/ifup wan 2>/dev/null ) >/dev/null 2>&1 </dev/null &
-		fi
-	else
-		log "reload: MAC hot-applied live + persisted to uci; skipping disruptive down/up"
+	# 2) 没改 ip / wifi / hot-set 都成功 —— 啥都不必做
+	if [ -z "$need_rebuild" ] && [ -z "$wifi_touched" ]; then
+		log "reload: all hot-applied; nothing to rebuild"
+		return 0
 	fi
+
+	log "reload: scheduling background rebuild (NEED_NETIFD_REBUILD=${need_rebuild:-0} WIFI_TOUCHED=${wifi_touched:-0})"
+
+	# 3) 把破坏性动作丢后台（脱离 shell，cgi 退出后不会被打断）
+	export NEED_NETIFD_REBUILD="$need_rebuild"
+	export WIFI_TOUCHED="$wifi_touched"
+
+	setsid sh -c '
+		sleep 1
+		need="${NEED_NETIFD_REBUILD:-}"
+		wifi="${WIFI_TOUCHED:-}"
+
+		if [ -n "$need" ]; then
+			/etc/init.d/dnsmasq reload 2>/dev/null || true
+			ubus call network.interface.lan down 2>/dev/null \
+				|| /sbin/ifdown lan 2>/dev/null
+			sleep 1
+			ubus call network.interface.lan up 2>/dev/null \
+				|| /sbin/ifup lan 2>/dev/null
+			ubus call network.interface.wan down 2>/dev/null \
+				|| /sbin/ifdown wan 2>/dev/null
+			sleep 1
+			ubus call network.interface.wan up 2>/dev/null \
+				|| /sbin/ifup wan 2>/dev/null
+			log "reload: background netifd rebuild done"
+		fi
+
+		if [ -n "$wifi" ]; then
+			/sbin/wifi reload 2>/dev/null || true
+			log "reload: background wifi reload done"
+		fi
+	' >/dev/null 2>&1 </dev/null &
+
+	disown 2>/dev/null || true
 }
 
 # 接受 --flag 形式参数
@@ -345,6 +403,9 @@ cmd_apply() {
 	[ -n "$schedule" ] && set_schedule "$schedule"
 	write_to_uci "$wan_mac" "$lan_mac" "$lan_ip" "$hostname" "$wifi_pairs"
 	reload_services
+	# 清掉函数级标志，避免下一次调用（同一进程）误带
+	NEED_NETIFD_REBUILD=""
+	WIFI_TOUCHED=""
 	log "apply done"
 }
 
@@ -367,6 +428,8 @@ cmd_apply_and_reboot() {
 		esac
 	done
 	write_to_uci "$wan_mac" "$lan_mac" "$lan_ip" "$hostname" "$wifi_pairs"
+	NEED_NETIFD_REBUILD=""
+	WIFI_TOUCHED=""
 	log "rebooting in 3s..."
 	sleep 3
 	/sbin/reboot
@@ -443,6 +506,10 @@ cmd_boot() {
 
 	log "boot auto-randomize: wm=$wm lmm=$lmm hn=$hn lip=$lip wifi_pairs=$wifi_pairs"
 	write_to_uci "$wm" "$lmm" "$lip" "$hn" "$wifi_pairs"
+	# 开机场景：与 cgi 不同，浏览器没在等响应，可以同步 reload。
+	# 但 reload_services 已经全部后台化，这里无需特判。
+	NEED_NETIFD_REBUILD=""
+	WIFI_TOUCHED=""
 	/etc/init.d/network reload 2>/dev/null || true
 	/sbin/wifi reload 2>/dev/null || true
 }
@@ -461,6 +528,8 @@ cmd_factory_reset() {
 	uci commit network
 	uci commit wireless
 	reload_services
+	NEED_NETIFD_REBUILD=""
+	WIFI_TOUCHED=""
 	log "factory reset done"
 }
 
