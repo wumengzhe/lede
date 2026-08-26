@@ -199,23 +199,44 @@ cmd_status() {
 # 值，不是 UCI 段名，那条 set 静默失败，导致 LAN MAC 永远不生效。
 apply_mac_to_iface() {
 	local iface="$1" mac="$2"
-	[ -z "$iface" ] && return
-	# 接口段（对直接 ifname 接口有效，且总是真实存在的段）
-	uci set network.${iface}.macaddr="$mac" 2>/dev/null
-	# 解析该接口引用的设备名（bridge 是 br-lan，物理口是 ethX）
+	[ -z "$iface" ] || [ -z "$mac" ] && return
+	log "mac: ifname=${iface} target=${mac}"
+
+	# 1) 接口段（对直接 ifname 接口有效；bridge 段保留以兼容桥无 device 选项）
+	uci set "network.${iface}.macaddr=${mac}" || log "mac: set network.${iface}.macaddr FAILED"
+	log "mac: wrote network.${iface}.macaddr=${mac}"
+
+	# 2) 解析该接口引用的设备名（bridge: br-lan；物理口: ethX）
 	local dev=""
-	dev=$(uci -q get network.${iface}.device 2>/dev/null)
-	[ -z "$dev" ] && dev=$(uci -q get network.${iface}.ifname 2>/dev/null)
+	dev=$(uci -q get "network.${iface}.device") \
+		|| dev=$(uci -q get "network.${iface}.ifname")
+	log "mac: ${iface} resolves to device='${dev}'"
+
 	if [ -n "$dev" ]; then
 		# 找到 name == dev 的 @device 段（桥接设备段），把 MAC 写在那里
+		# sed 容忍缺引号：'network.${iface}.name=br-lan' 或 'name='br-lan''
 		local sec
 		sec=$(uci -q show network 2>/dev/null \
-			| sed -n "s/^network\.\(@device\[[0-9]*\]\)\.name='\?${dev}'\?$/\1/p" | head -n1)
-		[ -n "$sec" ] && uci set network.${sec}.macaddr="$mac" 2>/dev/null
-		# 尽量在线改运行中的 MAC（桥接可热改；物理口若忙则忽略，等 reload）
-		if [ -d "/sys/class/net/$dev" ]; then
-			ip link set dev "$dev" address "$mac" 2>/dev/null \
-				|| ifconfig "$dev" hw ether "$mac" 2>/dev/null
+			| sed -n "s/^network\.\(@device\[[0-9]*\]\)\.name=['\"]\?${dev}['\"]\?$/\1/p" \
+			| head -n1)
+		if [ -n "$sec" ]; then
+			uci set "network.${sec}.macaddr=${mac}" \
+				|| log "mac: set network.${sec}.macaddr FAILED"
+			log "mac: wrote network.${sec}.macaddr=${mac} (device=${dev})"
+		else
+			log "mac: no @device[] section found for device=${dev}"
+		fi
+
+		# 3) 尽量在线改运行中的 netdev（reload+down/up 后通常已被 netifd
+		# 刷过；这里作「立即可见」兜底，不强制要求 device down）
+		if [ -d "/sys/class/net/${dev}" ]; then
+			if ip link set dev "${dev}" address "${mac}" 2>/dev/null; then
+				log "mac: ip link set ${dev} address OK"
+			elif ifconfig "${dev}" hw ether "${mac}" 2>/dev/null; then
+				log "mac: ifconfig ${dev} OK"
+			else
+				log "mac: hot-set ${dev} failed (will require down/up via reload_services)"
+			fi
 		fi
 	fi
 }
@@ -225,15 +246,17 @@ apply_mac_to_iface() {
 #   wifi_pairs 形如 "0=AA:BB:..;1=CC:.."
 write_to_uci() {
 	local wan_mac="$1" lan_mac="$2" lan_ip="$3" hostname="$4" wifi_pairs="$5"
+	log "write_to_uci: wan=${wan_mac} lan=${lan_mac} ip=${lan_ip} hn=${hostname} wifi=${wifi_pairs}"
 
 	# 1) network
 	[ -n "$wan_mac" ] && apply_mac_to_iface wan "$wan_mac"
 	[ -n "$lan_mac" ] && apply_mac_to_iface lan "$lan_mac"
 	if [ -n "$lan_ip" ]; then
 		uci set network.lan.ipaddr="$lan_ip"
-		uci set network.lan.force_link='1' 2>/dev/null
+		uci set network.lan.force_link='1' 2>/dev/null || true
 	fi
 	uci commit network
+	log "write_to_uci: step1 uci commit network done"
 
 	# 2) wireless - 按 idx 写每个 wifi-iface 的 macaddr
 	if [ -n "$wifi_pairs" ]; then
@@ -248,18 +271,47 @@ write_to_uci() {
 		done
 		unset IFS
 		uci commit wireless
+		log "write_to_uci: step2 uci commit wireless done"
 	fi
 
 	# 3) hostname
 	[ -n "$hostname" ] && uci set system.@system[0].hostname="$hostname"
 	uci commit system
+	log "write_to_uci: step3 uci commit system done"
+
+	# 4) 持久层核对 —— dump 当前 network 段所有 macaddr，让 logread 可读
+	if [ -n "$wan_mac" ] || [ -n "$lan_mac" ]; then
+		local dump
+		dump=$(uci show network 2>/dev/null | grep -E "macaddr=" | tr '\n' '|')
+		log "write_to_uci: uci dump mac: ${dump}"
+	fi
 }
 
 reload_services() {
-	/etc/init.d/network reload 2>/dev/null
-	/etc/init.d/dnsmasq reload 2>/dev/null
-	/sbin/wifi reload 2>/dev/null
+	# 1) 先 reload network（让 UCI → netifd 看到 macaddr 变更）
+	/etc/init.d/network reload 2>/dev/null || true
+	/etc/init.d/dnsmasq reload 2>/dev/null || true
+	/sbin/wifi reload 2>/dev/null || true
 	sleep 1
+
+	# 2) 关键：把 LAN / WAN interface 真正 down 再 up —— 仅 reload 不够
+	# reload 不会重建 netdev，已存在的 bridge MAC 仍停留在 netifd 启动
+	# 时从 eth0 派生的原厂值；只有 netifd 重新 setup device 才会读
+	# @device[].macaddr（或网络协议层重启），故必须显式 down/up。
+	# 优先 ubus 调用（19.07+），回退 ifdown/ifup。
+	for iface in lan wan; do
+		uci -q get "network.${iface}" >/dev/null 2>&1 || continue
+		log "reload: bring ${iface} down/up so @device[].macaddr sticks"
+		if ! ubus call "network.interface.${iface}" down 2>/dev/null; then
+			/sbin/ifdown "${iface}" 2>/dev/null || true
+		fi
+		sleep 1
+		if ! ubus call "network.interface.${iface}" up 2>/dev/null; then
+			/sbin/ifup "${iface}" 2>/dev/null || true
+		fi
+	done
+
+	# 3) 主机名同步
 	local hn
 	hn=$(uci -q get system.@system[0].hostname 2>/dev/null)
 	[ -n "$hn" ] && echo "$hn" > /proc/sys/kernel/hostname
