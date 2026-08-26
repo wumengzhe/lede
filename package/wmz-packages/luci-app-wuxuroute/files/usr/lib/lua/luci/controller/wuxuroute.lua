@@ -194,11 +194,11 @@ end
 
 -- 把 auto_* / schedule 保存到 wuxuroute 配置段
 -- 抢救文章：
-“保存简化模式”的路由
-：让 uhttpd 自带的 error500 错误页替换
-为我们自己的有用递效 JSON。
-在任何 action_* 函数里赌出的异常
-都要给 json_response。
+-- "保存简化模式"的路由
+-- ：让 uhttpd 自带的 error500 错误页替换
+-- 为我们自己有的有效递 JSON。
+-- 在任何 action_* 函数里赌出的异常
+-- 都要给 json_response。
 
 local function save_flags()
 	-- 重点是 uci 游标必须每次请求
