@@ -157,8 +157,9 @@ tb.description = [[
 			'&lan_ip=' + encodeURIComponent(getVal('lan_ip'));
 		var wfs = wifiFields();
 		for (var i=0; i<wfs.length; i++){
-			var m = wfs[i].name.match(/wifi_mac_(\d+)$/);
-			if (m && wfs[i].value) body += '&wifi_mac_' + m[1] + '=' + encodeURIComponent(wfs[i].value);
+			// 字段名以 sec（ucli 段名）为 key（兼容命名段），不再是数字 idx
+			var m = wfs[i].name.match(/\.wifi_mac_(.+)$/);
+			if (m && wfs[i].value) body += '&wifi_mac_' + encodeURIComponent(m[1]) + '=' + encodeURIComponent(wfs[i].value);
 		}
 		if (includeAuto){
 			body += '&auto_wan_mac=' + (checkbox('auto_wan_mac') ? '1' : '');
@@ -243,12 +244,16 @@ tb.description = [[
 			if (data.lan_mac)    setVal('lan_mac',  data.lan_mac);
 			if (data.hostname)   setVal('hostname', data.hostname);
 			if (data.lan_ip)     setVal('lan_ip',   data.lan_ip);
-			window.__qc_lan_ip = data.lan_ip || '';
-			var count = parseInt(data.wifi_count || '0', 10);
-			for (var i=0; i<count; i++){
-				if (data['wifi_' + i + '_mac']) setVal('wifi_mac_' + i, data['wifi_' + i + '_mac']);
-			}
-		});
+window.__qc_lan_ip = data.lan_ip || '';
+		var count = parseInt(data.wifi_count || '0', 10);
+		for (var i=0; i<count; i++){
+			// 数据来自 cmd_get：每个 wifi 返回 wifi_<i>_field（sec_safe 后的 cbi option name）
+			var field = data['wifi_' + i + '_field'];
+			if (!field) continue;
+			var mac = data['wifi_' + i + '_mac'];
+			if (mac) setVal(field, mac);
+		}
+	});
 		// 实时状态
 		refreshStatus();
 		// 定时同步
@@ -290,7 +295,7 @@ tb.description = [[
 		setVal('lan_ip', '192.168.' + n + '.1');
 		var wfs = wifiFields();
 		for (var i=0; i<wfs.length; i++){
-			var m = wfs[i].name.match(/wifi_mac_(\d+)$/);
+			var m = wfs[i].name.match(/\.wifi_mac_(.+)$/);
 			if (m) randomInto('wifi_mac_' + m[1]);
 		}
 		status('已随机生成所有字段，点"保存并应用"生效', true);
@@ -461,14 +466,23 @@ s.description = translate("每个 SSID 可单独设置 MAC 地址。无论你有
 if #wifi_lines > 0 then
 	for _, line in ipairs(wifi_lines) do
 		local idx, sec, dev, ssid, mac, ifn = line:match("^([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)$")
-		local label = (ssid and #ssid > 0 and ssid or ("SSID#" .. idx)) .. " @ " .. (dev and #dev > 0 and dev or "?")
-		local cur = (mac and #mac > 0 and mac or translate("（未设置，使用硬件地址）"))
-		local opt = s:option(Value, "wifi_mac_" .. idx,
+		-- UCI 段名规则限制在 [A-Za-z0-9_]，所有可枚举的 wifi-iface 段都符合。
+		-- 字段名以 sec 为 key，配合 controller 的 collect_wifi_args，把 sec 直接透传给
+		-- 后端 `uci set wireless.${sec}.macaddr`，兼容 OpenWrt 默认为命名段
+		-- （如 `default_radio0`）的场景。
+		local sec_safe = sec and sec:gsub("[^%w_]", "_") or ("idx" .. (idx or "?"))
+		local field = "wifi_mac_" .. sec_safe
+		-- 展示用前缀：便于用户在 label 看到这是第几个 SSID
+		local label = ((ssid and #ssid > 0) and ssid or (sec or ("SSID#" .. (idx or "?"))))
+			.. " #" .. (idx or "?")
+			.. " @ " .. ((dev and #dev > 0) and dev or "?")
+		local cur = (mac and #mac > 0) and mac or translate("（未设置，使用硬件地址）")
+		local opt = s:option(Value, field,
 			label,
-			translate("当前 MAC: ") .. cur)
+			translate("当前 MAC: ") .. cur .. " / sec=" .. (sec or "?"))
 		opt.datatype = "macaddr"
 		opt.rmempty = true
-		opt.description = [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_mac" data-qc-target="wifi_mac_]] .. idx .. [[">]] .. translate("随机 MAC 地址") .. [[</button>]]
+		opt.description = [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_mac" data-qc-target="]] .. field .. [[">]] .. translate("随机 MAC 地址") .. [[</button>]]
 	end
 else
 	s.description = translate("未检测到 WiFi 接口（wifi-iface）。如有 WiFi 请先在“网络 → 无线”中配置。")
