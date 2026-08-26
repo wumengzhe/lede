@@ -225,18 +225,24 @@ local function save_flags()
 	uci:commit("wuxuroute")
 end
 
--- 收集所有 wifi_mac_<idx> 表单值，拼成 --wifi idx mac 参数
+-- 收集所有 wifi_mac_<sec> 表单值，拼成 --wifi <sec> <mac> 参数
+-- 字段名约定（2026-08-26 修正）：原版用 `wifi_mac_<idx>` 让后端写
+-- `wireless.@wifi-iface[idx].macaddr`，但 OpenWrt 默认生成的段是【命名段】
+-- `default_radio0`/`default_radio1` 等匿名段路径写不进去，导致 apply 时 MAC
+-- 静默错位。改：cbi 把字段名编为 `wifi_mac_<sec>`，controller 直接拿到 sec，
+-- 后端 `uci set wireless.${sec}.macaddr=...` 精确写。
 local function collect_wifi_args(args)
 	local wt = luci.http.formvaluetable("wifi_mac_") or {}
-	for idx, mac in pairs(wt) do
+	for sec, mac in pairs(wt) do
+		sec = clean(sec)
 		mac = clean(mac)
 		if mac ~= "" then
 			if not mac_ok(mac) then
-				json_response({ ok = false, err = "WiFi MAC 格式错误: " .. mac })
+				json_response({ ok = false, err = "WiFi MAC 格式错误 (" .. sec .. "): " .. mac })
 				return false
 			end
 			table.insert(args, "--wifi")
-			table.insert(args, tostring(idx))
+			table.insert(args, sec)
 			table.insert(args, mac)
 		end
 	end

@@ -100,9 +100,20 @@ get_default_iface() {
 
 # 枚举所有 wifi-iface 段
 # 输出每行: idx|section_ref|device|ssid|macaddr|ifname
+#
+# 注意（2026-08-26 修正）：原实现 sed 只匹配匿名段 `wireless.@wifi-iface[N]=wifi-iface`，
+# 而 OpenWrt 默认生成的段是【命名段】(`wireless.default_radio0=wifi-iface`)，导致整段
+# wifi 列表永远是空，cbi page 报"未检测到 WiFi 接口"。这里同时匹配匿名段 + 命名段，
+# UCI 段名规则仅允许字母数字下划线，故用 [^[:space:]=\\.]+ 即可涵盖。
 wifi_list() {
 	local i=0 sec dev ssid mac ifn
-	for sec in $(uci show wireless 2>/dev/null | sed -n 's/^wireless\.\(@wifi-iface\[[0-9]*\]\)=wifi-iface$/\1/p' | sort -t'[' -k2 -n); do
+	local entries
+	# 取所有 wifi-iface 段（去前缀 wireless. 与后缀 =wifi-iface），按段名稳定排序
+	entries=$(uci -q show wireless 2>/dev/null \
+		| awk -F= '$2=="wifi-iface" {sub(/^wireless\./,"",$1); print $1}' \
+		| sort)
+	for sec in $entries; do
+		[ -z "$sec" ] && continue
 		dev=$(uci -q get wireless.${sec}.device 2>/dev/null)
 		ssid=$(uci -q get wireless.${sec}.ssid 2>/dev/null)
 		mac=$(uci -q get wireless.${sec}.macaddr 2>/dev/null)
@@ -124,6 +135,8 @@ get_lan_ip() {
 }
 
 # 解析一行 wifi_list 输出到局部变量
+# 额外导出 _pwl_field：cbi form key，与 cbi.lua 第 sec_safe 规则保持一致
+# （[A-Za-z0-9_] 之外的字符全部替换成 _），保证前后端用同一个 field 找得到 form input。
 parse_wifi_line() {
 	local line="$1"
 	local rest
@@ -133,19 +146,25 @@ parse_wifi_line() {
 	_pwl_ssid=${rest%%|*}; rest=${rest#*|}
 	_pwl_mac=${rest%%|*};  rest=${rest#*|}
 	_pwl_ifn=${rest%%|*}
+	_pwl_field="wifi_mac_$(printf '%s' "${_pwl_sec:-}" | tr -c 'A-Za-z0-9_' '_')"
 }
 
 # ---------- 子命令 ----------
 
 cmd_random() {
+	# 已废弃：controller 不再调用此子命令；保留仅作调试 / 测试。
+	# 改为动态从 wifi_list 拉，避免硬编码 0/1 给出虚假结果。
 	cat <<EOF
 wan_mac=$(gen_mac)
 lan_mac=$(gen_mac)
-wifi_mac_0=$(gen_mac)
-wifi_mac_1=$(gen_mac)
 lan_ip=$(get_lan_ip)
 hostname=$(gen_hostname)
 EOF
+	local line
+	for line in $(wifi_list); do
+		parse_wifi_line "$line"
+		echo "wifi_mac_${_pwl_sec}=$(gen_mac)"
+	done
 }
 
 cmd_get() {
@@ -160,6 +179,8 @@ cmd_get() {
 	for line in $(wifi_list); do
 		parse_wifi_line "$line"
 		echo "wifi_${i}_ssid=${_pwl_ssid:-}"
+		echo "wifi_${i}_sec=${_pwl_sec:-}"
+		echo "wifi_${i}_field=${_pwl_field:-}"
 		echo "wifi_${i}_mac=${_pwl_mac:-}"
 		echo "wifi_${i}_device=${_pwl_dev:-}"
 		i=$((i+1))
@@ -185,6 +206,7 @@ cmd_status() {
 		fi
 		echo "wifi_${i}_ssid=${_pwl_ssid:-}"
 		echo "wifi_${i}_device=${_pwl_dev:-}"
+		echo "wifi_${i}_field=${_pwl_field:-}"
 		echo "wifi_${i}_config_mac=${_pwl_mac:-none}"
 		echo "wifi_${i}_effective_mac=${eff:-none}"
 		i=$((i+1))
@@ -287,16 +309,17 @@ write_to_uci() {
 	uci commit network
 	log "write_to_uci: step1 uci commit network done"
 
-	# 2) wireless - 按 idx 写每个 wifi-iface 的 macaddr
+	# 2) wireless - 按段名写每个 wifi-iface 的 macaddr（支持匿名段 + 命名段）
+	# 传参协议: wifi_pairs="sec=mac;sec=mac"
 	if [ -n "$wifi_pairs" ]; then
 		WIFI_TOUCHED=1
 		local IFS=';'
-		local pair idx mac
+		local pair sec mac
 		for pair in $wifi_pairs; do
-			idx=${pair%%=*}
+			sec=${pair%%=*}
 			mac=${pair#*=}
-			if [ -n "$idx" ] && [ -n "$mac" ]; then
-				uci set wireless.@wifi-iface[${idx}].macaddr="$mac" 2>/dev/null
+			if [ -n "$sec" ] && [ -n "$mac" ]; then
+				uci set wireless.${sec}.macaddr="$mac" 2>/dev/null
 			fi
 		done
 		unset IFS
@@ -379,7 +402,7 @@ reload_services() {
 
 # 接受 --flag 形式参数
 #   --wan-mac / --lan-mac / --lan-ip / --hostname  <val>
-#   --wifi <idx> <mac>           可重复
+#   --wifi <sec> <mac>           可重复；sec=段名（兼容匿名 @wifi-iface[N] / 命名 default_radioN）
 #   --schedule <0|1|2>           可选
 cmd_apply() {
 	local wan_mac="" lan_mac="" lan_ip="" hostname="" schedule=""
@@ -495,7 +518,8 @@ cmd_boot() {
 		for line in $(wifi_list); do
 			parse_wifi_line "$line"
 			[ -n "$wifi_pairs" ] && wifi_pairs="$wifi_pairs;"
-			wifi_pairs="$wifi_pairs${_pwl_idx}=$(gen_mac)"
+			# 按段名编码（兼容匿名段 @wifi-iface[N] + 命名段 default_radioN）
+			wifi_pairs="$wifi_pairs${_pwl_sec}=$(gen_mac)"
 		done
 	fi
 
@@ -522,9 +546,11 @@ cmd_factory_reset() {
 	for sec in $(uci show network 2>/dev/null | sed -n 's/^network\.\(@device\[[0-9]*\]\)\.macaddr=.*/\1/p'); do
 		uci -q delete network.${sec}.macaddr
 	done
-	for sec in $(uci show wireless 2>/dev/null | sed -n 's/^wireless\.\(@wifi-iface\[[0-9]*\]\)=wifi-iface$/\1/p'); do
-		uci -q delete wireless.${sec}.macaddr
-	done
+	local line
+		for line in $(wifi_list); do
+			parse_wifi_line "$line"
+			uci -q delete wireless.${_pwl_sec}.macaddr
+		done
 	uci commit network
 	uci commit wireless
 	reload_services
