@@ -234,9 +234,10 @@ apply_mac_to_iface() {
 				log "mac: ip link set ${dev} address OK"
 			elif ifconfig "${dev}" hw ether "${mac}" 2>/dev/null; then
 				log "mac: ifconfig ${dev} OK"
-			else
-				log "mac: hot-set ${dev} failed (will require down/up via reload_services)"
-			fi
+		else
+			NEED_NETIFD_REBUILD=1
+			log "mac: hot-set ${dev} failed; will require netifd down/up via reload_services"
+		fi
 		fi
 	fi
 }
@@ -260,6 +261,7 @@ write_to_uci() {
 
 	# 2) wireless - 按 idx 写每个 wifi-iface 的 macaddr
 	if [ -n "$wifi_pairs" ]; then
+		WIFI_TOUCHED=1
 		local IFS=';'
 		local pair idx mac
 		for pair in $wifi_pairs; do
@@ -288,33 +290,33 @@ write_to_uci() {
 }
 
 reload_services() {
-	# 1) 先 reload network（让 UCI → netifd 看到 macaddr 变更）
+	# 非破坏性：让 netifd 读到 UCI 变更（如 lan_ip 变化），不会拨掉管理口
 	/etc/init.d/network reload 2>/dev/null || true
 	/etc/init.d/dnsmasq reload 2>/dev/null || true
-	/sbin/wifi reload 2>/dev/null || true
-	sleep 1
 
-	# 2) 关键：把 LAN / WAN interface 真正 down 再 up —— 仅 reload 不够
-	# reload 不会重建 netdev，已存在的 bridge MAC 仍停留在 netifd 启动
-	# 时从 eth0 派生的原厂值；只有 netifd 重新 setup device 才会读
-	# @device[].macaddr（或网络协议层重启），故必须显式 down/up。
-	# 优先 ubus 调用（19.07+），回退 ifdown/ifup。
-	for iface in lan wan; do
-		uci -q get "network.${iface}" >/dev/null 2>&1 || continue
-		log "reload: bring ${iface} down/up so @device[].macaddr sticks"
-		if ! ubus call "network.interface.${iface}" down 2>/dev/null; then
-			/sbin/ifdown "${iface}" 2>/dev/null || true
-		fi
-		sleep 1
-		if ! ubus call "network.interface.${iface}" up 2>/dev/null; then
-			/sbin/ifup "${iface}" 2>/dev/null || true
-		fi
-	done
-
-	# 3) 主机名同步
+	# 主机名立即生效（写内核，不依赖网络重建）
 	local hn
 	hn=$(uci -q get system.@system[0].hostname 2>/dev/null)
 	[ -n "$hn" ] && echo "$hn" > /proc/sys/kernel/hostname
+
+	# 仅当本次真的改了 wifi MAC 才 reload wifi（避免无谓的无线闪断）
+	[ -n "$WIFI_TOUCHED" ] && /sbin/wifi reload 2>/dev/null || true
+
+	# 关键教训（2026-08-26）：MAC 已通过 ip link set 热改 + uci 持久化，
+	# 绝大多数设备（含本机）无需重建 netdev。只有当某接口热改失败
+	# （NEED_NETIFD_REBUILD=1）才需要 netifd 重建，且必须【脱离当前 shell
+	# 后台执行】，否则 lan down 会掐断 uhttpd↔浏览器的连接 →
+	# 前端 status=0 / 空 body / "net fail" 假失败（后端其实已成功）。
+	if [ -n "$NEED_NETIFD_REBUILD" ]; then
+		log "reload: hot-set failed on some iface, deferring lan/wan down/up in background"
+		if command -v setsid >/dev/null 2>&1; then
+			setsid sh -c 'sleep 1; ubus call network.interface.lan down 2>/dev/null || /sbin/ifdown lan 2>/dev/null; sleep 1; ubus call network.interface.lan up 2>/dev/null || /sbin/ifup lan 2>/dev/null; ubus call network.interface.wan down 2>/dev/null || /sbin/ifdown wan 2>/dev/null; sleep 1; ubus call network.interface.wan up 2>/dev/null || /sbin/ifup wan 2>/dev/null' >/dev/null 2>&1 </dev/null &
+		else
+			( sleep 1; ubus call network.interface.lan down 2>/dev/null || /sbin/ifdown lan 2>/dev/null; sleep 1; ubus call network.interface.lan up 2>/dev/null || /sbin/ifup lan 2>/dev/null; ubus call network.interface.wan down 2>/dev/null || /sbin/ifdown wan 2>/dev/null; sleep 1; ubus call network.interface.wan up 2>/dev/null || /sbin/ifup wan 2>/dev/null ) >/dev/null 2>&1 </dev/null &
+		fi
+	else
+		log "reload: MAC hot-applied live + persisted to uci; skipping disruptive down/up"
+	fi
 }
 
 # 接受 --flag 形式参数
