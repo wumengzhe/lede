@@ -25,19 +25,24 @@ err() { logger -t wuxuroute -p err "$@"; echo "ERROR: $@" >&2; }
 # ---------- 工具函数 ----------
 
 # 生成连续 16 进制字符串（小写）
-# 用 shell 内建 $RANDOM，避免 /dev/urandom 经管道偶发少读的竞争问题。
+# 直接读 /dev/urandom（CSPRNG，永不阻塞、每次读取独立），避免 $RANDOM 在快速
+# 连续调用（如「一键随机全部」同时发 4+ 个 gen_mac 请求）时种子相同、导致
+# WAN/LAN/WiFi 拿到完全一样的 MAC。urandom 不 EOF，head -c 必读满 N 字节，无管道少读竞争。
 rand_hex() {
 	local n="${1:-4}"
 	local need=$((n * 2))
-	local out=""
-	while [ ${#out} -lt $need ]; do
-		out="${out}$(printf '%08x' $(( (RANDOM << 16) ^ RANDOM )) )"
-	done
+	local out
+	out=$(head -c "$need" /dev/urandom 2>/dev/null | od -An -tx1 | tr -d ' 
+')
+	if [ -z "$out" ]; then
+		# 极罕见：urandom 不可用，退回 $RANDOM
+		out=""
+		while [ ${#out} -lt $need ]; do
+			out="${out}$(printf '%08x' $(( (RANDOM << 16) ^ RANDOM )) )"
+		done
+	fi
 	echo "${out:0:$need}"
 }
-
-# 播种：尽量让每次运行 / 每次开机起点不同
-RANDOM=$(date +%s 2>/dev/null | tr -dc '0-9' | tail -c 5)$RANDOM 2>/dev/null || true
 
 # 随机生成 MAC
 # 不带参数：首字节 02（单播 + 本地管理位），避免与真实 MAC 冲突
@@ -339,7 +344,7 @@ write_to_uci() {
 		uci commit wireless
 		log "write_to_uci: step2 uci commit wireless done"
 		# 回读校验：确认 uci 里确实落了新 MAC（排错用，logread -e wuxuroute 可见）
-		local IFS2=';'
+		local IFS=';'
 		local p2 s2 m2
 		for p2 in $wifi_pairs; do
 			s2=${p2%%=*}
@@ -348,7 +353,7 @@ write_to_uci() {
 			got=$(uci -q get wireless.${s2}.macaddr 2>/dev/null)
 			log "write_to_uci: verified wireless.${s2}.macaddr='${got}' (want '${m2}')"
 		done
-		unset IFS2
+		unset IFS
 	fi
 
 	# 3) hostname
@@ -406,18 +411,19 @@ reload_services() {
 
 		if [ -n "$need" ]; then
 			/etc/init.d/dnsmasq reload 2>/dev/null || true
-			# 改 LAN IP：先 reconf（OpenWrt 21.02+ netifd 支持，原地重读配置应用新 IP，
-			# 不掐断已有连接），失败再 ifup lan（down+up，必重读配置），再不行手动 down/up。
-			ubus call network.interface.lan reconf 2>/dev/null \
-				|| /sbin/ifup lan 2>/dev/null \
-				|| { ubus call network.interface.lan down 2>/dev/null; sleep 1; ubus call network.interface.lan up 2>/dev/null; }
-			ubus call network.interface.wan reconf 2>/dev/null \
-				|| /sbin/ifup wan 2>/dev/null || true
-			# 校验：确认运行接口已拿到 uci 里的新 IP（任何接口上都行）
+			# 改 LAN IP：必须 down/up 整个接口才能强制重新应用新 IP。
+			# 注意 `ifup lan` 在接口已 up 时是【no-op（不改 IP）】，reconf 在部分
+			# 版本/桥接场景下不生效，因此直接用 down + up 保证重新拉起新 IP。
+			# 此动作在后台 setsid 中执行（不掐断管理口 HTTP 响应）；前端已对改 IP
+			# 场景弹确认框并倒计时跳转，体验上就是短暂断 5-15 秒。
+			ubus call network.interface.lan down 2>/dev/null
+			sleep 1
+			ubus call network.interface.lan up 2>/dev/null || /sbin/ifup lan 2>/dev/null || true
+			# 校验：确认运行接口已拿到 uci 里的新 IP（any 接口上都行）
 			newip=$(uci -q get network.lan.ipaddr 2>/dev/null)
 			if [ -n "$newip" ]; then
 				ok=0
-				for _ in 1 2 3 4 5; do
+				for _ in 1 2 3 4 5 6 7 8; do
 					if ip -4 addr show 2>/dev/null | grep -q "inet $newip/"; then ok=1; break; fi
 					sleep 1
 				done
