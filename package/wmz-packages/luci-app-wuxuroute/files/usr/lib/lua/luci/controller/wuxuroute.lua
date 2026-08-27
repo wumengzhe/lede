@@ -99,7 +99,7 @@ local function manual_json(tbl)
 		if     type(v) == "string"  then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. qstr(v)
 		elseif type(v) == "boolean" then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. tostring(v)
 		elseif type(v) == "number"  then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. tostring(v)
-		elseif type(v) == "table"   then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. DQ .. DQ
+		elseif type(v) == "table"   then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. tostring(v.ok or "")
 		else pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. DQ .. DQ
 		end
 	end
@@ -149,7 +149,7 @@ function action_gen_mac()
 	-- 作用：挡住"shell 解释器 stderr 漏到 stdout" 这类污染。
 	-- 后端 rand_hex 已修（去 od 依赖），但万一再撞上同类问题（比如未来
 	-- 引入新 busybox applet），UI 至少不会把错误串当 MAC 写到 input 然后
-	-- 假装"已生成"。校验不通过 → {ok=false,err="..."}$，前端 randomInto
+	-- 假装"已生成"。校验不通过 → {ok=false,err="..."}，前端 randomInto
 	-- 看到 !d.ok 立即 status('后端忙，请重试')，不会盲目回填。
 	local mac = (out:gsub("%s+", ""))
 	if not mac:match("^[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]$") then

@@ -91,7 +91,7 @@ tb.description = [[
     <div id="qc-modal-foot" style="padding:12px 18px;border-top:1px solid rgba(127,127,127,.2);text-align:right;display:flex;gap:10px;justify-content:flex-end"></div>
   </div>
 </div>
-<script type="text/javascript">
+<script type='text/javascript'>
 (function(){
 	function $(id){return document.getElementById(id);}
 	function status(msg, ok){
@@ -137,25 +137,46 @@ tb.description = [[
 	}
 	// ---------- 关键 2：按 field 名后缀匹配 input（不依赖 sec_ref） ----------
 	// CBI 渲染时不同 anonymous section 是不同的段引用（secA/secB/secC/...）。
-	// 之前用 querySelector('input[name^="cbid.wuxuroute."]') 抓第一个就把 SEC_REF
-	// 锁死在「WAN 口设置」section，其他 section 字段（lan_ip/lan_mac/hostname/wifi_mac_*）
-	// 拼出来的 name 都不存在，setVal 抛 TypeError → 「生成失败」/ 不显示。
-	// 改：按 field 后缀（input[name$=”.” + field + ””]）匹配，跨 section 通用。
+	// 之前用 querySelector 抓第一个 cbid.wuxuroute. 段，把 SEC_REF 锁死在
+	// WAN 口设置 section，其他 section 字段（lan_ip/lan_mac/hostname/wifi_mac_*）
+	// 拼出来的 name 都不存在，setVal 抛 TypeError → 生成失败 / 不显示。
+	// 改：按 field 后缀匹配，跨 section 通用。
+	// 注意：刻意不用 querySelector 属性选择器（input[name$=...]），
+	// 因其内嵌双引号在传输中常被改写成弯引号，导致选择器静默失效。
+	// 改用遍历标签 + 比较 name 后缀/前缀的纯单引号写法，规避弯引号陷阱。
+	function qcAll(suffix, prefix){
+		var tags = ['input','select','textarea'];
+		var out = [];
+		for (var t = 0; t < tags.length; t++){
+			var els = document.getElementsByTagName(tags[t]);
+			for (var i = 0; i < els.length; i++){
+				var nm = els[i].name || '';
+				var okSuf = suffix ? (nm.length >= suffix.length && nm.lastIndexOf(suffix) === nm.length - suffix.length) : true;
+				var okPre = prefix ? (nm.indexOf(prefix) === 0) : true;
+				if (okSuf && okPre) out.push(els[i]);
+			}
+		}
+		return out;
+	}
+	function qcOne(suffix, prefix){
+		var a = qcAll(suffix, prefix);
+		return a.length ? a[0] : null;
+	}
 	function setVal(field, v){
-		var inp = document.querySelector('input[name$=”.” + field + ””]');
+		var inp = qcOne('.' + field);
 		if (inp){ inp.value = v; dbg('set', field + '=' + v + ' (input=' + inp.name + ')'); }
-		else   { dbg('set-miss', field + ' -> no input[name$=”.” + field + ””]'); }
+		else   { dbg('set-miss', field + ' -> no input suffix .' + field); }
 	}
 	function getVal(field){
-		var inp = document.querySelector('input[name$=”.” + field + ””]');
+		var inp = qcOne('.' + field);
 		return inp ? inp.value : '';
 	}
 	function checkbox(field){
-		var inp = document.querySelector('input[type="checkbox"][name$=”.” + field + ””]');
+		var inp = qcOne('.' + field);
 		return inp ? inp.checked : false;
 	}
 	function wifiFields(){
-		return document.querySelectorAll('input[name*=".wifi_mac_"][name^="cbid.wuxuroute."]');
+		return qcAll('.wifi_mac_', 'cbid.wuxuroute.');
 	}
 	// (旧 setVal/getVal/checkbox/wifiFields 已重定义)
 	function curOui(){
@@ -222,13 +243,13 @@ tb.description = [[
 	function pad2(n){ n = parseInt(n, 10) || 0; return (n < 10 ? '0' : '') + n; }
 	function parseCron(c){
 		if (!c || c.trim() === '') return { preset:'', time:'' };
-		// daily:    "M H * * *"
+		// daily:    M H * * *
 		var dm = c.match(/^(\d+)\s+(\d+)\s+\*\s+\*\s+\*$/);
 		if (dm) return { preset:'daily',   time: pad2(dm[2]) + ':' + pad2(dm[1]) };
-		// weekday:  "M H * * 1-5"
+		// weekday:  M H * * 1-5
 		var wm = c.match(/^(\d+)\s+(\d+)\s+\*\s+\*\s+1-5$/);
 		if (wm) return { preset:'weekday', time: pad2(wm[2]) + ':' + pad2(wm[1]) };
-		// weekend:  "M H * * 6,0"
+		// weekend:  M H * * 6,0
 		var em = c.match(/^(\d+)\s+(\d+)\s+\*\s+\*\s+6,0$/);
 		if (em) return { preset:'weekend', time: pad2(em[2]) + ':' + pad2(em[1]) };
 		// legacy 0/1/2 (旧 schema)
@@ -246,19 +267,23 @@ tb.description = [[
 		return null;  // 自定义：让用户直接编辑 cron
 	}
 	function syncScheduleUI(){
-		var cronEl  = document.querySelector('input[name$=”.schedule”]');
-		var presEl  = document.querySelector('select[name$=”._preset”]');
-		var timeEl  = document.querySelector('input[name$=”._time”]');
+		var cronEl  = qcOne('.schedule');
+		var presEl  = qcOne('._preset');
+		var timeEl  = qcOne('._time');
 		if (!cronEl || !presEl) return;
 		var init = parseCron(cronEl.value);
-		// ListValue 的 "" 与 "__custom__" 都需要落到"自定义”，但 UI 里没显示"自定义”项
-		// 这里给 select 加一个临时 option 表示"自定义”
+		// ListValue 的 空串 与 __custom__ 都需要落到「自定义」，但 UI 里没显示「自定义」项
+		// 这里给 select 加一个临时 option 表示「自定义」
 		var customVal = '__custom__';
-		if (!presEl.querySelector('option[value="' + customVal + '"]')){
+		var hasCustom = false;
+		for (var oi = 0; oi < presEl.options.length; oi++){
+			if (presEl.options[oi].value === customVal){ hasCustom = true; break; }
+		}
+		if (!hasCustom){
 			var opt = document.createElement('option');
 			opt.value = customVal;
 			opt.textContent = '自定义 cron';
-			opt.style.display = 'none';  // 不可选，但程序可设
+			opt.style.display = 'none';
 			presEl.appendChild(opt);
 		}
 		presEl.value = init.preset || '';
@@ -281,9 +306,9 @@ tb.description = [[
 
 	// ---------- cron 表达式实时翻译（仿 GitHub Actions 工作流） ----------
 	// 5 段：分 时 日 月 周。每次输入更新 #qc-cron-hint 的文本与颜色：
-	//   空           → 灰色  "留空 = 关闭"
-	//   合法 5 段     → 绿色  "在 HH:MM 运行，每周X、Y，每月Z号"
-	//   非法（非 5 段）→ 红色  "⚠ 需要 5 段（分 时 日 月 周），当前 N 段"
+	//   空           → 灰色  「留空 = 关闭」
+	//   合法 5 段     → 绿色  「在 HH:MM 运行，每周X、Y，每月Z号」
+	//   非法（非 5 段）→ 红色  「⚠ 需要 5 段（分 时 日 月 周），当前 N 段」
 	function cronToHuman(c){
 		var t = (c == null ? '' : String(c));
 		t = t.trim();
@@ -335,7 +360,7 @@ tb.description = [[
 		return ('在 HH:MM = ' + pad(hh) + ':' + pad(minNum) + ' 运行 | ' + rangeDom(dom) + ' | ' + rangeMon(mon) + ' | ' + rangeDow(dow));
 	}
 	function updateCronHint(){
-		var el = document.querySelector('input[name$=”.schedule”]');
+		var el = qcOne('.schedule');
 		var hint = document.getElementById('qc-cron-hint');
 		if (!el || !hint) return;
 		function refresh(){
@@ -409,7 +434,7 @@ tb.description = [[
 			var m = wfs[i].name.match(/\.wifi_mac_(.+)$/);
 			if (m) randomInto('wifi_mac_' + m[1]);
 		}
-		status('已随机生成所有字段，点"保存并应用"生效', true);
+		status('已随机生成所有字段，点「保存并应用」生效', true);
 	});
 
 	$('qc-apply') && $('qc-apply').addEventListener('click', function(){
@@ -430,26 +455,26 @@ tb.description = [[
 				if (getVal('hostname')) rows.push('主机名：' + escapeHtml(getVal('hostname')));
 				var wfs = wifiFields();
 				for (var i=0;i<wfs.length;i++){ if (wfs[i].value) rows.push('WiFi MAC：' + escapeHtml(wfs[i].value)); }
-				var body = '<p style="margin:0 0 8px">配置已成功应用。</p>';
-				if (rows.length) body += '<ul style="margin:0;padding-left:18px">' + rows.map(function(r){return '<li>'+r+'</li>';}).join('') + '</ul>';
+				var body = '<p style=\'margin:0 0 8px\'>配置已成功应用。</p>';
+				if (rows.length) body += '<ul style=\'margin:0;padding-left:18px\'>' + rows.map(function(r){return '<li>'+r+'</li>';}).join('') + '</ul>';
 				if (ipChanged){
 					var url = location.protocol + '//' + newIp + (location.port ? ':' + location.port : '') + '/';
-					body += '<p style="margin:10px 0 0">管理地址已变更为 <b>' + escapeHtml(newIp) + '</b>，网络将短暂中断（通常 5-15 秒），随后自动跳转到新地址。</p>';
+					body += '<p style=\'margin:10px 0 0\'>管理地址已变更为 <b>' + escapeHtml(newIp) + '</b>，网络将短暂中断（通常 5-15 秒），随后自动跳转到新地址。</p>';
 					showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'前往新地址', cancelText:'留在本页',
 						redirectUrl:url, countdown:12, onOk:function(){ setTimeout(function(){ window.location.href = url; }, 250); }});
 				} else {
-					body += '<p style="margin:10px 0 0">所有更改已生效。</p>';
-				showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'确定', onOk:function(){ reloadAll(); }});
+					body += '<p style=\'margin:10px 0 0\'>所有更改已生效。</p>';
+					showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'确定', onOk:function(){ reloadAll(); }});
 					// 弹窗一出来就立刻从 uci 回填一次（后端 commit 已完成，读到的是新值）
-				reloadAll();
+					reloadAll();
 				}
 			});
 		}
 		if (ipChanged){
 			var url = location.protocol + '//' + newIp + (location.port ? ':' + location.port : '') + '/';
-			var cbody = '<p style="margin:0 0 8px">你正在将路由器管理地址从 <b>' + escapeHtml(oldIp) + '</b> 变更为 <b>' + escapeHtml(newIp) + '</b>。</p>'
-				+ '<p style="margin:0 0 8px;color:#a04000"><b>⚠ 应用后管理口会立即断开 5-15 秒</b>，等后台重新拉起新 IP 后会自动跳转。</p>'
-				+ '<p style="margin:0">新地址：<b>' + escapeHtml(url) + '</b>。是否继续？</p>';
+			var cbody = '<p style=\'margin:0 0 8px\'>你正在将路由器管理地址从 <b>' + escapeHtml(oldIp) + '</b> 变更为 <b>' + escapeHtml(newIp) + '</b>。</p>'
+				+ '<p style=\'margin:0 0 8px;color:#a04000\'><b>⚠ 应用后管理口会立即断开 5-15 秒</b>，等后台重新拉起新 IP 后会自动跳转。</p>'
+				+ '<p style=\'margin:0\'>新地址：<b>' + escapeHtml(url) + '</b>。是否继续？</p>';
 			showModal({title:'确认修改管理地址', kind:'warn', bodyHtml:cbody, okText:'继续并应用', cancelText:'取消', onOk:doApply});
 		} else {
 			doApply();
@@ -475,13 +500,13 @@ tb.description = [[
 	function escapeHtml(s){
 		return String(s == null ? '' : s)
 			.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-			.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+			.replace(new RegExp(String.fromCharCode(34),'g'),'&quot;').replace(/'/g,'&#39;');
 	}
 	function refreshStatus(){
 		jsonCall(L.url('admin/network/wuxuroute/status'), '', function(err, d){
 			if (err || !d) return;
-			function row(k, v){ return '<tr><td style="padding:2px 8px;font-weight:bold">'+escapeHtml(k)+'</td><td style="padding:2px 8px">'+escapeHtml(v)+'</td></tr>'; }
-			var html = '<table class="cbi-table" style="border-collapse:collapse">';
+			function row(k, v){ return '<tr><td style=\'padding:2px 8px;font-weight:bold\'>'+escapeHtml(k)+'</td><td style=\'padding:2px 8px\'>'+escapeHtml(v)+'</td></tr>'; }
+			var html = '<table class=\'cbi-table\' style=\'border-collapse:collapse\'>';
 			html += row('WAN', d.wan_mac || '-');
 			html += row('LAN', d.lan_mac || '-');
 			html += row('主机名', d.hostname || '-');
@@ -565,14 +590,14 @@ tb.description = [[
 					};
 					xhr.onerror  = function(){ dbg('redirect', 'probe err'); };
 					xhr.ontimeout = function(){ dbg('redirect', 'probe timeout'); };
-				xhr.send();
-				probeTimer = setTimeout(function(){
-					dbg('redirect', 'force-jump fallback');
-					window.location.href = target;
-				}, 1500);
+					xhr.send();
+					probeTimer = setTimeout(function(){
+						dbg('redirect', 'force-jump fallback');
+						window.location.href = target;
+					}, 1500);
 				} catch(e) {
-				dbg('redirect', 'probe threw ' + e.toString());
-				window.location.href = target;
+					dbg('redirect', 'probe threw ' + e.toString());
+					window.location.href = target;
 				}
 			}
 			function tick(){

@@ -95,7 +95,7 @@ gen_hostname() {
 	rnd=$(rand_hex 3)
 	[ -z "$rnd" ] && rnd="000000"
 	rnd=$(printf '%-6s' "$rnd" | tr ' ' '0')
-	rnd=$(echo "$rnd" | tr '[:upper:]' '[:lower:]')
+	rnd=$(echo "$rnd" | tr '[:lower:]' '[:upper:]')
 	echo "PC-${rnd}"
 }
 
@@ -137,7 +137,7 @@ get_default_iface() {
 # 注意（2026-08-26 修正）：原实现 sed 只匹配匿名段 `wireless.@wifi-iface[N]=wifi-iface`，
 # 而 OpenWrt 默认生成的段是【命名段】(`wireless.default_radio0=wifi-iface`)，导致整段
 # wifi 列表永远是空，cbi page 报"未检测到 WiFi 接口"。这里同时匹配匿名段 + 命名段，
-# UCI 段名规则仅允许字母数字下划线，故用 [^[:space:]=\.]+ 即可涵盖。
+# UCI 段名规则仅允许字母数字下划线，故用 [^[:space:]=\\.]+ 即可涵盖。
 wifi_list() {
 	local i=0 sec dev ssid mac ifn
 	local entries
@@ -159,7 +159,7 @@ wifi_list() {
 # 取当前 hostname
 get_hostname() {
 	uci -q get system.@system[0].hostname 2>/dev/null \
-		|| awk -F= '/^[[:space:]]*hostname[[:space:]]*=/ {gsub(/["\'\' ]/,"",$2); print $2; exit}' /etc/config/system \
+		|| awk -F= '/^[[:space:]]*hostname[[:space:]]*=/ {gsub(/["'\'' ]/,"",$2); print $2; exit}' /etc/config/system \
 		|| hostname
 }
 
@@ -517,8 +517,8 @@ cmd_apply_and_reboot() {
 				if [ -n "$2" ] && [ -n "$3" ]; then
 					[ -n "$wifi_pairs" ] && wifi_pairs="$wifi_pairs;"
 					wifi_pairs="$wifi_pairs$2=$3"
-			fi
-			shift 3;;
+				fi
+				shift 3;;
 			*) shift;;
 		esac
 	done
