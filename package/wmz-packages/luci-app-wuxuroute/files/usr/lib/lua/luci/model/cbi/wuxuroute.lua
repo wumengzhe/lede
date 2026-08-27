@@ -39,7 +39,23 @@ tb.description = [[
       <option value="8C:BF:A6">Samsung</option>
       <option value="A4:2B:B0">TP-Link</option>
       <option value="52:54:00">PC (Realtek)</option>
+      <option value="00:1A:2B">Cisco</option>
+      <option value="B0:7F:B9">Netgear</option>
+      <option value="00:1F:3B">Intel</option>
+      <option value="F4:F5:D8">Google</option>
+      <option value="68:37:E9">Amazon</option>
+      <option value="04:D4:C4">ASUS</option>
+      <option value="1C:7E:E5">D-Link</option>
+      <option value="00:1D:0D">Sony</option>
+      <option value="AC:22:0B">Microsoft</option>
+      <option value="CC:FB:65">Nintendo</option>
+      <option value="00:0C:29">VMware</option>
+      <option value="00:50:56">VMware (v2)</option>
+      <option value="D8:9C:67">Google Nest</option>
     </select>
+  </label>
+  <label style="margin-left:.4em">]] .. translate("自定义 OUI") .. [[
+    <input type="text" id="qc-oui-custom" placeholder="厂商 OUI 6 位 hex，如 9A8B1C" size="10" style="width:9.5em">
   </label>
   <span id="qc-status" style="margin-left:1em"></span>
 </div>
@@ -143,6 +159,8 @@ tb.description = [[
 	}
 	// (旧 setVal/getVal/checkbox/wifiFields 已重定义)
 	function curOui(){
+		var custom = $('qc-oui-custom');
+		if (custom && custom.value.trim() !== '') return custom.value.trim();
 		var sel = $('qc-oui');
 		return (sel && sel.value) ? sel.value : '';
 	}

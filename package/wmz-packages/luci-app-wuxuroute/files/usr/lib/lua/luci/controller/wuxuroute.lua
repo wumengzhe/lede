@@ -226,39 +226,51 @@ local function save_flags()
 end
 
 -- 收集所有 wifi_mac_<sec> 表单值，拼成 --wifi <sec> <mac> 参数
--- 字段名约定（2026-08-26 修正）：原版用 `wifi_mac_<idx>` 让后端写
--- `wireless.@wifi-iface[idx].macaddr`，但 OpenWrt 默认生成的段是【命名段】
--- `default_radio0`/`default_radio1` 等匿名段路径写不进去，导致 apply 时 MAC
--- 静默错位。改：cbi 把字段名编为 `wifi_mac_<sec>`，controller 直接拿到 sec，
--- 后端 `uci set wireless.${sec}.macaddr=...` 精确写。
+-- 字段名约定：cbi 把字段名编为 `wifi_mac_<sec_safe>`（sec_safe 规则见 cbi.lua），
+-- 浏览器 POST 的表单键是 cbid.wuxuroute.config.wifi_mac_<sec_safe>。
+-- 关键修复（2026-08-27）：此前用 formvaluetable("wifi_mac_") 做【裸前缀】匹配，
+-- 而实际表单键带 cbid. 前缀，永远匹配不到 → wifi_n=0 → 命令行丢失 --wifi → WiFi 不生效。
+-- 改：枚举 wireless 的 wifi-iface 段，对每段用 luci.http.formvalue("wifi_mac_"..sec_safe)
+-- （无点号 name，带 cbid 兜底，可匹配 cbid.*.<name>）。同时与当前配置比对，未变化的跳过，
+-- 避免无谓的 wifi down/up 重建。
 local function collect_wifi_args(args)
-	local wt = luci.http.formvaluetable("wifi_mac_") or {}
-	for sec, mac in pairs(wt) do
-		sec = clean(sec)
-		mac = clean(mac)
-		if mac ~= "" then
-			if not mac_ok(mac) then
-				json_response({ ok = false, err = "WiFi MAC 格式错误 (" .. sec .. "): " .. mac })
-				return false
-			end
-			table.insert(args, "--wifi")
-			table.insert(args, sec)
-			table.insert(args, mac)
+	local uci = require("luci.model.uci").cursor()
+	local err = nil
+	uci:foreach("wireless", "wifi-iface", function(s)
+		if err then return end
+		local sec = s[".name"] or ""
+		if sec == "" then return end
+		-- 与 cbi.lua 的 sec_safe 规则一致：非字母数字下划线 -> _
+		local sec_safe = sec:gsub("[^%w_]", "_")
+		-- 浏览器 POST 的键是 cbid.wuxuroute.config.wifi_mac_<sec_safe>；
+		-- formvalue(无点号) 带 cbid 兜底，能匹配 cbid.*.<name>
+		local val = luci.http.formvalue("wifi_mac_" .. sec_safe)
+		if not val or val == "" then return end
+		val = clean(val)
+		if not mac_ok(val) then
+			err = "WiFi MAC 格式错误 (" .. sec .. "): " .. val
+			return
 		end
+		-- 与当前配置比对，未变化的跳过（避免无谓的 wifi down/up 重建）
+		local cur = uci:get("wireless", sec, "macaddr") or ""
+		if val == cur then return end
+		table.insert(args, "--wifi")
+		table.insert(args, sec)
+		table.insert(args, val)
+	end)
+	if err then
+		json_response({ ok = false, err = err })
+		return false
 	end
 	return true
 end
 
 function action_apply()
-	local _wt = luci.http.formvaluetable("wifi_mac_") or {}
-	local _wifi_n = 0
-	for _ in pairs(_wt) do _wifi_n = _wifi_n + 1 end
 	slog("hit action_apply wm=" .. clean(luci.http.formvalue("wan_mac") or "")
 		.. " lmm=" .. clean(luci.http.formvalue("lan_mac") or "")
 		.. " lip=" .. clean(luci.http.formvalue("lan_ip") or "")
 		.. " hn="  .. clean(luci.http.formvalue("hostname") or "")
-		.. " sched=" .. clean(luci.http.formvalue("schedule") or "")
-		.. " wifi_n=" .. _wifi_n)
+		.. " sched=" .. clean(luci.http.formvalue("schedule") or ""))
 
 	-- 整体包 xpcall：任何异常
 	-- (uci 未定义、子脚本闪退、
