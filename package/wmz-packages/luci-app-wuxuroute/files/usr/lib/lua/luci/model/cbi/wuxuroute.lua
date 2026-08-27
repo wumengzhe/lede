@@ -322,8 +322,13 @@ tb.description = [[
 			if (v === '*') return '每天';
 			if (/^\d+$/.test(v)) return dowName[v] || ('周' + v);
 			if (v.indexOf(',') >= 0) return v.split(',').map(function(x){ return dowName[x] || x; }).join('、');
-			var r = v.match(/^(\d+)-(\d+)$/);
-			if (r) return (dowName[r[1]] || r[1]) + ' ~ ' + (dowName[r[2]] || r[2]);
+		var r = v.match(/^(\d+)-(\d+)$/);
+		if (r){
+			var i1 = r[1], i2 = r[2];
+			var a = dowName[i1] || i1;
+			var b = dowName[i2] || i2;
+			return a + ' ~ ' + b;
+		}
 			return v;
 		}
 		var monName = ['','1 月','2 月','3 月','4 月','5 月','6 月','7 月','8 月','9 月','10 月','11 月','12 月'];
