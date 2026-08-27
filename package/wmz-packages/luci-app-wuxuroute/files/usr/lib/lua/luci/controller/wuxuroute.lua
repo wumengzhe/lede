@@ -41,6 +41,12 @@ function index()
 
 	entry({"admin", "network", "wuxuroute", "factory_reset"},
 		call("action_factory_reset"))
+
+	entry({"admin", "network", "wuxuroute", "list_wan"},
+		call("action_list_wan"))
+
+	entry({"admin", "network", "wuxuroute", "renew"},
+		call("action_renew"))
 end
 
 -- ---------- 工具 ----------
@@ -375,6 +381,54 @@ function action_factory_reset()
 	json_response({ ok = (code == 0), log = out })
 end
 
+function action_list_wan()
+    slog("hit action_list_wan")
+    local out = run("/usr/sbin/wuxuroute list-wan")
+    local t = { wan = {} }
+    local cur = {}
+    for k, v in string.gmatch(out, "([%w_]+)=([^\n]*)") do
+        local m = k:match("^wan_(%d+)_name$")
+        if m then
+            cur = { name = v }
+            table.insert(t.wan, cur)
+        else
+            local idx, fld = k:match("^wan_(%d+)_(%w+)$")
+            if idx and cur and cur.name and fld then
+                cur[fld] = v
+            end
+        end
+    end
+    json_response(t)
+end
+
+function action_renew()
+    local iface = clean(luci.http.formvalue("iface") or "")
+    local all = luci.http.formvalue("all")
+    local random_mac = luci.http.formvalue("random_mac")
+    local mac = clean(luci.http.formvalue("mac") or "")
+    slog("hit action_renew iface=" .. iface .. " all=" .. (all or "") .. " random_mac=" .. (random_mac or "") .. " mac=" .. mac)
+    local args = {}
+    if all and all ~= "" then
+        table.insert(args, "--all")
+    elseif iface ~= "" then
+        table.insert(args, "--iface"); table.insert(args, iface)
+    else
+        table.insert(args, "--iface"); table.insert(args, "wan")
+    end
+    if random_mac and random_mac ~= "" and random_mac ~= "0" then
+        table.insert(args, "--random-wan-mac")
+    elseif mac ~= "" then
+        if not mac_ok(mac) then json_response({ ok = false, err = "WAN MAC 格式错误" }); return end
+        table.insert(args, "--wan-mac"); table.insert(args, mac)
+    end
+    local cmd = "/usr/sbin/wuxuroute renew " .. table.concat(args, " ")
+    slog("renew cmd='" .. cmd .. "'")
+    local out, code = run(cmd)
+    slog("renew out='" .. out:gsub("\n","\\n") .. "' (code=" .. tostring(code) .. ")")
+    json_response({ ok = (code == 0), log = out })
+end
+
+
 -- 2026-08-27 BUILD_ID：固化源码版本到 init syslog；实机自检只需
 -- `logread -e wuxuroute-cgi | head`，首行不匹配这条说明 ipk 没装最新。
 -- 本轮 BUILD_ID 改用"日期-特性"标识（不再依赖两次 commit SHA），更稳定：
@@ -383,5 +437,5 @@ end
 -- 含义：实机反馈"一键随机 → input.value 出现路径/错误串"的根因修复（= 弃
 -- 用 od 依赖、改 head+tr、controller 二次校验 + 前端 JS 三重防御 + OUI
 -- 占位范例 + cron 表达式实时翻译）。
-local BUILD_ID = "wmz-lede@2026-08-27-rng+od-free+cbi6"
+local BUILD_ID = "wmz-lede@2026-08-27-rng+od-free+cbi7"
 pcall(luci.sys.call, "logger -t wuxuroute-cgi '[init] build=" .. BUILD_ID .. " wuxuroute controller module LOADED ok' 2>/dev/null")
