@@ -325,6 +325,17 @@ write_to_uci() {
 		unset IFS
 		uci commit wireless
 		log "write_to_uci: step2 uci commit wireless done"
+		# 回读校验：确认 uci 里确实落了新 MAC（排错用，logread -e wuxuroute 可见）
+		local IFS2=';'
+		local p2 s2 m2
+		for p2 in $wifi_pairs; do
+			s2=${p2%%=*}
+			m2=${p2#*=}
+			local got
+			got=$(uci -q get wireless.${s2}.macaddr 2>/dev/null)
+			log "write_to_uci: verified wireless.${s2}.macaddr='${got}' (want '${m2}')"
+		done
+		unset IFS2
 	fi
 
 	# 3) hostname
@@ -392,8 +403,18 @@ reload_services() {
 		fi
 
 		if [ -n "$wifi" ]; then
-			/sbin/wifi reload 2>/dev/null || true
-			log "reload: background wifi reload done"
+			# 关键修复（2026-08-27）：不能用 `wifi reload`。
+			# mac80211 的 MAC 是在 `wifi up` 的 setup 阶段通过
+			# `ip link set <ifname> address <mac>` 写进去的；而 `wifi reload`
+			# 只重新配置 hostapd/wpa_supplicant，不会重建 VIF，因此写在
+			# uci 里的新 macaddr 不会生效到运行中的接口（网络-无线里仍是旧 MAC）。
+			# 必须 down/up 整个 radio 才能强制重新应用 MAC。
+			# 注意：wifi down/up 与有线 LAN 管理口无关，不会掐断 uhttpd 会话。
+			log "reload: restarting WiFi radios to apply new MAC (wifi reload is insufficient)"
+			/sbin/wifi down 2>/dev/null || true
+			sleep 2
+			/sbin/wifi up 2>/dev/null || true
+			log "reload: background wifi down/up done"
 		fi
 	' >/dev/null 2>&1 </dev/null &
 
@@ -535,7 +556,10 @@ cmd_boot() {
 	NEED_NETIFD_REBUILD=""
 	WIFI_TOUCHED=""
 	/etc/init.d/network reload 2>/dev/null || true
-	/sbin/wifi reload 2>/dev/null || true
+	# 同样不能用 wifi reload（不重建 VIF，MAC 不生效）：down/up 整个 radio
+	/sbin/wifi down 2>/dev/null || true
+	sleep 2
+	/sbin/wifi up 2>/dev/null || true
 }
 
 cmd_factory_reset() {
