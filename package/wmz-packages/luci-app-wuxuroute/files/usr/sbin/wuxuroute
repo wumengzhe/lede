@@ -45,14 +45,27 @@ RANDOM=$(date +%s 2>/dev/null | tr -dc '0-9' | tail -c 5)$RANDOM 2>/dev/null || 
 gen_mac() {
 	local oui=""
 	[ "$1" = "--oui" ] && oui="$2"
+	# 规范化并校验 OUI：仅允许 3 个 hex 字节（可带 : / - 分隔，或连写 6 位 hex）。
+	# 非法 OUI 直接退回全局随机（02: 本地管理位），避免生成畸形 MAC。
+	if [ -n "$oui" ]; then
+		local norm
+		norm=$(printf '%s' "$oui" | tr '[:lower:]' '[:upper:]' | tr -d ':-')
+		if printf '%s' "$norm" | grep -qE '^[0-9A-Fa-f]{6}$'; then
+			oui=$(printf '%s:%s:%s' "${norm:0:2}" "${norm:2:2}" "${norm:4:2}")
+		else
+			oui=""
+		fi
+	fi
 	local rnd
 	rnd=$(rand_hex 4)
 	[ -z "$rnd" ] && rnd="00000000"
 	rnd=$(printf '%-8s' "$rnd" | tr ' ' '0')
 	rnd=$(echo "$rnd" | tr '[:upper:]' '[:lower:]')
 	if [ -n "$oui" ]; then
+		# 厂商伪装：前 3 字节用厂商 OUI，后 3 字节随机（看起来像该厂商设备）
 		echo "${oui}:${rnd:0:2}:${rnd:2:2}:${rnd:4:2}"
 	else
+		# 全局随机：首字节 02（单播 + 本地管理位），避免与真实 MAC 冲突
 		echo "02:00:${rnd:0:2}:${rnd:2:2}:${rnd:4:2}:${rnd:6:2}"
 	fi
 }
@@ -383,22 +396,39 @@ reload_services() {
 	export WIFI_TOUCHED="$wifi_touched"
 
 	setsid sh -c '
+		# 关键修复（2026-08-27）：detached 子 shell 继承的环境 PATH 可能不含
+		# /sbin /usr/sbin，导致 ubus/ifup/logger 找不到 → 后台重建静默失败、
+		# 运行接口 IP/MAC 不更新。先显式铺好 PATH。
+		export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 		sleep 1
 		need="${NEED_NETIFD_REBUILD:-}"
 		wifi="${WIFI_TOUCHED:-}"
 
 		if [ -n "$need" ]; then
 			/etc/init.d/dnsmasq reload 2>/dev/null || true
-			ubus call network.interface.lan down 2>/dev/null \
-				|| /sbin/ifdown lan 2>/dev/null
-			sleep 1
-			ubus call network.interface.lan up 2>/dev/null \
-				|| /sbin/ifup lan 2>/dev/null
-			ubus call network.interface.wan down 2>/dev/null \
-				|| /sbin/ifdown wan 2>/dev/null
-			sleep 1
-			ubus call network.interface.wan up 2>/dev/null \
-				|| /sbin/ifup wan 2>/dev/null
+			# 改 LAN IP：先 reconf（OpenWrt 21.02+ netifd 支持，原地重读配置应用新 IP，
+			# 不掐断已有连接），失败再 ifup lan（down+up，必重读配置），再不行手动 down/up。
+			ubus call network.interface.lan reconf 2>/dev/null \
+				|| /sbin/ifup lan 2>/dev/null \
+				|| { ubus call network.interface.lan down 2>/dev/null; sleep 1; ubus call network.interface.lan up 2>/dev/null; }
+			ubus call network.interface.wan reconf 2>/dev/null \
+				|| /sbin/ifup wan 2>/dev/null || true
+			# 校验：确认运行接口已拿到 uci 里的新 IP（任何接口上都行）
+			newip=$(uci -q get network.lan.ipaddr 2>/dev/null)
+			if [ -n "$newip" ]; then
+				ok=0
+				for _ in 1 2 3 4 5; do
+					if ip -4 addr show 2>/dev/null | grep -q "inet $newip/"; then ok=1; break; fi
+					sleep 1
+				done
+				if [ "$ok" = "1" ]; then
+					log "reload: lan IP $newip applied to running interface"
+				else
+					# 热切换彻底失败，按用户意愿回退到重启保底（该重启就重启）
+					log "reload: WARN lan IP $newip NOT seen after rebuild (fallback reboot)"
+					/sbin/reboot 2>/dev/null || true
+				fi
+			fi
 			log "reload: background netifd rebuild done"
 		fi
 
