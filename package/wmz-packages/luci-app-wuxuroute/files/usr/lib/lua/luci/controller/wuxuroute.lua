@@ -352,5 +352,8 @@ function action_factory_reset()
 	json_response({ ok = (code == 0), log = out })
 end
 
--- 模块加载哨兵（运维必备：模块能不能被 luci 加载，靠这一行：logread -e wuxuroute-cgi）
-pcall(luci.sys.call, "logger -t wuxuroute-cgi '[init] wuxuroute controller module LOADED ok' 2>/dev/null")
+-- 2026-08-27 BUILD_ID：固化源码版本到 init syslog；实机自检只需
+-- `logread -e wuxuroute-cgi | head`，首行 build= 不匹配这条说明 ipk 没装最新
+-- （uhttpd 拿到的可能是缓存或 controller 没重装），省一次 ssh/grep。
+local BUILD_ID = "wmz-lede@a0c8f83c+f1e30e56"
+pcall(luci.sys.call, "logger -t wuxuroute-cgi '[init] build=" .. BUILD_ID .. " wuxuroute controller module LOADED ok' 2>/dev/null")
