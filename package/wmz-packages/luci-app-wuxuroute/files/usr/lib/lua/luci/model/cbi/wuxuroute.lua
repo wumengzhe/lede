@@ -95,10 +95,12 @@ tb.description = [[
 (function(){
 	function $(id){return document.getElementById(id);}
 	function status(msg, ok){
+		// 2026-08-27 反馈：成功态右侧绿色「已生成 X」字样用户觉得碍眼，静默掉；错误/失败仍走红色提示。
+		if (ok) return;
 		var s = $('qc-status');
 		if (!s) return;
 		s.textContent = msg || '';
-		s.style.color = ok ? '#0a0' : '#c00';
+		s.style.color = '#c00';
 	}
 	// ---------- 调试日志：写 UI + console（便于 ssh tail /var/log/messages 配合） ----------
 	function dbg(tag, info){
@@ -200,7 +202,7 @@ tb.description = [[
 		jsonCall(L.url('admin/network/wuxuroute/gen_mac'), body, cb);
 	}
 	function isMacStr(s){ return /^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/.test(String(s == null ? '' : s)); }
-	function isHostnameStr(s){ return /^PC-[A-F0-9]{6}$/.test(String(s == null ? '' : s)); }
+	function isHostnameStr(s){ return /^PC-[A-Fa-f0-9]{6}$/.test(String(s == null ? '' : s)); }
 	function randomInto(target){
 		dbg('rand', 'target=' + target);
 		if (target === 'hostname') {
@@ -451,17 +453,17 @@ tb.description = [[
 	});
 
 	$('qc-random-all') && $('qc-random-all').addEventListener('click', function(){
+		// 2026-08-27 反馈：LAN IP 不再放进一键随机——IP 改了客户端 DHCP 续约常漂移不过来，
+		// PC 会卡在旧网关进不来新管理口（实测 PC 留 192.168.6.177/网关 .6.1 无法访问 .129.1）。
+		// 需要换 IP 时单独点 LAN IP 字段右侧的「随机 IP」按钮，弹窗再确认。
 		randomInto('wan_mac');
 		randomInto('lan_mac');
 		randomInto('hostname');
-		var n = (Math.floor(Math.random() * 200) + 2);
-		setVal('lan_ip', '192.168.' + n + '.1');
 		var wfs = wifiFields();
 		for (var i=0; i<wfs.length; i++){
 			var m = wfs[i].name.match(/\.wifi_mac_(.+)$/);
 			if (m) randomInto('wifi_mac_' + m[1]);
 		}
-		status('已随机生成所有字段，点「保存并应用」生效', true);
 	});
 
 	$('qc-apply') && $('qc-apply').addEventListener('click', function(){
@@ -499,8 +501,18 @@ tb.description = [[
 		}
 		if (ipChanged){
 			var url = location.protocol + '//' + newIp + (location.port ? ':' + location.port : '') + '/';
+			// 2026-08-27 反馈：旧弹窗只说「5-15 秒后自动跳转」，没解释客户端为何常卡在旧网段。
+			// 加上具体的客户端自救步骤，并临时静态 IP 提示以备完全不通时接入。
+			var sameSubnetHint = newIp.replace(/\.\d+$/, '');
+			var tmpStatic = sameSubnetHint + '.177';
 			var cbody = '<p style=\'margin:0 0 8px\'>你正在将路由器管理地址从 <b>' + escapeHtml(oldIp) + '</b> 变更为 <b>' + escapeHtml(newIp) + '</b>。</p>'
 				+ '<p style=\'margin:0 0 8px;color:#a04000\'><b>⚠ 应用后管理口会立即断开 5-15 秒</b>，等后台重新拉起新 IP 后会自动跳转。</p>'
+				+ '<div style=\'margin:0 0 8px;background:#fff7e0;border:1px solid #f0d56a;padding:8px 12px;border-radius:4px;color:#5a4500\'><b>客户端注意：</b>本机网段会从 <code style=\'background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px\'>' + escapeHtml(oldIp) + '</code> 段切到 <code style=\'background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px\'>' + escapeHtml(newIp) + '</code> 段，浏览器自动跳转若不通，按下面顺序救：</div>'
+				+ '<ol style=\'margin:0 0 8px;padding-left:20px;line-height:1.5\'>'
+				+ '<li>释放并续约 DHCP：Windows <code style=\'background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px\'>ipconfig /release &amp;&amp; ipconfig /renew</code>；Linux <code style=\'background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px\'>dhclient -r &amp;&amp; dhclient</code></li>'
+				+ '<li>仍不通：换个浏览器窗口或清缓存（浏览器可能缓存了 <code>' + escapeHtml(oldIp) + '</code> 的 301/会话）</li>'
+				+ '<li>彻底不通：把本机临时改成新网段的静态 IP（如 <code style=\'background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px\'>' + escapeHtml(tmpStatic) + '</code>/24，网关 ' + escapeHtml(newIp) + '）即可临时接入路由器</li>'
+				+ '</ol>'
 				+ '<p style=\'margin:0\'>新地址：<b>' + escapeHtml(url) + '</b>。是否继续？</p>';
 			showModal({title:'确认修改管理地址', kind:'warn', bodyHtml:cbody, okText:'继续并应用', cancelText:'取消', onOk:doApply});
 		} else {
@@ -751,7 +763,14 @@ time_opt.description = translate("对“每天 / 工作日 / 周末”预设生�
 -- 表达式实时算成"下次运行：X 月 Y 日 HH:MM（约 N 小时后）"。非法 5 段格式
 -- 用红字标。空值保持灰字提示"留空 = 关闭"。
 schedule = s:option(Value, "schedule", translate("cron 表达式"),
-	[[<span id="qc-cron-hint" style="margin-left:.5em;color:#888;font-style:italic">]] .. translate("（5 段：分 时 日 月 周，输入后实时显示下次运行时间）") .. [[</span>]])
+	[[<span id="qc-cron-hint" style="margin-left:.5em;color:#888;font-style:italic">]] .. translate("（5 段：分 时 日 月 周，输入后实时显示下次运行时间）") .. [[</span>]]
+	.. [[<div style="margin-top:.4em;color:#666;font-size:12px;line-height:1.5"><b>常用示例：</b>]]
+	.. [[<code style="background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px">0 4 * * *</code> 每天 04:00 · ]]
+	.. [[<code style="background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px">0 4 * * 1-5</code> 工作日 04:00 · ]]
+	.. [[<code style="background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px">0 4 * * 6,0</code> 周末 04:00 · ]]
+	.. [[<code style="background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px">*/15 * * * *</code> 每 15 分钟 · ]]
+	.. [[<code style="background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px">30 2 1 * *</code> 每月 1 号 02:30]]
+	.. [[</div>]])
 schedule.optional = true
 schedule.rmempty = true
 
