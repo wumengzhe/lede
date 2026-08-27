@@ -166,7 +166,10 @@ function action_gen_hostname()
 	-- 二次校验（防御层 2026-08-27）：hostname 必须是 PC- 开头 + 6 位大写 hex。
 	-- 否则拒回，避免 shell stderr（如 'od: not found\nPC-000000'）污染前端。
 	local hn = (out:gsub("^%s+", ""):gsub("%s+$", ""))
-	if not hn:match("^PC%-[A-F0-9][A-F0-9][A-F0-9][A-F0-9][A-F0-9][A-F0-9]$") then
+	-- 修 cbi3 遗留 bug：旧正则 [A-F0-9] 只接大写 hex，但后端 rand_hex 用 tr -dc '0-9a-f'
+	-- 输出小写 → 一键随机主机名 100% 被 REJECTED（log 实锤：e0bc46 / be3f2d 全被拒）。
+	-- 放宽为 %x（匹配任意十六位 a-fA-F0-9）。
+	if not hn:match("^PC%-%x%x%x%x%x%x$") then
 		slog("gen-hostname REJECTED (not PC-XXXXXX): '" .. out:gsub("\n","\\n") .. "'")
 		json_response({ ok = false, err = "后端忙，请稍后重试" })
 		return
@@ -380,5 +383,5 @@ end
 -- 含义：实机反馈"一键随机 → input.value 出现路径/错误串"的根因修复（= 弃
 -- 用 od 依赖、改 head+tr、controller 二次校验 + 前端 JS 三重防御 + OUI
 -- 占位范例 + cron 表达式实时翻译）。
-local BUILD_ID = "wmz-lede@2026-08-27-rng+od-free+cbi3"
+local BUILD_ID = "wmz-lede@2026-08-27-rng+od-free+cbi4"
 pcall(luci.sys.call, "logger -t wuxuroute-cgi '[init] build=" .. BUILD_ID .. " wuxuroute controller module LOADED ok' 2>/dev/null")
