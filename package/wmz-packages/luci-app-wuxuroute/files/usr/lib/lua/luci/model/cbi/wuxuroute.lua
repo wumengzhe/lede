@@ -176,7 +176,16 @@ tb.description = [[
 		return inp ? inp.checked : false;
 	}
 	function wifiFields(){
-		return qcAll('.wifi_mac_', 'cbid.wuxuroute.');
+		// cbid.wuxuroute.<sid>.wifi_mac_<sec_safe> 以 sec_safe 结尾，并非以 .wifi_mac_ 结尾，
+		// 旧实现用 qcAll('.wifi_mac_','cbid.wuxuroute.') 取"以 .wifi_mac_ 结尾"的 input 永远匹配不到，
+		// 导致「一键随机全部」与 buildBody 的 WiFi 段永远为空、WiFi MAC 改了也不生效。
+		// 改：前缀 cbid.wuxuroute. + 名称包含 .wifi_mac_。
+		var all = qcAll('', 'cbid.wuxuroute.');
+		var out = [];
+		for (var i=0;i<all.length;i++){
+			if (all[i].name && all[i].name.indexOf('.wifi_mac_') >= 0) out.push(all[i]);
+		}
+		return out;
 	}
 	// (旧 setVal/getVal/checkbox/wifiFields 已重定义)
 	function curOui(){
@@ -304,65 +313,78 @@ tb.description = [[
 		});
 	}
 
-	// ---------- cron 表达式实时翻译（仿 GitHub Actions 工作流） ----------
-	// 5 段：分 时 日 月 周。每次输入更新 #qc-cron-hint 的文本与颜色：
+	// ---------- cron 下次运行时间计算（2026-08-27 cbi3 实装） ----------
+	// 5 段：分 时 日 月 周。每次输入更新 #qc-cron-hint：算出【下一次】具体运行时刻，
 	//   空           → 灰色  「留空 = 关闭」
-	//   合法 5 段     → 绿色  「在 HH:MM 运行，每周X、Y，每月Z号」
+	//   合法 5 段     → 绿色  「下次运行：X 月 Y 日 HH:MM（约 N 小时后）」
 	//   非法（非 5 段）→ 红色  「⚠ 需要 5 段（分 时 日 月 周），当前 N 段」
+	// ---------- cron 下次运行时间计算 ----------
+	// 5 段：分 时 日 月 周。算出【下一次】具体运行时刻并显示给用户。
+	function cronNextRun(c){
+		var p = c.split(/\s+/);
+		if (p.length !== 5) return null;
+		function parseField(spec, min, max){
+			var set = {};
+			if (spec === '*'){ for (var i=min;i<=max;i++) set[i]=true; return set; }
+			var parts = spec.split(',');
+			for (var k=0;k<parts.length;k++){
+				var part = parts[k], step = 1, base = part;
+				var sm = part.match(/^(.+)\/(\d+)$/);
+				if (sm){ base = sm[1]; step = parseInt(sm[2],10); if (!(step>=1)) step=1; }
+				var rmin=min, rmax=max;
+				if (base !== '*'){
+					var dm = base.match(/^(\d+)-(\d+)$/);
+					if (dm){ rmin=parseInt(dm[1],10); rmax=parseInt(dm[2],10); }
+					else { rmin=rmax=parseInt(base,10); }
+				}
+				for (var v=rmin; v<=rmax; v+=step){ if (v>=min && v<=max) set[v]=true; }
+			}
+			return set;
+		}
+		var mins = parseField(p[0],0,59);
+		var hrs  = parseField(p[1],0,23);
+		var doms = parseField(p[2],1,31);
+		var mons = parseField(p[3],1,12);
+		var dows = parseField(p[4],0,7);
+		if (!Object.keys(mins).length || !Object.keys(hrs).length || !Object.keys(mons).length) return null;
+		var domStar = (p[2]==='*');
+		var dowStar = (p[4]==='*');
+		function dayOk(date){
+			var mo=date.getMonth()+1, d=date.getDate(), dw=date.getDay();
+			if (!mons[mo]) return false;
+			var domOk = domStar ? true : !!doms[d];
+			var dowOk = dowStar ? true : (!!dows[dw] || (dw===0 && !!dows[7]));
+			if (domStar || dowStar) return domOk && dowOk;
+			return domOk || dowOk;
+		}
+		var now = new Date();
+		var cur = new Date(now.getTime());
+		cur.setSeconds(0,0); cur.setMinutes(cur.getMinutes()+1);
+		var limit = new Date(now.getTime() + 2922*24*3600*1000); // 约 8 年：覆盖闰年 2/29 等稀疏 cron
+		while (cur <= limit){
+			if (dayOk(cur) && hrs[cur.getHours()] && mins[cur.getMinutes()]) return cur;
+			cur.setMinutes(cur.getMinutes()+1);
+		}
+		return null;
+	}
 	function cronToHuman(c){
 		var t = (c == null ? '' : String(c));
 		t = t.trim();
 		if (!t) return '';
 		var p = t.split(/\s+/);
 		if (p.length !== 5) return '⚠ 需要 5 段（分 时 日 月 周），当前 ' + p.length + ' 段';
-		var min = p[0], hh = p[1], dom = p[2], mon = p[3], dow = p[4];
-		function pad(n){ n = String(n); return n.length < 2 ? '0' + n : n; }
-		var dowName = { '0':'周日','1':'周一','2':'周二','3':'周三','4':'周四','5':'周五','6':'周六','7':'周日' };
-		function rangeDow(v){
-			if (v === '*') return '每天';
-			if (/^\d+$/.test(v)) return dowName[v] || ('周' + v);
-			if (v.indexOf(',') >= 0) return v.split(',').map(function(x){ return dowName[x] || x; }).join('、');
-		var r = v.match(/^(\d+)-(\d+)$/);
-		if (r){
-			var i1 = r[1], i2 = r[2];
-			var a = dowName[i1] || i1;
-			var b = dowName[i2] || i2;
-			return a + ' ~ ' + b;
-		}
-			return v;
-		}
-		var monName = ['','1 月','2 月','3 月','4 月','5 月','6 月','7 月','8 月','9 月','10 月','11 月','12 月'];
-		function rangeMon(v){
-			if (v === '*') return '每月';
-			if (/^\d+$/.test(v)) return monName[parseInt(v,10)] || ('月' + v);
-			if (v.indexOf(',') >= 0) return v.split(',').map(function(x){ return monName[parseInt(x,10)] || x; }).join('、');
-			var r = v.match(/^(\d+)-(\d+)$/);
-			if (r) return (monName[parseInt(r[1],10)] || r[1]) + ' ~ ' + (monName[parseInt(r[2],10)] || r[2]);
-			return v;
-		}
-		function rangeDom(v){
-			if (v === '*') return '每天';
-			if (/^\d+$/.test(v)) return '每月 ' + v + ' 号';
-			var m = v.match(/^\*\/(\d+)$/);
-			if (m) return '每 ' + m[1] + ' 天';
-			if (v.indexOf(',') >= 0) return v.split(',').map(function(x){return /\d+/.test(x) ? (x + ' 号') : x; }).join('、');
-			var r = v.match(/^(\d+)-(\d+)$/);
-			if (r) return r[1] + ' 号 ~ ' + r[2] + ' 号';
-			return v;
-		}
-		var hhNum = parseInt(hh, 10);
-		var minNum = (min === '*') ? 0 : parseInt(min, 10);
-		// 几种最常见的快捷模式优先描述
-		if (hh !== '*' && /^0?\d+$/.test(min) && /^0?\d+$/.test(hh) && dom === '*' && mon === '*' && dow === '*') {
-			return ('每天 ' + pad(hh) + ':' + pad(minNum) + ' 运行');
-		}
-		if (hh !== '*' && /^0?\d+$/.test(min) && /^0?\d+$/.test(hh) && dom === '*' && mon === '*' && dow !== '*') {
-			return ('在 ' + pad(hh) + ':' + pad(minNum) + ' 运行（' + rangeDow(dow) + '）');
-		}
-		if (min === '0' && hh !== '*' && dom === '*' && mon === '*' && dow === '*') {
-			return ('每小时整点（' + pad(hh) + ':00）都跑一次 | ' + rangeDom(dom) + ' | ' + rangeMon(mon));
-		}
-		return ('在 HH:MM = ' + pad(hh) + ':' + pad(minNum) + ' 运行 | ' + rangeDom(dom) + ' | ' + rangeMon(mon) + ' | ' + rangeDow(dow));
+		var next = cronNextRun(t);
+		if (!next) return '⚠ 未来 8 年内无匹配时间（cron 可能过于特殊，如仅闰年 2/29）';
+		var pad = function(n){ return (n<10?'0':'')+n; };
+		var now = new Date();
+		var diffMin = Math.round((next.getTime()-now.getTime())/60000);
+		var when;
+		if (diffMin < 1) when = '即将运行';
+		else if (diffMin < 60) when = '约 ' + diffMin + ' 分钟后';
+		else if (diffMin < 1440) when = '约 ' + Math.round(diffMin/60) + ' 小时后';
+		else when = '约 ' + Math.round(diffMin/1440) + ' 天后';
+		return '下次运行：' + (next.getMonth()+1) + ' 月 ' + pad(next.getDate()) + ' 日 '
+			+ pad(next.getHours()) + ':' + pad(next.getMinutes()) + '（' + when + '）';
 	}
 	function updateCronHint(){
 		var el = qcOne('.schedule');
@@ -406,7 +428,7 @@ tb.description = [[
 		reloadAll();
 		// 定时同步
 		syncScheduleUI();
-		// cron 实时翻译（仿 GitHub Actions 工作流；2026-08-27 实装）
+		// cron 下次运行时间（2026-08-27 cbi3 实装）
 		updateCronHint();
 	});
 
@@ -626,27 +648,26 @@ s = m:section(TypedSection, "config", translate("WAN 口设置"))
 s.anonymous = true
 s.addremove = false
 
-wan_mac = s:option(Value, "wan_mac", translate("WAN 口 MAC 地址"),
-	translate("当前 WAN MAC（也可手动输入新值）。"))
-wan_mac.datatype = "macaddr"
-wan_mac.rmempty = true
-wan_mac.description = [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_mac" data-qc-target="wan_mac">]] .. translate("随机 MAC 地址") .. [[</button>]]
+-- 解耦：编辑字段不再绑定 UCI，避免"未保存却随其它页面保存而落盘"（bug #4）。
+-- 改成纯 HTML input，name 仍按 cbid.wuxuroute.config.<opt> 约定，JS 的 getVal/setVal/buildBody 照常工作。
+wan_mac = s:option(DummyValue, "_wan_mac", translate("WAN 口 MAC 地址"))
+wan_mac.description = translate("当前 WAN MAC（也可手动输入新值）。")
+	.. [[<br><input type="text" name="cbid.wuxuroute.config.wan_mac" size="20" style="width:18em;margin-right:.4em">]]
+	.. [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_mac" data-qc-target="wan_mac">]] .. translate("随机 MAC 地址") .. [[</button>]]
 
 -- ===== LAN 设置 =====
 s = m:section(TypedSection, "config", translate("LAN 口设置"))
 s.anonymous = true
 s.addremove = false
 
-lan_ip = s:option(Value, "lan_ip", translate("LAN IP 地址"),
-	translate("路由 LAN 侧网关 IP。修改后路由器管理后台地址会变，请牢记新 IP。"))
-lan_ip.datatype = "ip4addr"
-lan_ip.default = "192.168.2.1"
-lan_ip.description = [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_lan_ip">]] .. translate("随机 IP 地址") .. [[</button>]]
+lan_ip = s:option(DummyValue, "_lan_ip", translate("LAN IP 地址"))
+lan_ip.description = translate("路由 LAN 侧网关 IP。修改后路由器管理后台地址会变，请牢记新 IP。")
+	.. [[<br><input type="text" name="cbid.wuxuroute.config.lan_ip" size="16" style="width:14em;margin-right:.4em">]]
+	.. [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_lan_ip">]] .. translate("随机 IP 地址") .. [[</button>]]
 
-lan_mac = s:option(Value, "lan_mac", translate("LAN 口 MAC 地址"))
-lan_mac.datatype = "macaddr"
-lan_mac.rmempty = true
-lan_mac.description = [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_mac" data-qc-target="lan_mac">]] .. translate("随机 MAC 地址") .. [[</button>]]
+lan_mac = s:option(DummyValue, "_lan_mac", translate("LAN 口 MAC 地址"))
+lan_mac.description = [[<input type="text" name="cbid.wuxuroute.config.lan_mac" size="20" style="width:18em;margin-right:.4em">]]
+	.. [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_mac" data-qc-target="lan_mac">]] .. translate("随机 MAC 地址") .. [[</button>]]
 
 -- ===== WiFi 设置（多 SSID 动态生成）=====
 s = m:section(TypedSection, "config", translate("WiFi 设置（多 SSID）"))
@@ -672,12 +693,11 @@ if #wifi_lines > 0 then
 			.. " #" .. (idx or "?")
 			.. " @ " .. ((dev and #dev > 0) and dev or "?")
 		local cur = (mac and #mac > 0) and mac or translate("（未设置，使用硬件地址）")
-		local opt = s:option(Value, field,
+		local opt = s:option(DummyValue, "_" .. field,
 			label,
 			translate("当前 MAC: ") .. cur .. " / sec=" .. (sec or "?"))
-		opt.datatype = "macaddr"
-		opt.rmempty = true
-		opt.description = [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_mac" data-qc-target="]] .. field .. [[">]] .. translate("随机 MAC 地址") .. [[</button>]]
+		opt.description = [[<input type="text" name="cbid.wuxuroute.config.]] .. field .. [[" size="20" style="width:18em;margin-right:.4em">]]
+			.. [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_mac" data-qc-target="]] .. field .. [[">]] .. translate("随机 MAC 地址") .. [[</button>]]
 	end
 else
 	s.description = translate("未检测到 WiFi 接口（wifi-iface）。如有 WiFi 请先在“网络 → 无线”中配置。")
@@ -688,11 +708,10 @@ s = m:section(TypedSection, "config", translate("主机名"))
 s.anonymous = true
 s.addremove = false
 
-hostname = s:option(Value, "hostname", translate("主机名"),
-	translate("设置路由器的设备名称（hostname）。"))
-hostname.datatype = "hostname"
-hostname.rmempty = true
-hostname.description = [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_hostname">]] .. translate("随机 PC 主机名") .. [[</button>]]
+hostname = s:option(DummyValue, "_hostname", translate("主机名"))
+hostname.description = translate("设置路由器的设备名称（hostname）。")
+	.. [[<br><input type="text" name="cbid.wuxuroute.config.hostname" size="14" style="width:14em;margin-right:.4em">]]
+	.. [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_hostname">]] .. translate("随机 PC 主机名") .. [[</button>]]
 
 -- ===== 开机自动更新 =====
 s = m:section(TypedSection, "config", translate("开机自动更新"))
@@ -727,12 +746,12 @@ time_opt.datatype = "string"
 time_opt.rmempty = true
 time_opt.description = translate("对“每天 / 工作日 / 周末”预设生效；自定义 cron 时忽略。格式 HH:MM，如 04:00 / 23:30。")
 
--- cron 实时翻译（仿 GitHub Actions 工作流，2026-08-27）：
+-- cron 下次运行时间（2026-08-27 cbi3）：
 -- description 含 hint 容器；JS 监听 .schedule 的 input 事件，把 5 段 cron
--- 表达式实时翻译成"在 HH:MM 运行，每周X、Y，每月Z号"形式。非法 5 段格式
+-- 表达式实时算成"下次运行：X 月 Y 日 HH:MM（约 N 小时后）"。非法 5 段格式
 -- 用红字标。空值保持灰字提示"留空 = 关闭"。
 schedule = s:option(Value, "schedule", translate("cron 表达式"),
-	[[<span id="qc-cron-hint" style="margin-left:.5em;color:#888;font-style:italic">]] .. translate("（5 段：分 时 日 月 周，输入实时翻译）") .. [[</span>]])
+	[[<span id="qc-cron-hint" style="margin-left:.5em;color:#888;font-style:italic">]] .. translate("（5 段：分 时 日 月 周，输入后实时显示下次运行时间）") .. [[</span>]])
 schedule.optional = true
 schedule.rmempty = true
 

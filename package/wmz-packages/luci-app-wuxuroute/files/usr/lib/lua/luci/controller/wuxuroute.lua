@@ -380,5 +380,5 @@ end
 -- 含义：实机反馈"一键随机 → input.value 出现路径/错误串"的根因修复（= 弃
 -- 用 od 依赖、改 head+tr、controller 二次校验 + 前端 JS 三重防御 + OUI
 -- 占位范例 + cron 表达式实时翻译）。
-local BUILD_ID = "wmz-lede@2026-08-27-rng+od-free+cbi2"
+local BUILD_ID = "wmz-lede@2026-08-27-rng+od-free+cbi3"
 pcall(luci.sys.call, "logger -t wuxuroute-cgi '[init] build=" .. BUILD_ID .. " wuxuroute controller module LOADED ok' 2>/dev/null")
