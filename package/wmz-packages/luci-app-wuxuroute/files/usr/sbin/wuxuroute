@@ -45,14 +45,18 @@ err() { logger -t wuxuroute -p err "$@"; echo "ERROR: $@" >&2; }
 rand_hex() {
 	local n="${1:-4}"
 	local need=$((n * 2))
-	local out
-	out=$(head -c 64 /dev/urandom 2>/dev/null \
-		| LC_ALL=C tr -dc 'a-f0-9' \
-		| head -c "$need" 2>/dev/null)
+	local out=""
+	# 循环抽取直到凑满 need 个 hex 字符：/dev/urandom 每字节仅 ~6.25% 是 hex
+	# 字符（仅 16 个字节值 0x30-0x39/0x61-0x66 命中），单次 head -c 64 取出的
+	# hex 字符期望只有 ~4 个，远少于 need。旧实现用 `head -c 64 | tr | head -c $need`
+	# 拿到的往往是短串，再用 `printf '%-8s' | tr ' ' '0'` 补零 → MAC 尾段恒为 00
+	# （用户反馈"看着假、后几位连续 0"）。改为循环累加到满足长度为止。
+	while [ ${#out} -lt "$need" ]; do
+		out="${out}$(head -c 256 /dev/urandom 2>/dev/null | LC_ALL=C tr -dc '0-9a-f')"
+	done
 	if [ -z "$out" ]; then
-		# 极罕见：urandom 不可用（嵌入式 initramfs 等），退回 $RANDOM 拼接。
-		out=""
-		while [ ${#out} -lt $need ]; do
+		# 极罕见：urandom 不可用（嵌入式 initramfs 等），退回 $RANDOM 拼接并循环补足。
+		while [ ${#out} -lt "$need" ]; do
 			out="${out}$(printf '%08x' $(( (RANDOM << 16) ^ RANDOM )) )"
 		done
 	fi
@@ -79,7 +83,7 @@ gen_mac() {
 	local rnd
 	rnd=$(rand_hex 4)
 	[ -z "$rnd" ] && rnd="00000000"
-	rnd=$(printf '%-8s' "$rnd" | tr ' ' '0')
+	# rand_hex 现已可靠返回 8 个 hex 字符，无需补零（旧的补零会把短结果填成尾段 00）
 	rnd=$(echo "$rnd" | tr '[:upper:]' '[:lower:]')
 	if [ -n "$oui" ]; then
 		# 厂商伪装：前 3 字节用厂商 OUI，后 3 字节随机（看起来像该厂商设备）
@@ -94,7 +98,6 @@ gen_hostname() {
 	local rnd
 	rnd=$(rand_hex 3)
 	[ -z "$rnd" ] && rnd="000000"
-	rnd=$(printf '%-6s' "$rnd" | tr ' ' '0')
 	rnd=$(echo "$rnd" | tr '[:lower:]' '[:upper:]')
 	echo "PC-${rnd}"
 }
