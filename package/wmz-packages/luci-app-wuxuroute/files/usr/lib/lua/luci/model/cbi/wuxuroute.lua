@@ -26,7 +26,7 @@ tb.anonymous = true
 tb.addremove = false
 tb.description = [[
 <div id="qc-toolbar" style="margin-bottom:1em">
-  <button type="button" id="qc-random-all" class="btn cbi-button-apply">]] .. translate("一键随机全部") .. [[</button>
+  <button type="button" id="qc-random-all" class="btn cbi-button-apply">]] .. translate("一键随机MAC") .. [[</button>
   <button type="button" id="qc-apply" class="btn cbi-button-apply">]] .. translate("保存并应用") .. [[</button>
   <button type="button" id="qc-reboot" class="btn cbi-button-reset">]] .. translate("保存并重启") .. [[</button>
   <button type="button" id="qc-factory" class="btn cbi-button-apply">]] .. translate("恢复出厂 MAC") .. [[</button>
@@ -180,7 +180,7 @@ tb.description = [[
 	function wifiFields(){
 		// cbid.wuxuroute.<sid>.wifi_mac_<sec_safe> 以 sec_safe 结尾，并非以 .wifi_mac_ 结尾，
 		// 旧实现用 qcAll('.wifi_mac_','cbid.wuxuroute.') 取"以 .wifi_mac_ 结尾"的 input 永远匹配不到，
-		// 导致「一键随机全部」与 buildBody 的 WiFi 段永远为空、WiFi MAC 改了也不生效。
+		// 导致「一键随机MAC」与 buildBody 的 WiFi 段永远为空、WiFi MAC 改了也不生效。
 		// 改：前缀 cbid.wuxuroute. + 名称包含 .wifi_mac_。
 		var all = qcAll('', 'cbid.wuxuroute.');
 		var out = [];
@@ -453,12 +453,10 @@ tb.description = [[
 	});
 
 	$('qc-random-all') && $('qc-random-all').addEventListener('click', function(){
-		// 2026-08-27 反馈：LAN IP 不再放进一键随机——IP 改了客户端 DHCP 续约常漂移不过来，
-		// PC 会卡在旧网关进不来新管理口（实测 PC 留 192.168.6.177/网关 .6.1 无法访问 .129.1）。
-		// 需要换 IP 时单独点 LAN IP 字段右侧的「随机 IP」按钮，弹窗再确认。
+		// 2026-08-27 反馈：本按钮只随机化各 MAC（WAN/LAN/WiFi），不再含 IP（IP 变更会让
+		// 客户端 DHCP 续约漂移，PC 卡在旧网关进不来新管理口）。主机名用其右侧「随机主机名」按钮。
 		randomInto('wan_mac');
 		randomInto('lan_mac');
-		randomInto('hostname');
 		var wfs = wifiFields();
 		for (var i=0; i<wfs.length; i++){
 			var m = wfs[i].name.match(/\.wifi_mac_(.+)$/);
