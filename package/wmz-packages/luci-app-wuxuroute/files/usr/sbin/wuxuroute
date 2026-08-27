@@ -330,7 +330,8 @@ apply_ip_to_iface() {
 	uci set network.${iface}.ipaddr="$new_ip"
 	uci set network.${iface}.force_link='1' 2>/dev/null || true
 	NEED_NETIFD_REBUILD=1
-	log "ip: NEED_NETIFD_REBUILD=1; backend reload_services will rebuild ${iface} for ${new_ip}"
+	LAN_IP_CHANGED=1
+	log "ip: LAN_IP_CHANGED=1; backend will FORCE REBOOT to apply ${iface}=${new_ip} (hot reconf unreliable per field test)"
 }
 
 # 把值写入 UCI（不 reload，由调用方决定）
@@ -407,6 +408,7 @@ reload_services() {
 
 	local need_rebuild="$NEED_NETIFD_REBUILD"
 	local wifi_touched="$WIFI_TOUCHED"
+	local lan_ip_changed="$LAN_IP_CHANGED"
 
 	# 2) 没改 ip / wifi / hot-set 都成功 —— 啥都不必做
 	if [ -z "$need_rebuild" ] && [ -z "$wifi_touched" ]; then
@@ -419,6 +421,7 @@ reload_services() {
 	# 3) 把破坏性动作丢后台（脱离 shell，cgi 退出后不会被打断）
 	export NEED_NETIFD_REBUILD="$need_rebuild"
 	export WIFI_TOUCHED="$wifi_touched"
+	export LAN_IP_CHANGED="$lan_ip_changed"
 
 	setsid sh -c '
 		# 关键修复（2026-08-27）：detached 子 shell 继承的环境 PATH 可能不含
@@ -428,6 +431,16 @@ reload_services() {
 		sleep 1
 		need="${NEED_NETIFD_REBUILD:-}"
 		wifi="${WIFI_TOUCHED:-}"
+		ipc="${LAN_IP_CHANGED:-}"
+
+		# 内网 IP 变更：实测热改（down/up/reconf）不生效，只有重启才生效。
+		# 因此直接强制重启；sleep 3 确保本 HTTP 响应已 flush 给浏览器。
+		if [ -n "$ipc" ]; then
+			log "reload: LAN IP changed -> FORCE REBOOT to apply new IP (hot reconf unreliable per field test)"
+			sleep 3
+			/sbin/reboot 2>/dev/null || true
+			exit 0
+		fi
 
 		if [ -n "$need" ]; then
 			/etc/init.d/dnsmasq reload 2>/dev/null || true
@@ -506,6 +519,7 @@ cmd_apply() {
 	# 清掉函数级标志，避免下一次调用（同一进程）误带
 	NEED_NETIFD_REBUILD=""
 	WIFI_TOUCHED=""
+	LAN_IP_CHANGED=""
 	log "apply done"
 }
 

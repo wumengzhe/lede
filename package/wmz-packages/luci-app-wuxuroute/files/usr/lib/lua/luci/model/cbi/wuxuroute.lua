@@ -594,7 +594,7 @@ tb.description = [[
 				if (rows.length) body += '<ul style=\'margin:0;padding-left:18px\'>' + rows.map(function(r){return '<li>'+r+'</li>';}).join('') + '</ul>';
 				if (sum.ipChanged){
 					var url = location.protocol + '//' + sum.newIp + (location.port ? ':' + location.port : '') + '/';
-					body += '<p style=\'margin:10px 0 0\'>管理地址已变更为 <b>' + escapeHtml(sum.newIp) + '</b>，网络将短暂中断（通常 5-15 秒），随后自动跳转到新地址。</p>';
+					body += '<p style=\'margin:10px 0 0\'>管理地址已变更为 <b>' + escapeHtml(sum.newIp) + '</b>，<b>路由器将重启（约 1–2 分钟）</b>以应用新 IP，重启后浏览器会自动跳转到新地址。</p>';
 					showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'前往新地址', cancelText:'留在本页',
 						redirectUrl:url, countdown:12, onOk:function(){ setTimeout(function(){ window.location.href = url; }, 250); }});
 				} else {
@@ -614,7 +614,7 @@ tb.description = [[
 			var url = location.protocol + '//' + sum.newIp + (location.port ? ':' + location.port : '') + '/';
 			var sameSubnetHint = sum.newIp.replace(/\.\d+$/, '');
 			var tmpStatic = sameSubnetHint + '.177';
-			body += '<div style=\'margin:8px 0 0;background:#fff7e0;border:1px solid #f0d56a;padding:8px 12px;border-radius:4px;color:#5a4500\'><b>⚠ 管理地址将从 <code>' + escapeHtml(sum.oldIp) + '</code> 变更为 <code>' + escapeHtml(sum.newIp) + '</code></b>，客户端按以下顺序自救：'
+			body += '<div style=\'margin:8px 0 0;background:#fff7e0;border:1px solid #f0d56a;padding:8px 12px;border-radius:4px;color:#5a4500\'><b>⚠ 管理地址将从 <code>' + escapeHtml(sum.oldIp) + '</code> 变更为 <code>' + escapeHtml(sum.newIp) + '</code></b>，<b>应用后路由器将重启（约 1–2 分钟）</b>以生效，客户端按以下顺序自救：'
 				+ '<ol style=\'margin:6px 0 0;padding-left:20px;line-height:1.5\'>'
 				+ '<li>Windows <code>ipconfig /release &amp;&amp; ipconfig /renew</code>；Linux <code>dhclient -r &amp;&amp; dhclient</code></li>'
 				+ '<li>仍不通：换浏览器窗口或清缓存</li>'
@@ -827,6 +827,7 @@ s.addremove = false
 lan_ip = s:option(DummyValue, "_lan_ip", translate("LAN IP 地址"))
 lan_ip.description = translate("路由 LAN 侧（管理后台）网关 IP。修改后管理地址会变，请牢记新 IP。")
 	.. translate("本工具仅管理此主 LAN IP；访客 / 其他独立网段（如 IoT 子网）的网关 IP 不在管理范围，保持原样即可。")
+	.. translate("<span style=\"color:#c0392b;font-weight:bold\">⚠ 修改内网 IP 将强制重启路由器（约 1–2 分钟），重启后请用新 IP 访问，已联网设备需重连 / 续约 DHCP。</span>")
 	.. [[<br><input type="text" name="cbid.wuxuroute.config.lan_ip" value="]] .. esc(cur_lan_ip) .. [[" size="16" style="width:14em;margin-right:.4em">]]
 	.. [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_lan_ip">]] .. translate("随机 IP 地址") .. [[</button>]]
 
