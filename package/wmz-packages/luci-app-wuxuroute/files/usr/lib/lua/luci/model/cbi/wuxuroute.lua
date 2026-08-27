@@ -348,6 +348,8 @@ tb.description = [[
 				} else {
 					body += '<p style="margin:10px 0 0">所有更改已生效。</p>';
 					showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'确定', onOk:function(){ reloadAll(); }});
+					// 弹窗一出来就立刻从 uci 回填一次（后端 commit 已完成，读到的是新值）
+					reloadAll();
 				}
 			});
 		}
