@@ -46,18 +46,33 @@ tb.description = [[
 <div id="qc-status-box" style="margin-bottom:1em"></div>
 <style>
 #qc-modal .cbi-button-apply, #qc-modal .cbi-button-reset { padding:6px 16px; cursor:pointer; font-size:14px; }
-#qc-modal .cbi-button-apply { background:#2e8b57; color:#fff; border:1px solid #26734a; }
-#qc-modal .cbi-button-apply:hover { background:#26734a; }
-#qc-modal .cbi-button-reset { background:#eee; color:#333; border:1px solid #ccc; }
-#qc-modal .cbi-button-reset:hover { background:#e0e0e0; }
+#qc-modal .cbi-button-apply { background:var(--c1,var(--luci-theme-color,#2e8b57)); color:#fff; border:1px solid var(--c1-darker,var(--luci-theme-color-darker,#26734a)); }
+#qc-modal .cbi-button-apply:hover { background:var(--c1-darker,var(--luci-theme-color-darker,#26734a)); }
+#qc-modal .cbi-button-reset { background:var(--c-button-bg,#eee); color:var(--c-button-fg,#333); border:1px solid var(--c-button-bd,#ccc); }
+#qc-modal .cbi-button-reset:hover { background:var(--c-button-bd-hover,#e0e0e0); }
 #qc-modal ul { margin:8px 0; }
-#qc-modal b { color:#222; }
+#qc-modal b { color:inherit; }
+#qc-modal-card { background:var(--c-card-bg,var(--luci-card-bg,#fff)); color:var(--c-card-fg,var(--luci-card-fg,#222)); }
+#qc-modal-progress { display:none; background:rgba(127,127,127,.18); height:4px; width:100%; overflow:hidden; }
+#qc-modal-progress-bar { height:100%; background:var(--c1,var(--luci-theme-color,#2e8b57)); width:0; transition:width 1s linear; }
+#qc-warning { background:var(--c-warn-bg,#fff7e0); border:1px solid var(--c-warn-bd,#f0d56a); color:var(--c-warn-fg,#5a4500); padding:8px 12px; border-radius:4px; margin:0 0 8px; line-height:1.5; }
+#qc-warning b { color:inherit; }
+#qc-warning code { background:rgba(127,127,127,.18); padding:0 4px; border-radius:3px; }
+@media (prefers-color-scheme: dark) {
+  #qc-modal-card { box-shadow:0 8px 30px rgba(0,0,0,.55); }
+  #qc-modal .cbi-button-apply { background:var(--c1,var(--luci-theme-color,#1f6f43)); border-color:var(--c1-darker,#155030); }
+  #qc-modal .cbi-button-apply:hover { background:var(--c1-darker,#155030); }
+  #qc-modal .cbi-button-reset { background:#2a2a2a; color:#eee; border-color:#444; }
+  #qc-modal .cbi-button-reset:hover { background:#333; }
+  #qc-warning { background:#3a2e10; border-color:#5a4500; color:#f0d56a; }
+}
 </style>
 <div id="qc-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
-  <div style="background:#fff;color:#222;border-radius:8px;max-width:480px;width:92%;box-shadow:0 8px 30px rgba(0,0,0,.3);font-family:inherit">
+  <div id="qc-modal-card" style="border-radius:8px;max-width:480px;width:92%;box-shadow:0 8px 30px rgba(0,0,0,.3);font-family:inherit">
     <div id="qc-modal-title" style="padding:14px 18px;font-size:16px;font-weight:bold;color:#fff;border-top-left-radius:8px;border-top-right-radius:8px"></div>
     <div id="qc-modal-body" style="padding:16px 18px;font-size:14px;line-height:1.6"></div>
-    <div id="qc-modal-foot" style="padding:12px 18px;border-top:1px solid #eee;text-align:right;display:flex;gap:10px;justify-content:flex-end"></div>
+    <div id="qc-modal-progress"><div id="qc-modal-progress-bar"></div></div>
+    <div id="qc-modal-foot" style="padding:12px 18px;border-top:1px solid rgba(127,127,127,.2);text-align:right;display:flex;gap:10px;justify-content:flex-end"></div>
   </div>
 </div>
 <script type="text/javascript">
@@ -236,26 +251,30 @@ tb.description = [[
 		});
 	}
 
-	window.addEventListener('DOMContentLoaded', function(){
-		// 回填当前值
+	// ---------- 重新拉取 /usr/sbin/wuxuroute get，刷新所有 input + 状态框 ----------
+	// 入口：页面加载、apply 成功后。
+	function reloadAll(){
 		jsonCall(L.url('admin/network/wuxuroute/get'), '', function(err, data){
 			if (err || !data) return;
 			if (data.wan_mac)    setVal('wan_mac',  data.wan_mac);
 			if (data.lan_mac)    setVal('lan_mac',  data.lan_mac);
 			if (data.hostname)   setVal('hostname', data.hostname);
 			if (data.lan_ip)     setVal('lan_ip',   data.lan_ip);
-window.__qc_lan_ip = data.lan_ip || '';
-		var count = parseInt(data.wifi_count || '0', 10);
-		for (var i=0; i<count; i++){
-			// 数据来自 cmd_get：每个 wifi 返回 wifi_<i>_field（sec_safe 后的 cbi option name）
-			var field = data['wifi_' + i + '_field'];
-			if (!field) continue;
-			var mac = data['wifi_' + i + '_mac'];
-			if (mac) setVal(field, mac);
-		}
-	});
-		// 实时状态
+			window.__qc_lan_ip   = data.lan_ip || '';
+			var count = parseInt(data.wifi_count || '0', 10);
+			for (var i=0; i<count; i++){
+				var field = data['wifi_' + i + '_field'];
+				if (!field) continue;
+				var mac = data['wifi_' + i + '_mac'];
+				if (mac) setVal(field, mac);
+			}
+		});
 		refreshStatus();
+	}
+
+	window.addEventListener('DOMContentLoaded', function(){
+		// 回填当前值
+		reloadAll();
 		// 定时同步
 		syncScheduleUI();
 	});
@@ -323,19 +342,20 @@ window.__qc_lan_ip = data.lan_ip || '';
 				if (rows.length) body += '<ul style="margin:0;padding-left:18px">' + rows.map(function(r){return '<li>'+r+'</li>';}).join('') + '</ul>';
 				if (ipChanged){
 					var url = location.protocol + '//' + newIp + (location.port ? ':' + location.port : '') + '/';
-					body += '<p style="margin:10px 0 0;color:#c0392b">管理地址已变更为 <b>' + escapeHtml(newIp) + '</b>，网络将短暂中断，随后自动跳转到新地址。</p>';
+					body += '<p style="margin:10px 0 0">管理地址已变更为 <b>' + escapeHtml(newIp) + '</b>，网络将短暂中断（通常 5-15 秒），随后自动跳转到新地址。</p>';
 					showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'前往新地址', cancelText:'留在本页',
-						redirectUrl:url, countdown:4, onOk:function(){ setTimeout(function(){ window.location.href = url; }, 2500); }});
+						redirectUrl:url, countdown:12, onOk:function(){ setTimeout(function(){ window.location.href = url; }, 250); }});
 				} else {
-					body += '<p style="margin:10px 0 0;color:#2e8b57">所有更改已生效。</p>';
-					showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'确定', onOk:function(){ refreshStatus(); }});
+					body += '<p style="margin:10px 0 0">所有更改已生效。</p>';
+					showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'确定', onOk:function(){ reloadAll(); }});
 				}
 			});
 		}
 		if (ipChanged){
 			var url = location.protocol + '//' + newIp + (location.port ? ':' + location.port : '') + '/';
 			var cbody = '<p style="margin:0 0 8px">你正在将路由器管理地址从 <b>' + escapeHtml(oldIp) + '</b> 变更为 <b>' + escapeHtml(newIp) + '</b>。</p>'
-				+ '<p style="margin:0">应用后 LAN 口 IP 会变化，网络将短暂中断，页面会自动跳转到新地址 <b>' + escapeHtml(url) + '</b>。是否继续？</p>';
+				+ '<p style="margin:0 0 8px;color:#a04000"><b>⚠ 应用后管理口会立即断开 5-15 秒</b>，等后台重新拉起新 IP 后会自动跳转。</p>'
+				+ '<p style="margin:0">新地址：<b>' + escapeHtml(url) + '</b>。是否继续？</p>';
 			showModal({title:'确认修改管理地址', kind:'warn', bodyHtml:cbody, okText:'继续并应用', cancelText:'取消', onOk:doApply});
 		} else {
 			doApply();
@@ -391,18 +411,25 @@ window.__qc_lan_ip = data.lan_ip || '';
 		opts = opts || {};
 		var ov = $('qc-modal'); if (!ov) return;
 		var title = $('qc-modal-title'), body = $('qc-modal-body'), foot = $('qc-modal-foot');
+		var prog = $('qc-modal-progress'), progBar = $('qc-modal-progress-bar');
 		title.textContent = opts.title || '';
 		title.style.background = (opts.kind === 'error') ? '#c0392b' : (opts.kind === 'warn' ? '#e67e22' : '#2e8b57');
 		body.innerHTML = opts.bodyHtml || '';
 		foot.innerHTML = '';
-		var autoTimer = null;
+		if (prog) prog.style.display = 'none';
+		if (progBar) progBar.style.width = '0%';
+		var autoTimer = null, probeTimer = null, jumped = false;
+		function clearTimers(){
+			if (autoTimer){ clearTimeout(autoTimer); autoTimer = null; }
+			if (probeTimer){ clearTimeout(probeTimer); probeTimer = null; }
+		}
 		function addBtn(label, primary, fn){
 			var b = document.createElement('button');
 			b.type = 'button';
 			b.className = 'btn ' + (primary ? 'cbi-button-apply' : 'cbi-button-reset');
 			b.textContent = label;
 			b.addEventListener('click', function(){
-				if (autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+				clearTimers();
 				if (fn) fn();
 				closeModal();
 			});
@@ -410,18 +437,58 @@ window.__qc_lan_ip = data.lan_ip || '';
 		}
 		if (opts.cancelText) addBtn(opts.cancelText, false, opts.onCancel);
 		if (opts.okText)     addBtn(opts.okText, true, opts.onOk);
+		// 倒计时模式：自动跳转到新地址（改 LAN IP 场景）
 		if (opts.countdown && opts.redirectUrl){
-			var n = opts.countdown;
+			var total = opts.countdown, remain = total;
 			var pri = foot.querySelector('.cbi-button-apply');
 			var base = opts.okText || '确定';
-			if (pri){
-				pri.textContent = base + ' (' + n + 's)';
-				autoTimer = setInterval(function(){
-					n--;
-					if (n <= 0){ clearInterval(autoTimer); autoTimer = null; window.location.href = opts.redirectUrl; }
-					else { pri.textContent = base + ' (' + n + 's)'; }
-				}, 1000);
+			if (prog) prog.style.display = 'block';
+			// +5 秒按钮
+			var moreBtn = document.createElement('button');
+			moreBtn.type = 'button';
+			moreBtn.className = 'btn cbi-button-reset';
+			moreBtn.textContent = '+5 秒';
+			moreBtn.addEventListener('click', function(){
+				clearTimers();
+				total += 5; remain += 5;
+				if (progBar) progBar.style.width = ((total - remain) / total) * 100 + '%';
+				tick();
+			});
+			foot.appendChild(moreBtn);
+			// 归零时先 head 探活新地址，OK 直接跳；超时 2.5s / 1.5s 兜底
+			function doRedirect(){
+				if (jumped) return; jumped = true;
+				clearTimers();
+				var target = opts.redirectUrl;
+				dbg('redirect', 'probing ' + target);
+				try {
+					var xhr = new XMLHttpRequest();
+					xhr.open('GET', target, true);
+					xhr.timeout = 2500;
+					xhr.onload = function(){
+						dbg('redirect', 'probe ok, jumping to ' + target);
+						window.location.href = target;
+					};
+					xhr.onerror  = function(){ dbg('redirect', 'probe err'); };
+					xhr.ontimeout = function(){ dbg('redirect', 'probe timeout'); };
+					xhr.send();
+					probeTimer = setTimeout(function(){
+						dbg('redirect', 'force-jump fallback');
+						window.location.href = target;
+					}, 1500);
+				} catch(e) {
+					dbg('redirect', 'probe threw ' + e.toString());
+					window.location.href = target;
+				}
 			}
+			function tick(){
+				if (pri) pri.textContent = base + ' (' + remain + 's)';
+				if (progBar) progBar.style.width = ((total - remain) / total) * 100 + '%';
+				if (remain <= 0){ doRedirect(); return; }
+				remain--;
+				autoTimer = setTimeout(tick, 1000);
+			}
+			tick();
 		}
 		ov.style.display = 'flex';
 	}
@@ -461,7 +528,11 @@ lan_mac.description = [[<button type="button" class="btn cbi-button-apply" data-
 s = m:section(TypedSection, "config", translate("WiFi 设置（多 SSID）"))
 s.anonymous = true
 s.addremove = false
-s.description = translate("每个 SSID 可单独设置 MAC 地址。无论你有几个 WiFi 信号，都会自动读取并列出。")
+s.description = [[
+<div id="qc-warning"><b>提示：</b>如已在 LuCI 自带「网络→无线→编辑→MAC 地址」里选择过「随机生成」（即写入了 <code>macaddr='random'</code>），
+保存并应用时本工具会把它覆盖为固定 MAC。如需保留上游「每次重配/重启重新随机」的行为，请先在 LuCI 那里把它改回「驱动默认（留空）」再来本页面操作。</div>
+<p style="margin:0">每个 SSID 可单独设置 MAC 地址。无论你有几个 WiFi 信号，都会自动读取并列出。</p>
+]]
 
 if #wifi_lines > 0 then
 	for _, line in ipairs(wifi_lines) do
