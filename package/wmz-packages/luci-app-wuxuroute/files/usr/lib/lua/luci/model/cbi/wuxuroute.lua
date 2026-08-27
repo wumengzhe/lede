@@ -13,6 +13,24 @@ m.submitbutton = false
 m.resetbutton = false
 m.chain = "cbi"
 
+-- 2026-08-27 cbi6：渲染时读取当前值用于 input 预填
+local uci = require "luci.model.uci".cursor()
+local function ucig(cfg, sec, opt, def)
+	local v = uci:get(cfg, sec, opt)
+	return v or def or ""
+end
+local function esc(s)
+	s = s or ""
+	s = s:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub('"', "&quot;")
+	return s
+end
+-- 当前生效值（仅用于预填，缺省即空 = 未设置）
+local cur_wan_mac = ucig("network", "wan", "macaddr", "")
+local cur_lan_mac = ucig("network", "lan", "macaddr", "")
+if cur_lan_mac == "" then cur_lan_mac = ucig("network", "@device[0]", "macaddr", "") end
+local cur_lan_ip  = ucig("network", "lan", "ipaddr", "")
+local cur_host    = ucig("system", "@system[0]", "hostname", "")
+
 -- 渲染时枚举 WiFi 接口（数量不固定）
 local wifi_lines = {}
 local raw = luci.sys.exec("/usr/sbin/wuxuroute list-wifi 2>/dev/null") or ""
@@ -421,13 +439,99 @@ tb.description = [[
 				var mac = data['wifi_' + i + '_mac'];
 				if (mac) setVal(field, mac);
 			}
+			// 2026-08-27 cbi6：回填后重新快照初始值，作为「变更摘要」基准
+			snapshotInitial();
 		});
 		refreshStatus();
 	}
 
+	// ---------- 2026-08-27 cbi6：预填快照 / 内联校验 / 变更摘要 ----------
+	function snapshotInitial(){
+		var init = {
+			wan_mac: getVal('wan_mac'),
+			lan_mac: getVal('lan_mac'),
+			lan_ip:  getVal('lan_ip'),
+			hostname: getVal('hostname'),
+			wifi: {}
+		};
+		var wfs = wifiFields();
+		for (var i=0;i<wfs.length;i++){
+			var m = wfs[i].name.match(/\.wifi_mac_(.+)$/);
+			if (m){ var sec = m[1]; init.wifi[sec] = wfs[i].value; }
+		}
+		window.__qc_initial = init;
+		dbg('snap', 'initial wan=' + init.wan_mac + ' wifi=' + (init.wifi ? Object.keys(init.wifi).length : 0));
+	}
+	function qcErrId(el){ return 'qc-err-' + el.name.replace(/[^a-zA-Z0-9]/g, '_'); }
+	function validateOne(el){
+		if (!el) return;
+		var v = (el.value || '').trim();
+		var msg = '';
+		if (v !== ''){
+			if (el.getAttribute('data-qc-mac') === '1'){ if (!isMacStr(v)) msg = 'MAC 应为 AA:BB:CC:DD:EE:FF'; }
+			else if (el.getAttribute('data-qc-host') === '1'){ if (!isHostnameStr(v)) msg = '主机名应为 PC-XXXXXX'; }
+		}
+		if (msg){ el.style.borderColor = '#c0392b'; el.style.boxShadow = '0 0 0 1px #c0392b'; }
+		else { el.style.borderColor = ''; el.style.boxShadow = ''; }
+		var tip = document.getElementById(qcErrId(el));
+		if (tip) tip.textContent = msg;
+	}
+	function bindInlineValidation(){
+		var els = qcAll('', 'cbid.wuxuroute.');
+		for (var i=0;i<els.length;i++){
+			var el = els[i];
+			if (!el.getAttribute) continue;
+			if (el.getAttribute('data-qc-mac') === '1' || el.getAttribute('data-qc-host') === '1'){
+				(function(node){ node.addEventListener('input', function(){ validateOne(node); }); })(el);
+				validateOne(el);
+			}
+		}
+	}
+	function hasInvalidInput(){
+		var els = qcAll('', 'cbid.wuxuroute.');
+		for (var i=0;i<els.length;i++){
+			var el = els[i];
+			if (!el.getAttribute) continue;
+			var v = (el.value || '').trim();
+			if (v === '') continue;
+			if (el.getAttribute('data-qc-mac') === '1' && !isMacStr(v)) return true;
+			if (el.getAttribute('data-qc-host') === '1' && !isHostnameStr(v)) return true;
+		}
+		return false;
+	}
+	function diffRow(label, oldV, newV){
+		if (!oldV && !newV) return null;
+		if (oldV === newV) return '<li>' + escapeHtml(label) + '：<span style="color:#888">（未改动）</span></li>';
+		return '<li>' + escapeHtml(label) + '：<b>' + escapeHtml(oldV || '（空）') + '</b> &rarr; <b>' + escapeHtml(newV || '（空）') + '</b></li>';
+	}
+	function buildChangeSummary(){
+		var init = window.__qc_initial || {};
+		var rows = [];
+		var r;
+		r = diffRow('WAN MAC', init.wan_mac, getVal('wan_mac')); if (r) rows.push(r);
+		r = diffRow('LAN MAC', init.lan_mac, getVal('lan_mac')); if (r) rows.push(r);
+		var oldIp = (init.lan_ip || '').trim(), newIp = (getVal('lan_ip')||'').trim();
+		r = diffRow('LAN IP', oldIp, newIp); if (r) rows.push(r);
+		r = diffRow('主机名', init.hostname, getVal('hostname')); if (r) rows.push(r);
+		var wfs = wifiFields();
+		for (var i=0;i<wfs.length;i++){
+			var m = wfs[i].name.match(/\.wifi_mac_(.+)$/);
+			if (!m) continue;
+			var sec = m[1];
+			var cur = wfs[i].value || '';
+			var oldM = (init.wifi && init.wifi[sec]) || '';
+			if (!cur && !oldM) continue;
+			if (cur === oldM){ rows.push('<li>WiFi (' + escapeHtml(sec) + ') MAC：<span style="color:#888">（未改动）</span></li>'); }
+			else { rows.push('<li>WiFi (' + escapeHtml(sec) + ') MAC：<b>' + escapeHtml(oldM||'（空）') + '</b> &rarr; <b>' + escapeHtml(cur||'（空）') + '</b></li>'); }
+		}
+		return { rows: rows, ipChanged: !!(oldIp && newIp && oldIp !== newIp), oldIp: oldIp, newIp: newIp };
+	}
+
 	window.addEventListener('DOMContentLoaded', function(){
-		// 回填当前值
+		// 回填当前值 + 快照初始值 + 绑定内联校验
 		reloadAll();
+		snapshotInitial();
+		bindInlineValidation();
 		// 定时同步
 		syncScheduleUI();
 		// cron 下次运行时间（2026-08-27 cbi3 实装）
@@ -465,9 +569,12 @@ tb.description = [[
 	});
 
 	$('qc-apply') && $('qc-apply').addEventListener('click', function(){
-		var oldIp = window.__qc_lan_ip || '';
-		var newIp = (getVal('lan_ip') || '').trim();
-		var ipChanged = (newIp && oldIp && newIp !== oldIp);
+		// 2026-08-27 cbi6：先内联校验格式，再弹「确认变更」摘要（old→new），IP 变更附客户端自救提示
+		if (hasInvalidInput()){
+			showModal({title:'输入有误', kind:'error', bodyHtml:'有 MAC / 主机名格式不正确（已红框标出），请先修正后再应用。'});
+			return;
+		}
+		var sum = buildChangeSummary();
 		function doApply(){
 			jsonCall(L.url('admin/network/wuxuroute/apply'), buildBody(true), function(err, d){
 				if (err){ showModal({title:'应用失败', kind:'error', bodyHtml:'网络错误，请重试。'}); return; }
@@ -478,44 +585,42 @@ tb.description = [[
 				var rows = [];
 				if (getVal('wan_mac'))  rows.push('WAN MAC：' + escapeHtml(getVal('wan_mac')));
 				if (getVal('lan_mac'))  rows.push('LAN MAC：' + escapeHtml(getVal('lan_mac')));
-				if (newIp)              rows.push('LAN IP：' + escapeHtml(newIp) + (ipChanged ? '（已变更）' : ''));
+				if (sum.newIp)          rows.push('LAN IP：' + escapeHtml(sum.newIp) + (sum.ipChanged ? '（已变更）' : ''));
 				if (getVal('hostname')) rows.push('主机名：' + escapeHtml(getVal('hostname')));
 				var wfs = wifiFields();
 				for (var i=0;i<wfs.length;i++){ if (wfs[i].value) rows.push('WiFi MAC：' + escapeHtml(wfs[i].value)); }
 				var body = '<p style=\'margin:0 0 8px\'>配置已成功应用。</p>';
 				if (rows.length) body += '<ul style=\'margin:0;padding-left:18px\'>' + rows.map(function(r){return '<li>'+r+'</li>';}).join('') + '</ul>';
-				if (ipChanged){
-					var url = location.protocol + '//' + newIp + (location.port ? ':' + location.port : '') + '/';
-					body += '<p style=\'margin:10px 0 0\'>管理地址已变更为 <b>' + escapeHtml(newIp) + '</b>，网络将短暂中断（通常 5-15 秒），随后自动跳转到新地址。</p>';
+				if (sum.ipChanged){
+					var url = location.protocol + '//' + sum.newIp + (location.port ? ':' + location.port : '') + '/';
+					body += '<p style=\'margin:10px 0 0\'>管理地址已变更为 <b>' + escapeHtml(sum.newIp) + '</b>，网络将短暂中断（通常 5-15 秒），随后自动跳转到新地址。</p>';
 					showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'前往新地址', cancelText:'留在本页',
 						redirectUrl:url, countdown:12, onOk:function(){ setTimeout(function(){ window.location.href = url; }, 250); }});
 				} else {
 					body += '<p style=\'margin:10px 0 0\'>所有更改已生效。</p>';
 					showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'确定', onOk:function(){ reloadAll(); }});
-					// 弹窗一出来就立刻从 uci 回填一次（后端 commit 已完成，读到的是新值）
 					reloadAll();
 				}
 			});
 		}
-		if (ipChanged){
-			var url = location.protocol + '//' + newIp + (location.port ? ':' + location.port : '') + '/';
-			// 2026-08-27 反馈：旧弹窗只说「5-15 秒后自动跳转」，没解释客户端为何常卡在旧网段。
-			// 加上具体的客户端自救步骤，并临时静态 IP 提示以备完全不通时接入。
-			var sameSubnetHint = newIp.replace(/\.\d+$/, '');
-			var tmpStatic = sameSubnetHint + '.177';
-			var cbody = '<p style=\'margin:0 0 8px\'>你正在将路由器管理地址从 <b>' + escapeHtml(oldIp) + '</b> 变更为 <b>' + escapeHtml(newIp) + '</b>。</p>'
-				+ '<p style=\'margin:0 0 8px;color:#a04000\'><b>⚠ 应用后管理口会立即断开 5-15 秒</b>，等后台重新拉起新 IP 后会自动跳转。</p>'
-				+ '<div style=\'margin:0 0 8px;background:#fff7e0;border:1px solid #f0d56a;padding:8px 12px;border-radius:4px;color:#5a4500\'><b>客户端注意：</b>本机网段会从 <code style=\'background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px\'>' + escapeHtml(oldIp) + '</code> 段切到 <code style=\'background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px\'>' + escapeHtml(newIp) + '</code> 段，浏览器自动跳转若不通，按下面顺序救：</div>'
-				+ '<ol style=\'margin:0 0 8px;padding-left:20px;line-height:1.5\'>'
-				+ '<li>释放并续约 DHCP：Windows <code style=\'background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px\'>ipconfig /release &amp;&amp; ipconfig /renew</code>；Linux <code style=\'background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px\'>dhclient -r &amp;&amp; dhclient</code></li>'
-				+ '<li>仍不通：换个浏览器窗口或清缓存（浏览器可能缓存了 <code>' + escapeHtml(oldIp) + '</code> 的 301/会话）</li>'
-				+ '<li>彻底不通：把本机临时改成新网段的静态 IP（如 <code style=\'background:rgba(127,127,127,.18);padding:0 4px;border-radius:3px\'>' + escapeHtml(tmpStatic) + '</code>/24，网关 ' + escapeHtml(newIp) + '）即可临时接入路由器</li>'
-				+ '</ol>'
-				+ '<p style=\'margin:0\'>新地址：<b>' + escapeHtml(url) + '</b>。是否继续？</p>';
-			showModal({title:'确认修改管理地址', kind:'warn', bodyHtml:cbody, okText:'继续并应用', cancelText:'取消', onOk:doApply});
-		} else {
+		if (sum.rows.length === 0){
+			// 无字段变更：仍提交一次以保存开机/定时开关等
 			doApply();
+			return;
 		}
+		var body = '<p style=\'margin:0 0 8px\'>即将应用以下变更：</p><ul style=\'margin:0;padding-left:18px\'>' + sum.rows.join('') + '</ul>';
+		if (sum.ipChanged){
+			var url = location.protocol + '//' + sum.newIp + (location.port ? ':' + location.port : '') + '/';
+			var sameSubnetHint = sum.newIp.replace(/\.\d+$/, '');
+			var tmpStatic = sameSubnetHint + '.177';
+			body += '<div style=\'margin:8px 0 0;background:#fff7e0;border:1px solid #f0d56a;padding:8px 12px;border-radius:4px;color:#5a4500\'><b>⚠ 管理地址将从 <code>' + escapeHtml(sum.oldIp) + '</code> 变更为 <code>' + escapeHtml(sum.newIp) + '</code></b>，客户端按以下顺序自救：'
+				+ '<ol style=\'margin:6px 0 0;padding-left:20px;line-height:1.5\'>'
+				+ '<li>Windows <code>ipconfig /release &amp;&amp; ipconfig /renew</code>；Linux <code>dhclient -r &amp;&amp; dhclient</code></li>'
+				+ '<li>仍不通：换浏览器窗口或清缓存</li>'
+				+ '<li>彻底不通：本机临时改静态 IP <code>' + escapeHtml(tmpStatic) + '</code>/24，网关 ' + escapeHtml(sum.newIp) + '</li>'
+				+ '</ol></div>';
+		}
+		showModal({title:'确认变更', kind:'warn', bodyHtml:body, okText:'确认并应用', cancelText:'取消', onOk:doApply});
 	});
 
 	$('qc-reboot') && $('qc-reboot').addEventListener('click', function(){
@@ -662,7 +767,8 @@ s.addremove = false
 -- 改成纯 HTML input，name 仍按 cbid.wuxuroute.config.<opt> 约定，JS 的 getVal/setVal/buildBody 照常工作。
 wan_mac = s:option(DummyValue, "_wan_mac", translate("WAN 口 MAC 地址"))
 wan_mac.description = translate("当前 WAN MAC（也可手动输入新值）。")
-	.. [[<br><input type="text" name="cbid.wuxuroute.config.wan_mac" size="20" style="width:18em;margin-right:.4em">]]
+	.. [[<br><input type="text" name="cbid.wuxuroute.config.wan_mac" value="]] .. esc(cur_wan_mac) .. [[" size="20" style="width:18em;margin-right:.4em" data-qc-mac="1">]]
+	.. [[<span class="qc-err" id="qc-err-cbid_wuxuroute_config_wan_mac" style="color:#c0392b;font-size:12px;margin-left:.4em"></span>]]
 	.. [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_mac" data-qc-target="wan_mac">]] .. translate("随机 MAC 地址") .. [[</button>]]
 
 -- ===== LAN 设置 =====
@@ -671,44 +777,63 @@ s.anonymous = true
 s.addremove = false
 
 lan_ip = s:option(DummyValue, "_lan_ip", translate("LAN IP 地址"))
-lan_ip.description = translate("路由 LAN 侧网关 IP。修改后路由器管理后台地址会变，请牢记新 IP。")
-	.. [[<br><input type="text" name="cbid.wuxuroute.config.lan_ip" size="16" style="width:14em;margin-right:.4em">]]
+lan_ip.description = translate("路由 LAN 侧（管理后台）网关 IP。修改后管理地址会变，请牢记新 IP。")
+	.. translate("本工具仅管理此主 LAN IP；访客 / 其他独立网段（如 IoT 子网）的网关 IP 不在管理范围，保持原样即可。")
+	.. [[<br><input type="text" name="cbid.wuxuroute.config.lan_ip" value="]] .. esc(cur_lan_ip) .. [[" size="16" style="width:14em;margin-right:.4em">]]
 	.. [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_lan_ip">]] .. translate("随机 IP 地址") .. [[</button>]]
 
 lan_mac = s:option(DummyValue, "_lan_mac", translate("LAN 口 MAC 地址"))
-lan_mac.description = [[<input type="text" name="cbid.wuxuroute.config.lan_mac" size="20" style="width:18em;margin-right:.4em">]]
+lan_mac.description = [[<input type="text" name="cbid.wuxuroute.config.lan_mac" value="]] .. esc(cur_lan_mac) .. [[" size="20" style="width:18em;margin-right:.4em" data-qc-mac="1">]]
+	.. [[<span class="qc-err" id="qc-err-cbid_wuxuroute_config_lan_mac" style="color:#c0392b;font-size:12px;margin-left:.4em"></span>]]
 	.. [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_mac" data-qc-target="lan_mac">]] .. translate("随机 MAC 地址") .. [[</button>]]
 
--- ===== WiFi 设置（多 SSID 动态生成）=====
+-- ===== WiFi 设置（多 SSID 动态生成，按 radio 分组折叠）=====
 s = m:section(TypedSection, "config", translate("WiFi 设置（多 SSID）"))
 s.anonymous = true
 s.addremove = false
 s.description = [[
 <div id="qc-warning"><b>提示：</b>如已在 LuCI 自带「网络→无线→编辑→MAC 地址」里选择过「随机生成」（即写入了 <code>macaddr='random'</code>），
 保存并应用时本工具会把它覆盖为固定 MAC。如需保留上游「每次重配/重启重新随机」的行为，请先在 LuCI 那里把它改回「驱动默认（留空）」再来本页面操作。</div>
-<p style="margin:0">每个 SSID 可单独设置 MAC 地址。无论你有几个 WiFi 信号，都会自动读取并列出。</p>
+<p style="margin:0">每个 SSID 可单独设置 MAC。按射频（radio）分组，点击各组标题可折叠/展开。无论几个信号都会自动读取列出。</p>
 ]]
 
 if #wifi_lines > 0 then
+	-- 按设备（radio0/radio1/...）分组，多 SSID 时便于折叠
+	local groups = {}
+	local order = {}
+	local seen = {}
 	for _, line in ipairs(wifi_lines) do
 		local idx, sec, dev, ssid, mac, ifn = line:match("^([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)$")
-		-- UCI 段名规则限制在 [A-Za-z0-9_]，所有可枚举的 wifi-iface 段都符合。
-		-- 字段名以 sec 为 key，配合 controller 的 collect_wifi_args，把 sec 直接透传给
-		-- 后端 `uci set wireless.${sec}.macaddr`，兼容 OpenWrt 默认为命名段
-		-- （如 `default_radio0`）的场景。
 		local sec_safe = sec and sec:gsub("[^%w_]", "_") or ("idx" .. (idx or "?"))
 		local field = "wifi_mac_" .. sec_safe
-		-- 展示用前缀：便于用户在 label 看到这是第几个 SSID
 		local label = ((ssid and #ssid > 0) and ssid or (sec or ("SSID#" .. (idx or "?"))))
 			.. " #" .. (idx or "?")
 			.. " @ " .. ((dev and #dev > 0) and dev or "?")
 		local cur = (mac and #mac > 0) and mac or translate("（未设置，使用硬件地址）")
-		local opt = s:option(DummyValue, "_" .. field,
-			label,
-			translate("当前 MAC: ") .. cur .. " / sec=" .. (sec or "?"))
-		opt.description = [[<input type="text" name="cbid.wuxuroute.config.]] .. field .. [[" size="20" style="width:18em;margin-right:.4em">]]
-			.. [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_mac" data-qc-target="]] .. field .. [[">]] .. translate("随机 MAC 地址") .. [[</button>]]
+		local macv = (mac and #mac > 0 and mac:match("^%x%x:%x%x:%x%x:%x%x:%x%x:%x%x$")) and mac or ""
+		local g = (dev and #dev > 0) and dev or "?"
+		if not seen[g] then seen[g] = true; table.insert(order, g) end
+		if not groups[g] then groups[g] = {} end
+		table.insert(groups[g], { label = label, field = field, cur = cur, macv = macv })
 	end
+	local html = {}
+	for _, g in ipairs(order) do
+		local items = groups[g] or {}
+		table.insert(html, '<details open class="qc-wifi-group" style="margin:.4em 0;border:1px solid rgba(127,127,127,.25);border-radius:6px">')
+		table.insert(html, '<summary style="cursor:pointer;padding:.5em .7em;font-weight:bold">' .. esc(g) .. '（' .. #items .. ' 个 SSID）</summary>')
+		table.insert(html, '<div style="padding:.3em .7em .6em">')
+		for _, it in ipairs(items) do
+			table.insert(html, '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:.4em;margin:.4em 0">')
+			table.insert(html, '<span style="min-width:15em;font-weight:bold">' .. esc(it.label) .. '</span>')
+			table.insert(html, '<input type="text" name="cbid.wuxuroute.config.' .. it.field .. '" value="' .. esc(it.macv) .. '" size="20" style="width:18em" data-qc-mac="1">')
+			table.insert(html, '<button type="button" class="btn cbi-button-apply" data-qc-action="random_mac" data-qc-target="' .. it.field .. '">' .. translate("随机 MAC 地址") .. '</button>')
+			table.insert(html, '<span style="color:#888;font-size:12px">当前：' .. esc(it.cur) .. '</span>')
+			table.insert(html, '<span class="qc-err" id="qc-err-cbid_wuxuroute_config_' .. it.field .. '" style="color:#c0392b;font-size:12px;margin-left:.4em"></span>')
+			table.insert(html, '</div>')
+		end
+		table.insert(html, '</div></details>')
+	end
+	s.description = s.description .. table.concat(html)
 else
 	s.description = translate("未检测到 WiFi 接口（wifi-iface）。如有 WiFi 请先在“网络 → 无线”中配置。")
 end
@@ -720,7 +845,8 @@ s.addremove = false
 
 hostname = s:option(DummyValue, "_hostname", translate("主机名"))
 hostname.description = translate("设置路由器的设备名称（hostname）。")
-	.. [[<br><input type="text" name="cbid.wuxuroute.config.hostname" size="14" style="width:14em;margin-right:.4em">]]
+	.. [[<br><input type="text" name="cbid.wuxuroute.config.hostname" value="]] .. esc(cur_host) .. [[" size="14" style="width:14em;margin-right:.4em" data-qc-host="1">]]
+	.. [[<span class="qc-err" id="qc-err-cbid_wuxuroute_config_hostname" style="color:#c0392b;font-size:12px;margin-left:.4em"></span>]]
 	.. [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_hostname">]] .. translate("随机 PC 主机名") .. [[</button>]]
 
 -- ===== 开机自动更新 =====
