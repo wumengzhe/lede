@@ -99,7 +99,7 @@ local function manual_json(tbl)
 		if     type(v) == "string"  then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. qstr(v)
 		elseif type(v) == "boolean" then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. tostring(v)
 		elseif type(v) == "number"  then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. tostring(v)
-		elseif type(v) == "table"   then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. tostring(v.ok or "")
+		elseif type(v) == "table"   then pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. DQ .. DQ
 		else pieces[#pieces+1] = DQ .. tostring(k) .. DQ .. ":" .. DQ .. DQ
 		end
 	end
@@ -145,13 +145,33 @@ function action_gen_mac()
 	end
 	local out = run(cmd)
 	slog("gen-mac out='" .. out:gsub("\n","\\n") .. "' (len=" .. #out .. ")")
-	json_response({ mac = (out:gsub("%s+", "")) })
+	-- 二次校验（防御层 2026-08-27）：必须为合法 MAC 格式。
+	-- 作用：挡住"shell 解释器 stderr 漏到 stdout" 这类污染。
+	-- 后端 rand_hex 已修（去 od 依赖），但万一再撞上同类问题（比如未来
+	-- 引入新 busybox applet），UI 至少不会把错误串当 MAC 写到 input 然后
+	-- 假装"已生成"。校验不通过 → {ok=false,err="..."}$，前端 randomInto
+	-- 看到 !d.ok 立即 status('后端忙，请重试')，不会盲目回填。
+	local mac = (out:gsub("%s+", ""))
+	if not mac:match("^[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]$") then
+		slog("gen-mac REJECTED (not MAC format): '" .. out:gsub("\n","\\n") .. "'")
+		json_response({ ok = false, err = "后端忙，请稍后重试" })
+		return
+	end
+	json_response({ mac = mac })
 end
 
 function action_gen_hostname()
 	slog("hit action_gen_hostname")
 	local out = run("/usr/sbin/wuxuroute gen-hostname")
-	json_response({ hostname = (out:gsub("^%s+", ""):gsub("%s+$", "")) })
+	-- 二次校验（防御层 2026-08-27）：hostname 必须是 PC- 开头 + 6 位大写 hex。
+	-- 否则拒回，避免 shell stderr（如 'od: not found\nPC-000000'）污染前端。
+	local hn = (out:gsub("^%s+", ""):gsub("%s+$", ""))
+	if not hn:match("^PC%-[A-F0-9][A-F0-9][A-F0-9][A-F0-9][A-F0-9][A-F0-9]$") then
+		slog("gen-hostname REJECTED (not PC-XXXXXX): '" .. out:gsub("\n","\\n") .. "'")
+		json_response({ ok = false, err = "后端忙，请稍后重试" })
+		return
+	end
+	json_response({ hostname = hn })
 end
 
 function action_get()
@@ -353,7 +373,12 @@ function action_factory_reset()
 end
 
 -- 2026-08-27 BUILD_ID：固化源码版本到 init syslog；实机自检只需
--- `logread -e wuxuroute-cgi | head`，首行 build= 不匹配这条说明 ipk 没装最新
--- （uhttpd 拿到的可能是缓存或 controller 没重装），省一次 ssh/grep。
-local BUILD_ID = "wmz-lede@a0c8f83c+f1e30e56"
+-- `logread -e wuxuroute-cgi | head`，首行不匹配这条说明 ipk 没装最新。
+-- 本轮 BUILD_ID 改用"日期-特性"标识（不再依赖两次 commit SHA），更稳定：
+--   wmz-lede          = @2026-08-27-rng+od-free
+--   wmz-lede-multisize = @2026-08-27-rng+od-free
+-- 含义：实机反馈"一键随机 → input.value 出现路径/错误串"的根因修复（= 弃
+-- 用 od 依赖、改 head+tr、controller 二次校验 + 前端 JS 三重防御 + OUI
+-- 占位范例 + cron 表达式实时翻译）。
+local BUILD_ID = "wmz-lede@2026-08-27-rng+od-free"
 pcall(luci.sys.call, "logger -t wuxuroute-cgi '[init] build=" .. BUILD_ID .. " wuxuroute controller module LOADED ok' 2>/dev/null")

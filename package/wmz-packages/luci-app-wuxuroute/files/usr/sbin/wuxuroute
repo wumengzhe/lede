@@ -25,17 +25,32 @@ err() { logger -t wuxuroute -p err "$@"; echo "ERROR: $@" >&2; }
 # ---------- 工具函数 ----------
 
 # 生成连续 16 进制字符串（小写）
-# 直接读 /dev/urandom（CSPRNG，永不阻塞、每次读取独立），避免 $RANDOM 在快速
-# 连续调用（如「一键随机全部」同时发 4+ 个 gen_mac 请求）时种子相同、导致
-# WAN/LAN/WiFi 拿到完全一样的 MAC。urandom 不 EOF，head -c 必读满 N 字节，无管道少读竞争。
+# Busybox 最小版本也必带的工具链（不依赖 od / hexdump / xxd）：
+#   head -c 64 /dev/urandom  →  拿一批 CSPRNG 字节
+#   LC_ALL=C tr -dc 'a-f0-9' →  过滤出 hex 字符（每字节约 6.25% 是 hex）
+#   head -c "$need"           →  掐前 N 个字符
+# /dev/urandom 是内核 CSPRNG，永不阻塞、永不 EOF、每次读取独立，避免
+# $RANDOM 在「一键随机全部」并发 4+ 个 gen_mac 请求时同种子问题。
+# LC_ALL=C 保证 tr 按字节处理（不依赖 locale 大小写表）。
+#
+# 关键修复（2026-08-27）：原实现 `head -c | od -An -tx1 | tr -d ' \n'`
+# 假设 busybox 编了 `od` applet；但 OpenWrt 最小镜像的 busybox 没 `od`，
+# shell 解释器自己报 `/usr/sbin/wuxuroute: line 35: od: not found`。注意：
+# 这条 stderr 是 sh 解释器对未知命令的报错【不是 od 子进程的 stderr】，
+# pipeline 上的 `2>/dev/null` 拦不住 → 整条 shell stderr 漏到 stdout
+# 前面 → cgi 把"错误串 + 兜底 MAC" 拼成 JSON 返回 → 前端 setVal 把错误
+# 字符串当真 MAC 写到 input（"已随机生成所有字段" 但 input.value 是
+# `/usr/sbin/...od:notfound02:00:00:00:00`）。改用纯 head+tr，链上没有
+# 未知命令、不可能再触发同类 stderr 污染。
 rand_hex() {
 	local n="${1:-4}"
 	local need=$((n * 2))
 	local out
-	out=$(head -c "$need" /dev/urandom 2>/dev/null | od -An -tx1 | tr -d ' 
-')
+	out=$(head -c 64 /dev/urandom 2>/dev/null \
+		| LC_ALL=C tr -dc 'a-f0-9' \
+		| head -c "$need" 2>/dev/null)
 	if [ -z "$out" ]; then
-		# 极罕见：urandom 不可用，退回 $RANDOM
+		# 极罕见：urandom 不可用（嵌入式 initramfs 等），退回 $RANDOM 拼接。
 		out=""
 		while [ ${#out} -lt $need ]; do
 			out="${out}$(printf '%08x' $(( (RANDOM << 16) ^ RANDOM )) )"
@@ -80,7 +95,7 @@ gen_hostname() {
 	rnd=$(rand_hex 3)
 	[ -z "$rnd" ] && rnd="000000"
 	rnd=$(printf '%-6s' "$rnd" | tr ' ' '0')
-	rnd=$(echo "$rnd" | tr '[:lower:]' '[:upper:]')
+	rnd=$(echo "$rnd" | tr '[:upper:]' '[:lower:]')
 	echo "PC-${rnd}"
 }
 
@@ -122,7 +137,7 @@ get_default_iface() {
 # 注意（2026-08-26 修正）：原实现 sed 只匹配匿名段 `wireless.@wifi-iface[N]=wifi-iface`，
 # 而 OpenWrt 默认生成的段是【命名段】(`wireless.default_radio0=wifi-iface`)，导致整段
 # wifi 列表永远是空，cbi page 报"未检测到 WiFi 接口"。这里同时匹配匿名段 + 命名段，
-# UCI 段名规则仅允许字母数字下划线，故用 [^[:space:]=\\.]+ 即可涵盖。
+# UCI 段名规则仅允许字母数字下划线，故用 [^[:space:]=\.]+ 即可涵盖。
 wifi_list() {
 	local i=0 sec dev ssid mac ifn
 	local entries
@@ -144,7 +159,7 @@ wifi_list() {
 # 取当前 hostname
 get_hostname() {
 	uci -q get system.@system[0].hostname 2>/dev/null \
-		|| awk -F= '/^[[:space:]]*hostname[[:space:]]*=/ {gsub(/["'\'' ]/,"",$2); print $2; exit}' /etc/config/system \
+		|| awk -F= '/^[[:space:]]*hostname[[:space:]]*=/ {gsub(/["\'\' ]/,"",$2); print $2; exit}' /etc/config/system \
 		|| hostname
 }
 
@@ -502,8 +517,8 @@ cmd_apply_and_reboot() {
 				if [ -n "$2" ] && [ -n "$3" ]; then
 					[ -n "$wifi_pairs" ] && wifi_pairs="$wifi_pairs;"
 					wifi_pairs="$wifi_pairs$2=$3"
-				fi
-				shift 3;;
+			fi
+			shift 3;;
 			*) shift;;
 		esac
 	done
