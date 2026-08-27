@@ -13,6 +13,8 @@
 #   wuxuroute boot                             启动时按 /etc/config/wuxuroute 的 auto_* 选项自动执行
 #   wuxuroute factory-reset                    清空所有手动 macaddr（恢复出厂 MAC）
 #   wuxuroute schedule <0|1|2>                 设置定时自动更新（0 关 / 1 每天 / 2 每周）
+#   wuxuroute list-wan                       枚举可重拨的 WAN 接口（名称/MAC/IP）
+#   wuxuroute renew --iface <name> [--wan-mac X:X:X:X:X:X] [--random-wan-mac] | --all   重拨换公网 IP
 
 CONF=/etc/config/wuxuroute
 NETWORK=/etc/config/network
@@ -637,6 +639,96 @@ cmd_factory_reset() {
 	log "factory reset done"
 }
 
+# 枚举所有"可重拨换 IP"的 WAN 接口（proto ∈ dhcp/dhcpv6/pppoe/wwan，排除 lan/loopback/wan6）
+list_wan_interfaces() {
+    local sec proto
+    for sec in $(uci -q show network 2>/dev/null | sed -n 's/^network\.\([^.]*\)=interface$/\1/p' | sort); do
+        case "$sec" in
+            lan|loopback|wan6) continue ;;
+        esac
+        proto=$(uci -q get network.${sec}.proto 2>/dev/null)
+        case "$proto" in
+            dhcp|dhcpv6|pppoe|wwan) echo "$sec" ;;
+        esac
+    done
+}
+
+# 后台对指定 WAN 接口做 down/up，触发 DHCP/PPPoE 重新协商 → 换新公网 IP。
+# wan 是上联口、不是管理口（管理口是 LAN），重启 wan 不会掐 uhttpd 会话，比重启 LAN 安全。
+# 动作必须在 setsid 后台执行，避免阻塞 cgi 响应。
+rebuild_wan() {
+    local iface="$1"
+    [ -z "$iface" ] && return
+    export QC_RENEW_IFACE="$iface"
+    log "renew: scheduling background down/up of ${iface} to refresh public IP"
+    setsid sh -c '
+        export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+        iface="$QC_RENEW_IFACE"
+        ubus call network.interface."$iface" down 2>/dev/null
+        sleep 2
+        ubus call network.interface."$iface" up 2>/dev/null || /sbin/ifup "$iface" 2>/dev/null || true
+        sleep 3
+        logger -t wuxuroute "renew: ${iface} down/up done"
+    ' >/dev/null 2>&1 </dev/null &
+    disown 2>/dev/null || true
+}
+
+cmd_list_wan() {
+    local list found=0 iface mac ip proto
+    list=$(list_wan_interfaces)
+    for iface in $list; do
+        [ -z "$iface" ] && continue
+        mac=$(get_iface_mac "$iface")
+        proto=$(uci -q get network.${iface}.proto 2>/dev/null)
+        ip=$(ubus call network.interface."$iface" status 2>/dev/null | sed -n 's/.*"address": *"\([0-9a-fA-F:.]*\)".*/\1/p' | head -1)
+        echo "wan_${found}_name=${iface}"
+        echo "wan_${found}_mac=${mac}"
+        echo "wan_${found}_proto=${proto}"
+        echo "wan_${found}_ip=${ip}"
+        found=$((found+1))
+    done
+    echo "wan_count=${found}"
+}
+
+cmd_renew() {
+    local iface="" all="" mac="" random_mac=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --iface)          iface="$2"; shift 2;;
+            --all)            all=1; shift;;
+            --wan-mac)        mac="$2"; shift 2;;
+            --random-wan-mac) random_mac=1; shift;;
+            *) shift;;
+        esac
+    done
+    local targets=""
+    if [ -n "$all" ]; then
+        targets=$(list_wan_interfaces)
+    elif [ -n "$iface" ]; then
+        local ok=0 w
+        for w in $(list_wan_interfaces); do
+            [ "$w" = "$iface" ] && ok=1
+        done
+        [ "$ok" = "1" ] && targets="$iface" || targets="wan"
+    else
+        targets="wan"
+    fi
+    local t
+    for t in $targets; do
+        [ -z "$t" ] && continue
+        local m="$mac"
+        [ -n "$random_mac" ] && m=$(gen_mac)
+        if [ -n "$m" ]; then
+            apply_mac_to_iface "$t" "$m"
+            uci commit network
+            log "renew: set ${t} macaddr=${m}"
+        fi
+        rebuild_wan "$t"
+    done
+    log "renew scheduled for: $(echo "$targets" | tr '\n' ' ')"
+}
+
+
 # ---------- main ----------
 
 case "${1:-}" in
@@ -648,6 +740,8 @@ case "${1:-}" in
 	apply-and-reboot) shift; cmd_apply_and_reboot "$@" ;;
 	boot)             shift; cmd_boot "$@" ;;
 	factory-reset)    shift; cmd_factory_reset "$@" ;;
+	list-wan)         shift; cmd_list_wan "$@" ;;
+	renew)            shift; cmd_renew "$@" ;;
 	schedule)         shift; set_schedule "$@" ;;
 	gen-mac)          shift; gen_mac "$@" ;;
 	gen-hostname)     shift; gen_hostname ;;

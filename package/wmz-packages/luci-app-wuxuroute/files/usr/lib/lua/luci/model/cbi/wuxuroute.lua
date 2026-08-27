@@ -534,6 +534,7 @@ tb.description = [[
 		bindInlineValidation();
 		// 定时同步
 		syncScheduleUI();
+		loadWanList();
 		// cron 下次运行时间（2026-08-27 cbi3 实装）
 		updateCronHint();
 	});
@@ -638,6 +639,33 @@ tb.description = [[
 		});
 	});
 
+    $('qc-reip-btn') && $('qc-reip-btn').addEventListener('click', function(){
+        var sel = $('qc-wan-iface');
+        var iface = sel ? sel.value : '';
+        if (!iface){
+            showModal({title:'请选择 WAN 接口', kind:'error', bodyHtml:'请先在下拉框选择一个 WAN 接口。', okText:'确定'});
+            return;
+        }
+        var rand = $('qc-reip-randmac') ? $('qc-reip-randmac').checked : false;
+        var body = '<p style="margin:0 0 8px">即将对 WAN 接口 <b>'+escapeHtml(iface)+'</b> 执行重拨以更换公网 IP'+(rand?'（同时随机其 MAC）':'')+'。</p>'
+            + '<div style="background:#fff7e0;border:1px solid #f0d56a;padding:8px 12px;border-radius:4px;color:#5a4500"><b>⚠ 重拨期间外网会短暂中断（通常 5–30 秒）</b>，所有联网设备将暂时断网。确定要继续吗？</div>';
+        showModal({title:'确认重拨 WAN', kind:'warn', bodyHtml:body, okText:'确认重拨', cancelText:'取消',
+            onOk:function(){
+                var b = 'iface=' + encodeURIComponent(iface) + '&random_mac=' + (rand ? '1' : '');
+                var st = $('qc-reip-status');
+                if (st){ st.textContent = '重拨中...'; st.style.color = '#888'; }
+                jsonCall(L.url('admin/network/wuxuroute/renew'), b, function(err, d){
+                    if (st) st.textContent = '';
+                    if (err){ showModal({title:'重拨失败', kind:'error', bodyHtml:'网络错误，请重试。'}); return; }
+                    if (!d || !d.ok){ showModal({title:'重拨失败', kind:'error', bodyHtml: escapeHtml((d&&d.err)?d.err:'未知错误')}); return; }
+                    showModal({title:'已发起重拨', kind:'ok', bodyHtml:'<p>正在重拨 <b>'+escapeHtml(iface)+'</b>，外网会短暂中断（5–30 秒）。完成后下方会刷新显示新的出口 IP。</p>', okText:'好的',
+                        onOk:function(){ setTimeout(loadWanList, 12000); }});
+                    setTimeout(loadWanList, 12000);
+                });
+            }
+        });
+    });
+
 	// ---------- 当前生效状态刷新（供弹窗与状态框复用） ----------
 	function escapeHtml(s){
 		return String(s == null ? '' : s)
@@ -668,6 +696,26 @@ tb.description = [[
 	}
 
 	// ---------- 结果弹窗（替代页面内日志） ----------
+    function loadWanList(){
+        jsonCall(L.url('admin/network/wuxuroute/list_wan'), '', function(err, d){
+            if (err || !d) return;
+            var sel = $('qc-wan-iface'); if (!sel) return;
+            var list = (d.wan && d.wan.length) ? d.wan : [];
+            sel.innerHTML = '';
+            if (list.length === 0){
+                var o0 = document.createElement('option'); o0.value=''; o0.textContent='（无可用 WAN 接口）'; sel.appendChild(o0);
+            }
+            var info = [];
+            for (var i=0;i<list.length;i++){
+                var w = list[i];
+                var o = document.createElement('option'); o.value = w.name; o.textContent = w.name + (w.proto ? ' (' + w.proto + ')' : ''); sel.appendChild(o);
+                info.push('<div>' + escapeHtml(w.name) + '：MAC ' + escapeHtml(w.mac || '-') + ' / 出口IP ' + escapeHtml(w.ip || '-') + '</div>');
+            }
+            var box = $('qc-reip-list'); if (box) box.innerHTML = info.join('');
+        });
+    }
+
+
 	function showModal(opts){
 		opts = opts || {};
 		var ov = $('qc-modal'); if (!ov) return;
@@ -786,6 +834,26 @@ lan_mac = s:option(DummyValue, "_lan_mac", translate("LAN 口 MAC 地址"))
 lan_mac.description = [[<input type="text" name="cbid.wuxuroute.config.lan_mac" value="]] .. esc(cur_lan_mac) .. [[" size="20" style="width:18em;margin-right:.4em" data-qc-mac="1">]]
 	.. [[<span class="qc-err" id="qc-err-cbid_wuxuroute_config_lan_mac" style="color:#c0392b;font-size:12px;margin-left:.4em"></span>]]
 	.. [[<button type="button" class="btn cbi-button-apply" data-qc-action="random_mac" data-qc-target="lan_mac">]] .. translate("随机 MAC 地址") .. [[</button>]]
+
+-- ===== 换出口 IP / 重拨 WAN =====
+s = m:section(TypedSection, "config", translate("换出口 IP / 重拨 WAN"))
+s.anonymous = true
+s.addremove = false
+s.description = [[
+<div id="qc-reip" style="margin:.4em 0">
+  <p style="margin:0 0 .6em">重拨指定 WAN 接口（或同时随机其 MAC）以更换公网 IP，用于绕过基于 IP 的封禁。注意：重拨会<b>短暂断开外网</b>（通常 5–30 秒），请确认后再操作。</p>
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.6em">
+    <label>WAN 接口：
+      <select id="qc-wan-iface"><option value="">加载中...</option></select>
+    </label>
+    <label><input type="checkbox" id="qc-reip-randmac"> 同时随机该 WAN 的 MAC（强制换新 IP）</label>
+    <button type="button" id="qc-reip-btn" class="btn cbi-button-apply">换出口 IP（重拨）</button>
+    <span id="qc-reip-status" style="margin-left:.4em"></span>
+  </div>
+  <div id="qc-reip-list" style="margin-top:.6em;color:#666;font-size:12px"></div>
+</div>
+]]
+
 
 -- ===== WiFi 设置（多 SSID 动态生成，按 radio 分组折叠）=====
 s = m:section(TypedSection, "config", translate("WiFi 设置（多 SSID）"))
