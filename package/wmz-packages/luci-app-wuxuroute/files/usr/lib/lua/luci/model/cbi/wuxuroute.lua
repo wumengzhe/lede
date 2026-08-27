@@ -55,7 +55,7 @@ tb.description = [[
     </select>
   </label>
   <label style="margin-left:.4em">]] .. translate("自定义 OUI") .. [[
-    <input type="text" id="qc-oui-custom" placeholder="厂商 OUI 6 位 hex，如 9A8B1C" size="10" style="width:9.5em">
+    <input type="text" id="qc-oui-custom" placeholder="Apple f0:18:98 / Google 3c:5a:b4 / Samsung 9c:65:ee / Microsoft 50:1b:c5 / Cisco 00:1a:2f（不区分大小写、可带 : 或 -）" size="14" style="width:18em">
   </label>
   <span id="qc-status" style="margin-left:1em"></span>
 </div>
@@ -91,7 +91,7 @@ tb.description = [[
     <div id="qc-modal-foot" style="padding:12px 18px;border-top:1px solid rgba(127,127,127,.2);text-align:right;display:flex;gap:10px;justify-content:flex-end"></div>
   </div>
 </div>
-<script type="text/javascript">
+<script type='text/javascript'>
 (function(){
 	function $(id){return document.getElementById(id);}
 	function status(msg, ok){
@@ -137,25 +137,46 @@ tb.description = [[
 	}
 	// ---------- 关键 2：按 field 名后缀匹配 input（不依赖 sec_ref） ----------
 	// CBI 渲染时不同 anonymous section 是不同的段引用（secA/secB/secC/...）。
-	// 之前用 querySelector('input[name^="cbid.wuxuroute."]') 抓第一个就把 SEC_REF
-	// 锁死在「WAN 口设置」section，其他 section 字段（lan_ip/lan_mac/hostname/wifi_mac_*）
-	// 拼出来的 name 都不存在，setVal 抛 TypeError → 「生成失败」/ 不显示。
-	// 改：按 field 后缀（input[name$=".<field>"]）匹配，跨 section 通用。
+	// 之前用 querySelector 抓第一个 cbid.wuxuroute. 段，把 SEC_REF 锁死在
+	// WAN 口设置 section，其他 section 字段（lan_ip/lan_mac/hostname/wifi_mac_*）
+	// 拼出来的 name 都不存在，setVal 抛 TypeError → 生成失败 / 不显示。
+	// 改：按 field 后缀匹配，跨 section 通用。
+	// 注意：刻意不用 querySelector 属性选择器（input[name$=...]），
+	// 因其内嵌双引号在传输中常被改写成弯引号，导致选择器静默失效。
+	// 改用遍历标签 + 比较 name 后缀/前缀的纯单引号写法，规避弯引号陷阱。
+	function qcAll(suffix, prefix){
+		var tags = ['input','select','textarea'];
+		var out = [];
+		for (var t = 0; t < tags.length; t++){
+			var els = document.getElementsByTagName(tags[t]);
+			for (var i = 0; i < els.length; i++){
+				var nm = els[i].name || '';
+				var okSuf = suffix ? (nm.length >= suffix.length && nm.lastIndexOf(suffix) === nm.length - suffix.length) : true;
+				var okPre = prefix ? (nm.indexOf(prefix) === 0) : true;
+				if (okSuf && okPre) out.push(els[i]);
+			}
+		}
+		return out;
+	}
+	function qcOne(suffix, prefix){
+		var a = qcAll(suffix, prefix);
+		return a.length ? a[0] : null;
+	}
 	function setVal(field, v){
-		var inp = document.querySelector('input[name$=".' + field + '"]');
+		var inp = qcOne('.' + field);
 		if (inp){ inp.value = v; dbg('set', field + '=' + v + ' (input=' + inp.name + ')'); }
-		else   { dbg('set-miss', field + ' -> no input[name$=".' + field + '"]'); }
+		else   { dbg('set-miss', field + ' -> no input suffix .' + field); }
 	}
 	function getVal(field){
-		var inp = document.querySelector('input[name$=".' + field + '"]');
+		var inp = qcOne('.' + field);
 		return inp ? inp.value : '';
 	}
 	function checkbox(field){
-		var inp = document.querySelector('input[type="checkbox"][name$=".' + field + '"]');
+		var inp = qcOne('.' + field);
 		return inp ? inp.checked : false;
 	}
 	function wifiFields(){
-		return document.querySelectorAll('input[name*=".wifi_mac_"][name^="cbid.wuxuroute."]');
+		return qcAll('.wifi_mac_', 'cbid.wuxuroute.');
 	}
 	// (旧 setVal/getVal/checkbox/wifiFields 已重定义)
 	function curOui(){
@@ -169,17 +190,27 @@ tb.description = [[
 		var body = oui ? ('oui=' + encodeURIComponent(oui)) : '';
 		jsonCall(L.url('admin/network/wuxuroute/gen_mac'), body, cb);
 	}
+	function isMacStr(s){ return /^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/.test(String(s == null ? '' : s)); }
+	function isHostnameStr(s){ return /^PC-[A-F0-9]{6}$/.test(String(s == null ? '' : s)); }
 	function randomInto(target){
 		dbg('rand', 'target=' + target);
 		if (target === 'hostname') {
 			jsonCall(L.url('admin/network/wuxuroute/gen_hostname'), '', function(err, d){
-				if (!err && d && d.hostname) setVal('hostname', d.hostname);
-				else { dbg('rand-fail', 'hostname: ' + (err ? err.toString() : JSON.stringify(d))); }
+				if (err || !d){ dbg('rand-fail', 'hostname: ' + (err ? err.toString() : JSON.stringify(d))); status('生成失败', false); return; }
+				if (d.ok === false){ dbg('rand-fail', 'hostname: ' + JSON.stringify(d)); status('生成失败：' + (d.err || '后端忙'), false); return; }
+				if (!d.hostname){ dbg('rand-fail', 'hostname empty'); status('生成失败（后端无返回）', false); return; }
+				if (!isHostnameStr(d.hostname)){ dbg('rand-fail', 'hostname NOT PC-XXXXXX: ' + d.hostname); status('后端返回异常，请重试', false); return; }
+				setVal('hostname', d.hostname);
+				status('已生成 ' + d.hostname, true);
 			});
 		} else {
 			reqMac(function(err, d){
-				if (!err && d && d.mac) setVal(target, d.mac);
-				else { dbg('rand-fail', target + ': ' + (err ? err.toString() : JSON.stringify(d))); }
+				if (err || !d){ dbg('rand-fail', target + ': ' + (err ? err.toString() : JSON.stringify(d))); status('生成失败', false); return; }
+				if (d.ok === false){ dbg('rand-fail', target + ': ' + JSON.stringify(d)); status('生成失败：' + (d.err || '后端忙'), false); return; }
+				if (!d.mac){ dbg('rand-fail', target + ' mac empty'); status('生成失败（后端无返回）', false); return; }
+				if (!isMacStr(d.mac)){ dbg('rand-fail', target + ' NOT MAC: ' + d.mac); status('后端返回异常，请重试', false); return; }
+				setVal(target, d.mac);
+				status('已生成 ' + d.mac, true);
 			});
 		}
 	}
@@ -212,13 +243,13 @@ tb.description = [[
 	function pad2(n){ n = parseInt(n, 10) || 0; return (n < 10 ? '0' : '') + n; }
 	function parseCron(c){
 		if (!c || c.trim() === '') return { preset:'', time:'' };
-		// daily:    "M H * * *"
+		// daily:    M H * * *
 		var dm = c.match(/^(\d+)\s+(\d+)\s+\*\s+\*\s+\*$/);
 		if (dm) return { preset:'daily',   time: pad2(dm[2]) + ':' + pad2(dm[1]) };
-		// weekday:  "M H * * 1-5"
+		// weekday:  M H * * 1-5
 		var wm = c.match(/^(\d+)\s+(\d+)\s+\*\s+\*\s+1-5$/);
 		if (wm) return { preset:'weekday', time: pad2(wm[2]) + ':' + pad2(wm[1]) };
-		// weekend:  "M H * * 6,0"
+		// weekend:  M H * * 6,0
 		var em = c.match(/^(\d+)\s+(\d+)\s+\*\s+\*\s+6,0$/);
 		if (em) return { preset:'weekend', time: pad2(em[2]) + ':' + pad2(em[1]) };
 		// legacy 0/1/2 (旧 schema)
@@ -236,19 +267,23 @@ tb.description = [[
 		return null;  // 自定义：让用户直接编辑 cron
 	}
 	function syncScheduleUI(){
-		var cronEl  = document.querySelector('input[name$=".schedule"]');
-		var presEl  = document.querySelector('select[name$="._preset"]');
-		var timeEl  = document.querySelector('input[name$="._time"]');
+		var cronEl  = qcOne('.schedule');
+		var presEl  = qcOne('._preset');
+		var timeEl  = qcOne('._time');
 		if (!cronEl || !presEl) return;
 		var init = parseCron(cronEl.value);
-		// ListValue 的 "" 与 "__custom__" 都需要落到"自定义"，但 UI 里没显示"自定义"项
-		// 这里给 select 加一个临时 option 表示"自定义"
+		// ListValue 的 空串 与 __custom__ 都需要落到「自定义」，但 UI 里没显示「自定义」项
+		// 这里给 select 加一个临时 option 表示「自定义」
 		var customVal = '__custom__';
-		if (!presEl.querySelector('option[value="' + customVal + '"]')){
+		var hasCustom = false;
+		for (var oi = 0; oi < presEl.options.length; oi++){
+			if (presEl.options[oi].value === customVal){ hasCustom = true; break; }
+		}
+		if (!hasCustom){
 			var opt = document.createElement('option');
 			opt.value = customVal;
 			opt.textContent = '自定义 cron';
-			opt.style.display = 'none';  // 不可选，但程序可设
+			opt.style.display = 'none';
 			presEl.appendChild(opt);
 		}
 		presEl.value = init.preset || '';
@@ -267,6 +302,77 @@ tb.description = [[
 			presEl.value = cur.preset || customVal;
 			if (timeEl && cur.time) timeEl.value = cur.time;
 		});
+	}
+
+	// ---------- cron 表达式实时翻译（仿 GitHub Actions 工作流） ----------
+	// 5 段：分 时 日 月 周。每次输入更新 #qc-cron-hint 的文本与颜色：
+	//   空           → 灰色  「留空 = 关闭」
+	//   合法 5 段     → 绿色  「在 HH:MM 运行，每周X、Y，每月Z号」
+	//   非法（非 5 段）→ 红色  「⚠ 需要 5 段（分 时 日 月 周），当前 N 段」
+	function cronToHuman(c){
+		var t = (c == null ? '' : String(c));
+		t = t.trim();
+		if (!t) return '';
+		var p = t.split(/\s+/);
+		if (p.length !== 5) return '⚠ 需要 5 段（分 时 日 月 周），当前 ' + p.length + ' 段';
+		var min = p[0], hh = p[1], dom = p[2], mon = p[3], dow = p[4];
+		function pad(n){ n = String(n); return n.length < 2 ? '0' + n : n; }
+		var dowName = { '0':'周日','1':'周一','2':'周二','3':'周三','4':'周四','5':'周五','6':'周六','7':'周日' };
+		function rangeDow(v){
+			if (v === '*') return '每天';
+			if (/^\d+$/.test(v)) return dowName[v] || ('周' + v);
+			if (v.indexOf(',') >= 0) return v.split(',').map(function(x){ return dowName[x] || x; }).join('、');
+			var r = v.match(/^(\d+)-(\d+)$/);
+			if (r) return (dowName[r[1]] || r[1]) + ' ~ ' + (dowName[r[2]] || r[2]);
+			return v;
+		}
+		var monName = ['','1 月','2 月','3 月','4 月','5 月','6 月','7 月','8 月','9 月','10 月','11 月','12 月'];
+		function rangeMon(v){
+			if (v === '*') return '每月';
+			if (/^\d+$/.test(v)) return monName[parseInt(v,10)] || ('月' + v);
+			if (v.indexOf(',') >= 0) return v.split(',').map(function(x){ return monName[parseInt(x,10)] || x; }).join('、');
+			var r = v.match(/^(\d+)-(\d+)$/);
+			if (r) return (monName[parseInt(r[1],10)] || r[1]) + ' ~ ' + (monName[parseInt(r[2],10)] || r[2]);
+			return v;
+		}
+		function rangeDom(v){
+			if (v === '*') return '每天';
+			if (/^\d+$/.test(v)) return '每月 ' + v + ' 号';
+			var m = v.match(/^\*\/(\d+)$/);
+			if (m) return '每 ' + m[1] + ' 天';
+			if (v.indexOf(',') >= 0) return v.split(',').map(function(x){return /\d+/.test(x) ? (x + ' 号') : x; }).join('、');
+			var r = v.match(/^(\d+)-(\d+)$/);
+			if (r) return r[1] + ' 号 ~ ' + r[2] + ' 号';
+			return v;
+		}
+		var hhNum = parseInt(hh, 10);
+		var minNum = (min === '*') ? 0 : parseInt(min, 10);
+		// 几种最常见的快捷模式优先描述
+		if (hh !== '*' && /^0?\d+$/.test(min) && /^0?\d+$/.test(hh) && dom === '*' && mon === '*' && dow === '*') {
+			return ('每天 ' + pad(hh) + ':' + pad(minNum) + ' 运行');
+		}
+		if (hh !== '*' && /^0?\d+$/.test(min) && /^0?\d+$/.test(hh) && dom === '*' && mon === '*' && dow !== '*') {
+			return ('在 ' + pad(hh) + ':' + pad(minNum) + ' 运行（' + rangeDow(dow) + '）');
+		}
+		if (min === '0' && hh !== '*' && dom === '*' && mon === '*' && dow === '*') {
+			return ('每小时整点（' + pad(hh) + ':00）都跑一次 | ' + rangeDom(dom) + ' | ' + rangeMon(mon));
+		}
+		return ('在 HH:MM = ' + pad(hh) + ':' + pad(minNum) + ' 运行 | ' + rangeDom(dom) + ' | ' + rangeMon(mon) + ' | ' + rangeDow(dow));
+	}
+	function updateCronHint(){
+		var el = qcOne('.schedule');
+		var hint = document.getElementById('qc-cron-hint');
+		if (!el || !hint) return;
+		function refresh(){
+			var trimmed = (el.value || '').trim();
+			var text = cronToHuman(el.value);
+			if (!trimmed){ hint.textContent = '（留空 = 关闭）'; hint.style.color = '#888'; hint.style.fontWeight = 'normal'; }
+			else if (text.indexOf('⚠') === 0){ hint.textContent = text; hint.style.color = '#c0392b'; hint.style.fontWeight = 'bold'; }
+			else { hint.textContent = '→ ' + text; hint.style.color = '#1a7f37'; hint.style.fontWeight = 'bold'; }
+		}
+		el.addEventListener('input', refresh);
+		el.addEventListener('change', refresh);
+		refresh();
 	}
 
 	// ---------- 重新拉取 /usr/sbin/wuxuroute get，刷新所有 input + 状态框 ----------
@@ -295,6 +401,8 @@ tb.description = [[
 		reloadAll();
 		// 定时同步
 		syncScheduleUI();
+		// cron 实时翻译（仿 GitHub Actions 工作流；2026-08-27 实装）
+		updateCronHint();
 	});
 
 	// 随机按钮（动态生成的 WiFi 行 + 固定字段）
@@ -304,18 +412,9 @@ tb.description = [[
 		var v = t.getAttribute('data-qc-action');
 		if (!v) return;
 		if (v === 'random_mac') {
-			var target = t.getAttribute('data-qc-target');
-			reqMac(function(err, d){
-				if (err || !d || !d.mac) { status('生成失败', false); return; }
-				setVal(target, d.mac);
-				status('已生成 ' + d.mac, true);
-			});
+			randomInto(t.getAttribute('data-qc-target'));
 		} else if (v === 'random_hostname') {
-			jsonCall(L.url('admin/network/wuxuroute/gen_hostname'), '', function(err, d){
-				if (err || !d || !d.hostname) { status('生成失败', false); return; }
-				setVal('hostname', d.hostname);
-				status('已生成 ' + d.hostname, true);
-			});
+			randomInto('hostname');
 		} else if (v === 'random_lan_ip') {
 			var n = (Math.floor(Math.random() * 200) + 2);
 			var ip = '192.168.' + n + '.1';
@@ -335,7 +434,7 @@ tb.description = [[
 			var m = wfs[i].name.match(/\.wifi_mac_(.+)$/);
 			if (m) randomInto('wifi_mac_' + m[1]);
 		}
-		status('已随机生成所有字段，点"保存并应用"生效', true);
+		status('已随机生成所有字段，点「保存并应用」生效', true);
 	});
 
 	$('qc-apply') && $('qc-apply').addEventListener('click', function(){
@@ -356,15 +455,15 @@ tb.description = [[
 				if (getVal('hostname')) rows.push('主机名：' + escapeHtml(getVal('hostname')));
 				var wfs = wifiFields();
 				for (var i=0;i<wfs.length;i++){ if (wfs[i].value) rows.push('WiFi MAC：' + escapeHtml(wfs[i].value)); }
-				var body = '<p style="margin:0 0 8px">配置已成功应用。</p>';
-				if (rows.length) body += '<ul style="margin:0;padding-left:18px">' + rows.map(function(r){return '<li>'+r+'</li>';}).join('') + '</ul>';
+				var body = '<p style=\'margin:0 0 8px\'>配置已成功应用。</p>';
+				if (rows.length) body += '<ul style=\'margin:0;padding-left:18px\'>' + rows.map(function(r){return '<li>'+r+'</li>';}).join('') + '</ul>';
 				if (ipChanged){
 					var url = location.protocol + '//' + newIp + (location.port ? ':' + location.port : '') + '/';
-					body += '<p style="margin:10px 0 0">管理地址已变更为 <b>' + escapeHtml(newIp) + '</b>，网络将短暂中断（通常 5-15 秒），随后自动跳转到新地址。</p>';
+					body += '<p style=\'margin:10px 0 0\'>管理地址已变更为 <b>' + escapeHtml(newIp) + '</b>，网络将短暂中断（通常 5-15 秒），随后自动跳转到新地址。</p>';
 					showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'前往新地址', cancelText:'留在本页',
 						redirectUrl:url, countdown:12, onOk:function(){ setTimeout(function(){ window.location.href = url; }, 250); }});
 				} else {
-					body += '<p style="margin:10px 0 0">所有更改已生效。</p>';
+					body += '<p style=\'margin:10px 0 0\'>所有更改已生效。</p>';
 					showModal({title:'应用成功', kind:'ok', bodyHtml:body, okText:'确定', onOk:function(){ reloadAll(); }});
 					// 弹窗一出来就立刻从 uci 回填一次（后端 commit 已完成，读到的是新值）
 					reloadAll();
@@ -373,9 +472,9 @@ tb.description = [[
 		}
 		if (ipChanged){
 			var url = location.protocol + '//' + newIp + (location.port ? ':' + location.port : '') + '/';
-			var cbody = '<p style="margin:0 0 8px">你正在将路由器管理地址从 <b>' + escapeHtml(oldIp) + '</b> 变更为 <b>' + escapeHtml(newIp) + '</b>。</p>'
-				+ '<p style="margin:0 0 8px;color:#a04000"><b>⚠ 应用后管理口会立即断开 5-15 秒</b>，等后台重新拉起新 IP 后会自动跳转。</p>'
-				+ '<p style="margin:0">新地址：<b>' + escapeHtml(url) + '</b>。是否继续？</p>';
+			var cbody = '<p style=\'margin:0 0 8px\'>你正在将路由器管理地址从 <b>' + escapeHtml(oldIp) + '</b> 变更为 <b>' + escapeHtml(newIp) + '</b>。</p>'
+				+ '<p style=\'margin:0 0 8px;color:#a04000\'><b>⚠ 应用后管理口会立即断开 5-15 秒</b>，等后台重新拉起新 IP 后会自动跳转。</p>'
+				+ '<p style=\'margin:0\'>新地址：<b>' + escapeHtml(url) + '</b>。是否继续？</p>';
 			showModal({title:'确认修改管理地址', kind:'warn', bodyHtml:cbody, okText:'继续并应用', cancelText:'取消', onOk:doApply});
 		} else {
 			doApply();
@@ -401,13 +500,13 @@ tb.description = [[
 	function escapeHtml(s){
 		return String(s == null ? '' : s)
 			.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-			.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+			.replace(new RegExp(String.fromCharCode(34),'g'),'&quot;').replace(/'/g,'&#39;');
 	}
 	function refreshStatus(){
 		jsonCall(L.url('admin/network/wuxuroute/status'), '', function(err, d){
 			if (err || !d) return;
-			function row(k, v){ return '<tr><td style="padding:2px 8px;font-weight:bold">'+escapeHtml(k)+'</td><td style="padding:2px 8px">'+escapeHtml(v)+'</td></tr>'; }
-			var html = '<table class="cbi-table" style="border-collapse:collapse">';
+			function row(k, v){ return '<tr><td style=\'padding:2px 8px;font-weight:bold\'>'+escapeHtml(k)+'</td><td style=\'padding:2px 8px\'>'+escapeHtml(v)+'</td></tr>'; }
+			var html = '<table class=\'cbi-table\' style=\'border-collapse:collapse\'>';
 			html += row('WAN', d.wan_mac || '-');
 			html += row('LAN', d.lan_mac || '-');
 			html += row('主机名', d.hostname || '-');
@@ -623,8 +722,12 @@ time_opt.datatype = "string"
 time_opt.rmempty = true
 time_opt.description = translate("对“每天 / 工作日 / 周末”预设生效；自定义 cron 时忽略。格式 HH:MM，如 04:00 / 23:30。")
 
+-- cron 实时翻译（仿 GitHub Actions 工作流，2026-08-27）：
+-- description 含 hint 容器；JS 监听 .schedule 的 input 事件，把 5 段 cron
+-- 表达式实时翻译成"在 HH:MM 运行，每周X、Y，每月Z号"形式。非法 5 段格式
+-- 用红字标。空值保持灰字提示"留空 = 关闭"。
 schedule = s:option(Value, "schedule", translate("cron 表达式"),
-	translate("标准 5 段 cron：分 时 日 月 周。留空 = 关闭。"))
+	[[<span id="qc-cron-hint" style="margin-left:.5em;color:#888;font-style:italic">]] .. translate("（5 段：分 时 日 月 周，输入实时翻译）") .. [[</span>]])
 schedule.optional = true
 schedule.rmempty = true
 
