@@ -1,0 +1,39 @@
+#!/bin/sh
+# uci-defaults: 首次启动时为 PON 创建 pon0 设备与可选 WAN（pon0.400）。
+# 仅做“增量”添加，不破坏你已有的 network 配置。
+# 凭证（PPPoE 账号/密码、LOID）由你在 LuCI 里填写。
+
+set -e
+
+# 1) pon0 设备（xPON MAC 驱动创建的 netdev 绑成命名设备）
+#    uci-defaults 只在首次启动执行一次（之后被移出），故 add 不会重复。
+if ! uci show network 2>/dev/null | grep -q "name='pon0'"; then
+	uci -q batch <<'EOF'
+add network device
+set network.@device[-1].name='pon0'
+set network.@device[-1].type='none'
+EOF
+fi
+
+# 2) WAN（pon0.400 VLAN，PPPoE 骨架，凭证留空）
+#    以接口名 wan 为键：已存在则改 device/proto，不存在才新增，避免重复段。
+if uci -q get network.wan >/dev/null 2>&1; then
+	uci -q set network.wan.device='pon0.400'
+	uci -q set network.wan.proto='pppoe'
+	uci -q set network.wan.username=''
+	uci -q set network.wan.password=''
+	uci -q set network.wan.ipv6='auto'
+else
+	uci -q batch <<'EOF'
+add network interface
+set network.@interface[-1].name='wan'
+set network.@interface[-1].device='pon0.400'
+set network.@interface[-1].proto='pppoe'
+set network.@interface[-1].username=''
+set network.@interface[-1].password=''
+set network.@interface[-1].ipv6='auto'
+EOF
+fi
+
+uci -q commit network
+exit 0

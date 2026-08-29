@@ -1,0 +1,127 @@
+#!/bin/sh /etc/rc.common
+
+# 每个 UCI omci section 对应一个 procd 实例。
+# line 与 device 通过内核 iflink 验证父子关系。
+# airoha-xpon 管理 O5、carrier 和 BEN 生命周期。
+
+START=19
+STOP=81
+USE_PROCD=1
+
+runtime_config_path() {
+	printf '/var/run/airoha-omcid.%s.conf\n' "$1"
+}
+
+control_socket_path() {
+	printf '/var/run/airoha-omcid.%s.sock\n' "$1"
+}
+
+write_if_nonempty() {
+	local path="$1"
+	local key="$2"
+	local value="$3"
+
+	[ -n "$value" ] || return 0
+	printf '%s=%s\n' "$key" "$value" >> "$path"
+}
+
+prepare_runtime_config() {
+	local section="$1"
+	local line="$2"
+	local path="$3"
+	local vendor_id equipment_id hardware_version software_version
+	local loid loid_password operator_id serial_number
+
+	config_get vendor_id "$section" vendor_id
+	config_get equipment_id "$section" equipment_id
+	config_get hardware_version "$section" hardware_version
+	config_get software_version "$section" software_version
+	config_get loid "$section" loid
+	config_get loid_password "$section" loid_password
+	config_get operator_id "$section" operator_id
+	config_get serial_number "$line" serial_number
+
+	umask 077
+	: > "$path" || return 1
+	write_if_nonempty "$path" vendor_id "$vendor_id"
+	write_if_nonempty "$path" equipment_id "$equipment_id"
+	write_if_nonempty "$path" hardware_version "$hardware_version"
+	write_if_nonempty "$path" software_version "$software_version"
+	write_if_nonempty "$path" loid "$loid"
+	write_if_nonempty "$path" loid_password "$loid_password"
+	write_if_nonempty "$path" operator_id "$operator_id"
+	write_if_nonempty "$path" serial_number "$serial_number"
+}
+
+start_omci_instance() {
+	local section="$1"
+	local line pon_device omci_device pon_ifindex omci_iflink runtime_config control_socket
+
+	config_get line "$section" line
+	[ -n "$line" ] || {
+		echo "omci section '$section' has no xpon line reference" >&2
+		return 1
+	}
+	config_get pon_device "$line" device
+	[ -n "$pon_device" ] || {
+		echo "referenced xpon section '$line' has no device" >&2
+		return 1
+	}
+	config_get omci_device "$section" device
+	[ -n "$omci_device" ] || {
+		echo "omci section '$section' has no device" >&2
+		return 1
+	}
+	[ -e "/sys/class/net/$pon_device" ] || {
+		echo "PON device '$pon_device' is not available" >&2
+		return 1
+	}
+	[ -e "/sys/class/net/$omci_device" ] || {
+		echo "OMCI device '$omci_device' is not available" >&2
+		return 1
+	}
+	pon_ifindex="$(cat "/sys/class/net/$pon_device/ifindex")" || return 1
+	omci_iflink="$(cat "/sys/class/net/$omci_device/iflink")" || return 1
+	[ "$pon_ifindex" = "$omci_iflink" ] || {
+		echo "OMCI device '$omci_device' is not linked to '$pon_device'" >&2
+		return 1
+	}
+
+	runtime_config="$(runtime_config_path "$section")"
+	control_socket="$(control_socket_path "$section")"
+	prepare_runtime_config "$section" "$line" "$runtime_config" || return 1
+	ip link set "$omci_device" up || return 1
+
+	procd_open_instance "$section"
+	procd_set_param command /usr/sbin/airoha-omcid daemon \
+		--interface "$omci_device" --config "$runtime_config" \
+		--control-socket "$control_socket"
+	procd_set_param respawn 3600 5 5
+	procd_set_param stderr 1
+	procd_set_param file /etc/config/pon
+	procd_close_instance
+}
+
+stop_omci_instance() {
+	local section="$1"
+	local omci_device
+
+	config_get omci_device "$section" device
+	[ -z "$omci_device" ] || ip link set "$omci_device" down 2>/dev/null || true
+	rm -f "$(runtime_config_path "$section")"
+	rm -f "$(control_socket_path "$section")"
+}
+
+start_service() {
+	config_load pon
+	config_foreach start_omci_instance omci
+}
+
+stop_service() {
+	config_load pon
+	config_foreach stop_omci_instance omci
+}
+
+service_triggers() {
+	procd_add_reload_trigger pon
+}

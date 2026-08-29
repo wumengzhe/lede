@@ -8,3 +8,51 @@
 	compatible = "nokia,xg-040g-md-3rdparty", "airoha,an7581",
 		     "airoha,en7581";
 };
+
+&i2c0 {
+	status = "okay";
+
+	en7572: optical-front-end@50 {
+		compatible = "airoha,en7572";
+		reg = <0x50>;
+		tx-disable-gpios = <&en7581_pinctrl 38 0>;
+		nvmem-cells = <&bosa_calibration>;
+		nvmem-cell-names = "calibration";
+	};
+};
+
+&en7581_pinctrl {
+	pon_pins: pon-pins {
+		mux {
+			function = "pon";
+			groups = "pon_tx_disable_gpio";
+		};
+	};
+};
+
+&soc {
+	xpon: ethernet@1fb64000 {
+		compatible = "airoha,an7581-xpon-mac";
+		reg = <0x0 0x1fb64000 0x0 0x3e8>,
+		      <0x0 0x1fb65000 0x0 0xff8>,
+		      <0x0 0x1fb66000 0x0 0x1000>,
+		      <0x0 0x1faf0000 0x0 0x2000>;
+		reg-names = "gpon", "xgpon", "epon", "pon-phy";
+		interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "mac", "phy";
+		pcs-handle = <&pon_pcs>;
+		airoha,scu = <&scuclk>;
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pon_pins>;
+		optical-front-end = <&en7572>;
+		data-path = <&gdm2>;
+		nvmem-cells = <&pon_serial>;
+		nvmem-cell-names = "pon-serial";
+	};
+};
+
+&gdm2 {
+	status = "okay";
+};

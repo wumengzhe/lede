@@ -200,7 +200,7 @@ define Device/nokia_xg-040g-md-3rdparty
 	KERNEL_INITRAMFS_SUFFIX := -recovery.itb
 	IMAGES := sysupgrade.itb
 	IMAGE/sysupgrade.itb := append-kernel | 	fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | 	append-metadata
-	DEVICE_PACKAGES += kmod-airoha-xpon-en757x
+	DEVICE_PACKAGES += fitblk
 	SUPPORTED_DEVICES += nokia,xg-040g-md-ubi nokia,xg-040g-md
 	ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot nokia_xg-040g-md
 	ARTIFACT/preloader.bin := an7581-preloader nokia_xg-040g-md
@@ -216,7 +216,7 @@ define Device/nokia_xg-040g-md-3rdparty
   KERNEL_IN_UBI := 1
   IMAGES := sysupgrade.bin
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES += kmod-airoha-xpon-en757x
+  DEVICE_PACKAGES += fitblk
   SUPPORTED_DEVICES += nokia,xg-040g-md-ubi nokia,xg-040g-md
   ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot nokia_xg-040g-md
   ARTIFACT/preloader.bin := an7581-preloader nokia_xg-040g-md
@@ -232,7 +232,7 @@ define Device/nokia_xg-040g-md-3rdparty
   KERNEL_IN_UBI := 1
   IMAGES := sysupgrade.bin
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES += kmod-airoha-xpon-en757x
+  DEVICE_PACKAGES += fitblk
   SUPPORTED_DEVICES += nokia,xg-040g-md-ubi nokia,xg-040g-md
   ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot nokia_xg-040g-md
   ARTIFACT/preloader.bin := an7581-preloader nokia_xg-040g-md
@@ -248,7 +248,7 @@ define Device/nokia_xg-040g-md-3rdparty
   KERNEL_IN_UBI := 1
   IMAGES := sysupgrade.bin
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES += kmod-airoha-xpon-en757x
+  DEVICE_PACKAGES += fitblk
   SUPPORTED_DEVICES += nokia,xg-040g-md-ubi nokia,xg-040g-md
   ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot nokia_xg-040g-md
   ARTIFACT/preloader.bin := an7581-preloader nokia_xg-040g-md
@@ -264,7 +264,7 @@ define Device/nokia_xg-040g-md-3rdparty
   KERNEL_IN_UBI := 1
   IMAGES := sysupgrade.bin
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES += kmod-airoha-xpon-en757x
+  DEVICE_PACKAGES += fitblk
   SUPPORTED_DEVICES += nokia,xg-040g-md-ubi nokia,xg-040g-md
   ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot nokia_xg-040g-md
   ARTIFACT/preloader.bin := an7581-preloader nokia_xg-040g-md

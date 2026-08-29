@@ -45,6 +45,35 @@
 			ubi_rootfs: ubi-volume-rootfs {
 				volname = "rootfs";
 			};
+
+			ubi_bosa: ubi-volume-bosa {
+				volname = "bosa";
+				nvmem-layout {
+					compatible = "fixed-layout";
+					#address-cells = <1>;
+					#size-cells = <1>;
+					bosa_calibration: calibration@0 {
+						reg = <0x0 0x400>;
+					};
+				};
+			};
+
+			ubi_ri: ubi-volume-ri {
+				volname = "ri";
+				nvmem-layout {
+					compatible = "fixed-layout";
+					#address-cells = <1>;
+					#size-cells = <1>;
+					pon_serial: pon-serial@1a {
+						reg = <0x1a 0xc>;
+					};
+					macaddr_factory_3e: macaddr@3e {
+						compatible = "mac-base";
+						reg = <0x3e 0x6>;
+						#nvmem-cell-cells = <1>;
+					};
+				};
+			};
 		};
 	};
 };
