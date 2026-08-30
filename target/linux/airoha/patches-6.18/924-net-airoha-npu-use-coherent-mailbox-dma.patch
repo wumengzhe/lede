@@ -1,41 +1,6 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Daniel Pawlik <pawlik.dan@gmail.com>
-Date: Sun,  9 Aug 2026 17:28:13 +0200
-Subject: [PATCH] net: airoha: npu: use coherent DMA for mailbox messages
-
-Commit 6f884eb87a79 ("net: airoha: Fix DMA direction for NPU mailbox
-buffer") switched airoha_npu_send_msg() to DMA_BIDIRECTIONAL so
-non-coherent CPUs invalidate caches before reading NPU GET responses.
-
-On EN7581 + MT7996 that change regresses probe: the mailbox completes
-successfully, but WLAN_FUNC_GET_WAIT_NPU_VERSION still reads as 0.0 and
-mt76 never binds NPU offload. Healthy boards report 0.1111.
-
-airoha_npu_send_msg() is also used from PPE foe_commit under
-spin_lock_bh(), so per-message dma_alloc_coherent(GFP_ATOMIC) is a poor
-fit. Allocate one device-managed coherent bounce buffer per NPU core at
-probe and reuse it under the existing per-core mailbox lock. That also
-keeps the buffer valid if the NPU completes a write after a mailbox
-timeout.
-
-Introduce __airoha_npu_send_msg() with an optional reply pointer so GET
-callers can copy the trailing response payload once. Keep
-airoha_npu_send_msg() as a wrapper that copies the full response back
-into the caller buffer, matching the old bidirectional mapping.
-
-Verified on Quantum Fiber / Gemtek W1700K (EN7581 + MT7996).
-
-Fixes: 6f884eb87a79 ("net: airoha: Fix DMA direction for NPU mailbox buffer")
-Link: https://patchwork.kernel.org/project/linux-mediatek/patch/20260805070851.2885888-1-pawlik.dan@gmail.com/
-Link: https://patchwork.kernel.org/project/linux-mediatek/patch/20260806072601.1815487-1-pawlik.dan@gmail.com/
-Link: https://patchwork.kernel.org/project/linux-mediatek/patch/20260807064058.1117747-1-pawlik.dan@gmail.com/
-Assisted-by: Cursor:composer-2
-Signed-off-by: Daniel Pawlik <pawlik.dan@gmail.com>
-
----
---- a/drivers/net/ethernet/airoha/airoha_npu.c
-+++ b/drivers/net/ethernet/airoha/airoha_npu.c
-@@ -23,6 +23,12 @@
+--- a/drivers/net/ethernet/airoha/airoha_npu.c	2026-08-30 10:26:31.540543700 +0800
++++ b/drivers/net/ethernet/airoha/airoha_npu.c	2026-08-30 10:30:08.831495800 +0800
+@@ -19,6 +19,12 @@
  #define NPU_EN7581_FIRMWARE_RV32_MAX_SIZE	0x200000
  #define NPU_EN7581_FIRMWARE_DATA_MAX_SIZE	0x10000
  #define NPU_DUMP_SIZE				512
@@ -48,7 +13,7 @@ Signed-off-by: Daniel Pawlik <pawlik.dan@gmail.com>
  
  #define REG_NPU_LOCAL_SRAM		0x0
  
-@@ -160,23 +166,34 @@ struct wlan_mbox_data {
+@@ -146,23 +152,34 @@
  	DECLARE_FLEX_ARRAY(u8, d);
  };
  
@@ -65,37 +30,37 @@ Signed-off-by: Daniel Pawlik <pawlik.dan@gmail.com>
 +	u32 val, offset = 0;
  	int ret;
  
--	dma_addr = dma_map_single(npu->dev, p, size, DMA_BIDIRECTIONAL);
+-	dma_addr = dma_map_single(npu->dev, p, size, DMA_TO_DEVICE);
 -	ret = dma_mapping_error(npu->dev, dma_addr);
 -	if (ret)
 -		return ret;
 +	if (len > AIROHA_NPU_MBOX_SIZE)
 +		return -EINVAL;
- 
--	spin_lock_bh(&npu->cores[core].lock);
++
 +	if (reply && reply_len > len)
 +		return -EINVAL;
- 
--	regmap_write(npu->regmap, REG_CR_MBQ0_CTRL(0) + offset, dma_addr);
--	regmap_write(npu->regmap, REG_CR_MBQ0_CTRL(1) + offset, size);
++
 +	/*
 +	 * Mailbox payloads are bidirectional (CPU request, NPU response).
-+	 * On EN7581+MT7996, streaming DMA_BIDIRECTIONAL against the
++	 * On EN7581+MT7996, streaming DMA_TO_DEVICE against the
 +	 * caller kzalloc() buffer can leave WLAN_FUNC_GET_WAIT_NPU_VERSION
 +	 * reading as 0.0 despite MBOX success. Reuse a probe-time coherent
 +	 * bounce buffer under the per-core lock (also used from PPE
 +	 * foe_commit under atomic context).
 +	 */
 +	spin_lock_bh(&core->lock);
-+
+ 
+-	spin_lock_bh(&npu->cores[core].lock);
 +	memcpy(core->buf, data, len);
-+
+ 
+-	regmap_write(npu->regmap, REG_CR_MBQ0_CTRL(0) + offset, dma_addr);
+-	regmap_write(npu->regmap, REG_CR_MBQ0_CTRL(1) + offset, size);
 +	regmap_write(npu->regmap, REG_CR_MBQ0_CTRL(0) + offset, core->addr);
 +	regmap_write(npu->regmap, REG_CR_MBQ0_CTRL(1) + offset, len);
  	regmap_read(npu->regmap, REG_CR_MBQ0_CTRL(2) + offset, &val);
  	regmap_write(npu->regmap, REG_CR_MBQ0_CTRL(2) + offset, val + 1);
  	val = FIELD_PREP(MBOX_MSG_FUNC_ID, func_id) | MBOX_MSG_WAIT_RSP;
-@@ -189,13 +206,21 @@ static int airoha_npu_send_msg(struct ai
+@@ -175,13 +192,21 @@
  	if (!ret && FIELD_GET(MBOX_MSG_STATUS, val) != NPU_MBOX_SUCCESS)
  		ret = -EINVAL;
  
@@ -104,22 +69,22 @@ Signed-off-by: Daniel Pawlik <pawlik.dan@gmail.com>
 +	if (!ret && reply)
 +		memcpy(reply, core->buf + len - reply_len, reply_len);
  
--	dma_unmap_single(npu->dev, dma_addr, size, DMA_BIDIRECTIONAL);
+-	dma_unmap_single(npu->dev, dma_addr, size, DMA_TO_DEVICE);
 +	spin_unlock_bh(&core->lock);
  
  	return ret;
  }
  
 +static int airoha_npu_send_msg(struct airoha_npu *npu, int func_id,
-+			       void *data, int len)
++				   void *data, int len)
 +{
 +	return __airoha_npu_send_msg(npu, func_id, data, len, data, len);
 +}
 +
- static int airoha_npu_load_firmware(struct device *dev, void __iomem *addr,
- 				    const char *fw_name, int fw_max_size)
+ static int airoha_npu_run_firmware(struct device *dev, void __iomem *base,
+ 				   struct resource *res)
  {
-@@ -497,9 +522,8 @@ static int airoha_npu_wlan_msg_get(struc
+@@ -449,9 +474,8 @@
  	wlan_data->func_type = NPU_OP_GET;
  	wlan_data->func_id = func_id;
  
@@ -131,7 +96,7 @@ Signed-off-by: Daniel Pawlik <pawlik.dan@gmail.com>
  	kfree(wlan_data);
  
  	return err;
-@@ -770,6 +794,15 @@ static int airoha_npu_probe(struct platf
+@@ -690,6 +714,15 @@
  	if (err)
  		return err;
  
@@ -147,9 +112,9 @@ Signed-off-by: Daniel Pawlik <pawlik.dan@gmail.com>
  	err = airoha_npu_run_firmware(dev, base, &res);
  	if (err)
  		return dev_err_probe(dev, err, "failed to run npu firmware\n");
---- a/include/linux/soc/airoha/airoha_offload.h
-+++ b/include/linux/soc/airoha/airoha_offload.h
-@@ -173,6 +173,9 @@ struct airoha_npu {
+--- a/include/linux/soc/airoha/airoha_offload.h	2026-08-30 10:28:55.622127000 +0800
++++ b/include/linux/soc/airoha/airoha_offload.h	2026-08-30 10:29:47.438654800 +0800
+@@ -172,6 +172,9 @@
  		/* protect concurrent npu memory accesses */
  		spinlock_t lock;
  		struct work_struct wdt_work;
