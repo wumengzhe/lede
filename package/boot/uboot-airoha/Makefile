@@ -119,6 +119,12 @@ define Build/InstallDev
 		$(STAGING_DIR_IMAGE)/$(BUILD_VARIANT)-u-boot.$(if $(LZMA_COMPRESS),lzma,bin)
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/u-boot.dtb \
 		$(STAGING_DIR_IMAGE)/$(BUILD_VARIANT)-u-boot.dtb
+	$(if $(wildcard $(TOPDIR)/package/boot/uboot-airoha/files/$(BL2_IMAGE)), \
+		$(INSTALL_DATA) $(TOPDIR)/package/boot/uboot-airoha/files/$(BL2_IMAGE) \
+			$(STAGING_DIR_IMAGE)/$(BL2_IMAGE))
+	$(if $(wildcard $(TOPDIR)/package/boot/uboot-airoha/files/$(BL31_IMAGE)), \
+		$(STAGING_DIR_HOST)/bin/lzma e $(TOPDIR)/package/boot/uboot-airoha/files/$(BL31_IMAGE) \
+			$(STAGING_DIR_IMAGE)/$(patsubst %.bin,%.lzma,$(BL31_IMAGE)))
 endef
 
 $(eval $(call BuildPackage/U-Boot))
