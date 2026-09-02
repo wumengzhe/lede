@@ -1,16 +1,16 @@
-src-git packages https://github.com/coolsnowwolf/packages
+src-git packages https://github.com/coolsnowwolf/packages.git
 #src-git luci https://github.com/coolsnowwolf/luci
 #src-git luci https://github.com/coolsnowwolf/luci.git;openwrt-23.05
 #src-git luci https://github.com/coolsnowwolf/luci.git;openwrt-24.10
 src-git luci https://github.com/coolsnowwolf/luci.git;openwrt-25.12
-src-git routing https://github.com/coolsnowwolf/routing
+src-git routing https://github.com/coolsnowwolf/routing.git
 src-git telephony https://github.com/coolsnowwolf/telephony.git
 # passwall backend packages: provides shadowsocks-rust(-sslocal/-ssserver/-ssmanager),
 # hysteria, tuic-client, naiveproxy, shadow-tls, simple-obfs(-client/-server),
 # v2ray-plugin, xray-plugin, ipt2socks — resolves luci-app-passwall missing-dependency warnings.
 # NOTE: do NOT add xiaorouji/openwrt-passwall here; luci-app-passwall already comes from the luci feed above.
 src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall-packages.git;main
-#src-git helloworld https://github.com/fw876/helloworld.git
+src-git helloworld https://github.com/fw876/helloworld.git
 #src-git qmodem https://github.com/FUjr/modem_feeds.git
 #src-git video https://github.com/openwrt/video.git
 #src-git targets https://github.com/openwrt/targets.git
