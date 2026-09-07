@@ -682,13 +682,6 @@
 
 			status = "okay";
 
-			en7572: optical-front-end@50 {
-				compatible = "airoha,en7572";
-				reg = <0x50>;
-				tx-disable-gpios = <&en7581_pinctrl 38 0>;
-				nvmem-cells = <&bosa_calibration>;
-				nvmem-cell-names = "calibration";
-			};
 		};
 
 		i2c1: i2c1@1fbf8100 {
@@ -976,25 +969,26 @@
 			};
 		};
 
-		xpon: ethernet@1fb64000 {
-			compatible = "airoha,an7581-xpon-mac";
+		xpon_mac: xpon@1fb64000 {
+			compatible = "econet,ecnt-xpon";
 			reg = <0x0 0x1fb64000 0x0 0x3e8>,
-			      <0x0 0x1fb65000 0x0 0xff8>,
-			      <0x0 0x1fb66000 0x0 0x1000>,
-			      <0x0 0x1faf0000 0x0 0x2000>;
-			reg-names = "gpon", "xgpon", "epon", "pon-phy";
-			interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "mac", "phy";
-			pcs-handle = <&pon_pcs>;
-			airoha,scu = <&scuclk>;
-			status = "okay";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pon_pins>;
-			optical-front-end = <&en7572>;
-			data-path = <&gdm2>;
-			nvmem-cells = <&pon_serial>;
-			nvmem-cell-names = "pon-serial";
+			      <0x0 0x1fb66000 0x0 0x23c>,
+			      <0x0 0x1fb65000 0x0 0xff8>;
+
+			interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,  /* XPON MAC */
+				     <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;  /* DYING GASP */
+
+			status = "disabled";
+		};
+
+		pon_phy: pon-phy@1faf0000 {
+			compatible = "econet,ecnt-pon_phy";
+			reg = <0x0 0x1faf0000 0x0 0x1fff>,
+			      <0x0 0x1fa2ff24 0x0 0x4>,
+			      <0x0 0x1faf3000 0x0 0xfff>,
+			      <0x0 0x1faf4000 0x0 0xfff>;
+
+			status = "disabled";
 		};
 
 		switch: switch@1fb58000 {

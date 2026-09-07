@@ -276,3 +276,12 @@
 		#trigger-source-cells = <0>;
 	};
 };
+
+&xpon_mac {
+	status = "okay";
+};
+
+&pon_phy {
+	status = "okay";
+};
+
