@@ -1,121 +1,24 @@
-<%# SPDX-License-Identifier: Apache-2.0 -%>
-<%# luci-app-pon: PON status view (AN7581 XG/XGS-PON ONT) -%>
-<%
-	local ponctl = function(args)
-		local f = io.popen("ponctl " .. args .. " 2>/dev/null")
-		if not f then return {} end
-		local out = f:read("*a") or ""
-		f:close()
-		local kv = {}
-		for line in out:gmatch("[^\n]+") do
-			local k, v = line:match("^(\w+)=(.*)$")
-			if k then kv[k] = v end
-		end
-		return kv
-	end
-
-	local st = ponctl("status")
-	local states = {
-		[0] = "No module",
-		[1] = "O1 (initial)",
-		[2] = "O2 (standby)",
-		[3] = "O3 (serial number)",
-		[4] = "O4 (ranging)",
-		[5] = "O5 (operation)",
-	}
-	local modes = {
-		[0] = "Auto",
-		[1] = "XG-PON",
-		[7] = "XGS-PON",
-	}
-	local state_name = states[tonumber(st.state)] or "unknown"
-	local mode_name = modes[tonumber(st.mode)] or (st.mode or "?")
-	local function fmt10(v)
-		v = tonumber(v) or 0
-		return string.format("%.2f", v / 100)
-	end
-
-	local uci = require "luci.model.uci".cursor()
-	local pcfg = uci:get("pon", "config") or {}
-	local cfg_serial = pcfg.serial_no or "?"
-	local cfg_loid = pcfg.lo_id or "-"
-	local cfg_pass = (pcfg.password and #pcfg.password > 0) and "set" or "-"
--%>
-
 <%+header%>
 
-<h2 name="content"><%:PON%></h2>
+<h2 name="content"><%:PON status%></h2>
 
-<div class="cbi-map">
+<div id="pon-status" class="cbi-map">
 	<div class="cbi-map-descr">
-		<%:XG/XGS-PON optical network terminal status.%>
+		<%:XG/XGS-PON optical network terminal status — auto-refreshing every 2 s.%>
 	</div>
 	<fieldset class="cbi-section">
-		<legend><%:Status%></legend>
+		<legend><%:Line%></legend>
 		<div class="cbi-section-node">
-			<table class="cbi-section-table">
+			<table class="cbi-section-table" id="pon-tbl">
 				<tr class="cbi-section-table-titles">
 					<th class="cbi-section-table-cell"><%:Item%></th>
 					<th class="cbi-section-table-cell"><%:Value%></th>
 				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:ONU state%></td>
-					<td class="cbi-section-table-cell"><%=state_name%> (<%=st.state or "?"%>)</td>
-				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:Serial number%></td>
-					<td class="cbi-section-table-cell"><%=cfg_serial%></td>
-				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:LOID%></td>
-					<td class="cbi-section-table-cell"><%=cfg_loid%></td>
-				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:Password%></td>
-					<td class="cbi-section-table-cell"><%=cfg_pass%></td>
-				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:PON mode%></td>
-					<td class="cbi-section-table-cell"><%=mode_name%> (<%=st.mode or "?"%>)</td>
-				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:Laser%></td>
-					<td class="cbi-section-table-cell"><%=(st.laser == "1") and "on" or "off"%></td>
-				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:RX power%></td>
-					<td class="cbi-section-table-cell"><%=fmt10(st.rx_power)%> dBm</td>
-				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:TX power%></td>
-					<td class="cbi-section-table-cell"><%=fmt10(st.tx_power)%> dBm</td>
-				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:Bias current%></td>
-					<td class="cbi-section-table-cell"><%=fmt10(st.bias)%> mA</td>
-				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:Temperature%></td>
-					<td class="cbi-section-table-cell"><%=fmt10(st.temperature)%> °C</td>
-				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:Voltage%></td>
-					<td class="cbi-section-table-cell"><%=(tonumber(st.voltage) or 0)%> mV</td>
-				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:FEC%></td>
-					<td class="cbi-section-table-cell"><%=(st.fec == "1") and "on" or "off"%></td>
-				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:LOS%></td>
-					<td class="cbi-section-table-cell"><%=(st.los == "1") and "yes" or "no"%></td>
-				</tr>
-				<tr class="cbi-section-table-row">
-					<td class="cbi-section-table-cell"><%:TX fault%></td>
-					<td class="cbi-section-table-cell"><%=(st.tx_fault == "1") and "yes" or "no"%></td>
-				</tr>
 			</table>
 		</div>
+	</fieldset>
+	<fieldset class="cbi-section">
+		<legend><%:Control%></legend>
 		<div class="cbi-page-actions">
 			<form method="post" action="<%=url('admin/network/pon/activate')%>" style="display:inline">
 				<input class="cbi-button cbi-button-apply" type="submit" value="<%:Activate%>" />
@@ -123,8 +26,78 @@
 			<form method="post" action="<%=url('admin/network/pon/deactivate')%>" style="display:inline">
 				<input class="cbi-button cbi-button-reset" type="submit" value="<%:Deactivate%>" />
 			</form>
+			<a class="cbi-button" href="<%=url('admin/network/pon')%>"><%:Configure%></a>
+			<a class="cbi-button" href="<%=url('admin/network/pon/diag')%>"><%:Diagnostics%></a>
 		</div>
 	</fieldset>
 </div>
+
+<script type="text/javascript">
+(function() {
+	var tbl = document.getElementById('pon-tbl');
+	var url = '<%=url("admin/status/pon/json")%>';
+	var rows = [
+		['onu_state',       '<%:ONU state%>'],
+		['state',           '<%:State code%>'],
+		['mode_cfg',        '<%:Mode (configured)%>'],
+		['mode_drv',        '<%:Mode (driver)%>'],
+		['los_detection',   '<%:Optical signal%>'],
+		['los',             '<%:LOS%>'],
+		['fec',             '<%:FEC%>'],
+		['laser',           '<%:Laser%>'],
+		['rx_power',        '<%:RX power (dBm)%>'],
+		['tx_power',        '<%:TX power (dBm)%>'],
+		['temperature',     '<%:Temperature (°C)%>'],
+		['bias',            '<%:Bias current (mA)%>'],
+		['voltage',         '<%:Voltage (mV)%>'],
+		['tx_fault',        '<%:TX fault%>'],
+		['phy_ready',       '<%:PHY ready%>'],
+		['xgtc_sync',       '<%:XGTC state%>'],
+		['data_path_ok',    '<%:Kernel data path%>'],
+		['service_ok',      '<%:Service ready%>'],
+		['burst_ok',        '<%:Uplink burst%>'],
+		['operstate',       '<%:netdev operstate%>'],
+		['carrier',         '<%:netdev carrier%>'],
+		['ponmgr',          '<%:ponmgr%>'],
+		['omcid',           '<%:airoha-omcid%>'],
+		['omcid2',          '<%:omcid2%>'],
+	];
+
+	function refresh() {
+		var x = new XMLHttpRequest();
+		x.open('GET', url, true);
+		x.onreadystatechange = function() {
+			if (x.readyState === 4 && x.status === 200) {
+				try {
+					var d = JSON.parse(x.responseText);
+					while (tbl.rows.length > 1) tbl.deleteRow(1);
+					for (var i = 0; i < rows.length; i++) {
+						var k = rows[i][0];
+						var v = (d[k] === undefined || d[k] === null) ? '?' : d[k];
+						var r = tbl.insertRow(-1);
+						var c1 = r.insertCell(0);
+						var c2 = r.insertCell(1);
+						c1.className = 'cbi-section-table-cell';
+						c2.className = 'cbi-section-table-cell';
+						c1.textContent = rows[i][1];
+						c2.textContent = v;
+					}
+					var ts = tbl.insertRow(-1);
+					var c1 = ts.insertCell(0);
+					var c2 = ts.insertCell(1);
+					c1.className = 'cbi-section-table-cell';
+					c2.className = 'cbi-section-table-cell';
+					c1.textContent = 'updated (epoch)';
+					c2.textContent = d.now || '?';
+				} catch (e) { /* swallow, retry next tick */ }
+			}
+		};
+		x.send();
+	}
+
+	refresh();
+	setInterval(refresh, 2000);
+})();
+</script>
 
 <%+footer%>
