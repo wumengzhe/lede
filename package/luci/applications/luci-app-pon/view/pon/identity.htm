@@ -1,0 +1,104 @@
+<%+header%>
+
+<h2 name="content"><%:PON hardware identity%></h2>
+
+<div class="cbi-map">
+	<div class="cbi-map-descr">
+		<%:Factory-programmed values from the nvmem UBI volumes. These fields are read-only.%>
+	</div>
+	<fieldset class="cbi-section">
+		<legend><%:Hardware identity%></legend>
+		<div class="cbi-section-node">
+			<table class="cbi-section-table">
+				<tr class="cbi-section-table-titles">
+					<th class="cbi-section-table-cell"><%:Item%></th>
+					<th class="cbi-section-table-cell"><%:Value%></th>
+				</tr>
+				<tr>
+					<td class="cbi-section-table-cell"><%:Board MAC address%></td>
+					<td class="cbi-section-table-cell" id="hw-mac"><em>(loading)</em></td>
+				</tr>
+				<tr>
+					<td class="cbi-section-table-cell"><%:Board PON serial%></td>
+					<td class="cbi-section-table-cell" id="hw-sn"><em>(loading)</em></td>
+				</tr>
+			</table>
+		</div>
+	</fieldset>
+	<fieldset class="cbi-section">
+		<legend><%:Links%></legend>
+		<div class="cbi-page-actions">
+			<a class="cbi-button" href="<%=url('admin/status/pon')%>"><%:Status%></a>
+			<a class="cbi-button" href="<%=url('admin/network/pon')%>"><%:Configure%></a>
+			<a class="cbi-button" href="<%=url('admin/network/pon/diag')%>"><%:Diagnostics%></a>
+		</div>
+	</fieldset>
+</div>
+
+<%
+	-- Read board MAC + PON serial from factory nvmem cells.
+	-- bosa volume has calibration@0 (256 B used); ri volume has pon-serial@1a
+	-- (12 B, 4 ASCII vendor + 8 hex) and macaddr@3e (6 B MAC).
+	-- The simplest robust path on 6.18.x is sysfs binary reads via /bin/cat.
+	local function read_file(path)
+		local f = io.open(path, "rb")
+		if not f then return nil end
+		local d = f:read("*a")
+		f:close()
+		return d
+	end
+
+	local function find_nvmem_cell(prefix)
+		-- /sys/bus/nvmem/devices/*/nvmem-style cells
+		local p = io.popen("ls /sys/bus/nvmem/devices/ 2>/dev/null")
+		local list = p:read("*a") or ""
+		p:close()
+		for d in list:gmatch("[^\n]+") do
+			local stem = d:match("^([^.]+)")
+			if stem and (stem == prefix or stem:find(prefix, 1, true)) then
+				return "/sys/bus/nvmem/devices/" .. d
+			end
+		end
+		return nil
+	end
+
+	local function mac_str(raw)
+		if not raw or #raw < 6 then return "(unavailable)" end
+		local b1, b2, b3, b4, b5, b6 = raw:byte(1), raw:byte(2), raw:byte(3),
+			raw:byte(4), raw:byte(5), raw:byte(6)
+		return string.format("%02x:%02x:%02x:%02x:%02x:%02x",
+			b1, b2, b3, b4, b5, b6)
+	end
+
+	local function ascii_clean(raw)
+		if not raw then return "" end
+		local s = ""
+		for i = 1, #raw do
+			local c = raw:sub(i, i)
+			if c >= " " and c <= "~" then s = s .. c end
+		end
+		return s:gsub("^%s+", ""):gsub("%s+$", "")
+	end
+
+	local mac_path  = find_nvmem_cell("3e")
+	local sn_path   = find_nvmem_cell("1a")
+	local mac_raw   = read_file(mac_path)
+	local sn_raw    = read_file(sn_path)
+
+	-- fallback: try ETH0 mac + NVMEM alias path
+	if not mac_raw then
+		mac_path  = "/sys/class/net/eth0/address"
+		local f = io.open(mac_path, "r")
+		if f then mac_raw = f:read("*l") or ""; f:close() end
+	end
+%>
+
+<script type="text/javascript">
+document.getElementById('hw-mac').textContent = '<%=pcdata((function()
+	if mac_path:match("address$") and mac_raw then return mac_raw:gsub("%s+$","") end
+	return mac_str(mac_raw)
+end)())%>';
+document.getElementById('hw-sn').textContent = '<%=pcdata(ascii_clean(sn_raw))%>';
+</script>
+
+<%+footer%>

@@ -1,0 +1,71 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# pon-vol: write a calibration file into the static UBI bosa volume.
+# Usage: pon-vol write bosa <local-file>
+# Used by luci-app-pon action_upload_bosa.
+
+set -eu
+
+cmd="${1:-}"
+volname="${2:-}"
+src="${3:-}"
+
+case "$cmd" in
+	write)
+		[ -n "$volname" ] || { echo "ERR: volname required"; exit 2; }
+		[ -n "$src" ]    || { echo "ERR: src required"; exit 2; }
+		[ -f "$src" ]    || { echo "ERR: src not found: $src"; exit 2; }
+
+		# Locate the UBI device node for volname (e.g. /dev/ubi0_4)
+		dev=$(ubinfo -d -n "$volname" 2>/dev/null | awk -F: '/^[ \t]*Volume ID/ {exit} END{print ""}' \
+			| head -1)
+		if [ -z "$dev" ]; then
+			# Try alternative ubinfo output formats
+			dev=$(ls /dev/ubi*_* 2>/dev/null \
+				| while read d; do
+					v=$(ubinfo -N "$(basename "$d")" 2>/dev/null | awk -F: '/^[ \t]*Name/ {gsub(/^[ \t]+/,"",$2); print $2}')
+					[ "$v" = "$volname" ] && { echo "$d"; break; }
+				done)
+		fi
+		if [ -z "$dev" ] || [ ! -e "$dev" ]; then
+			echo "ERR: UBI volume '$volname' not found"
+			exit 3
+		fi
+
+		# is dynamic? -> dd ; is static? -> ubiupdatevol
+		vtype=$(ubinfo -N "$(basename "$dev")" 2>/dev/null \
+			| awk -F: '/^[ \t]*Type/ {gsub(/^[ \t]+/,"",$2); print $2}')
+		case "$vtype" in
+			dynamic)
+				dd if="$src" of="$dev" bs=4096 conv=notrunc 2>/dev/null || {
+					echo "ERR: dd to $dev failed"; exit 4; }
+				;;
+			static)
+				ubiupdatevol /dev/$(basename "$dev" | cut -d_ -f1) \
+					"$(basename "$dev" | cut -d_ -f2)" "$src" 2>/dev/null || {
+					echo "ERR: ubiupdatevol failed"; exit 4; }
+				;;
+			*)
+				echo "ERR: unknown UBI volume type: $vtype"
+				exit 4
+				;;
+		esac
+
+		# Force driver reload so bosa is read on next registration
+		if [ -f /etc/init.d/airoha-omcid ]; then
+			/etc/init.d/airoha-omcid restart >/dev/null 2>&1 || true
+		fi
+
+		echo "OK: $volname written from $src; reboot recommended"
+		exit 0
+		;;
+	status)
+		# light introspection helper
+		ubinfo -a 2>/dev/null | head -40
+		exit 0
+		;;
+	*)
+		echo "Usage: pon-vol write <volname> <file> | pon-vol status"
+		exit 1
+		;;
+esac
