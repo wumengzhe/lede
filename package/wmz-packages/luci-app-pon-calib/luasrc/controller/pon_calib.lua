@@ -1,15 +1,13 @@
-module("luci.controller.pon", package.seeall)
+module("luci.controller.pon_calib", package.seeall)
 
 local fs = require "nixio.fs"
 local json = require "luci.jsonc"
 
 function index()
-	entry({"admin", "network", "pon"}, cbi("pon"),
-		_("PON / XGSPON"), 60).dependent = false
-	entry({"admin", "network", "pon", "calib"}, template("pon/calib"),
-		_("BOSA / RI 校准"), 61).dependent = false
-	entry({"admin", "network", "pon", "upload"}, call("action_upload"), nil).leaf = true
-	entry({"admin", "network", "pon", "status"}, call("action_status"), nil).leaf = true
+	entry({"admin", "network", "pon_calib"}, template("pon_calib/calib"),
+		_("PON 校准 (BOSA/RI)"), 91).dependent = false
+	entry({"admin", "network", "pon_calib", "upload"}, call("action_upload"), nil).leaf = true
+	entry({"admin", "network", "pon_calib", "status"}, call("action_status"), nil).leaf = true
 end
 
 local function run(cmd)

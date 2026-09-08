@@ -1,6 +1,6 @@
 {
-	"luci-app-pon": {
-		"description": "Grant access to PON management (config 'pon')",
+	"luci-app-pon-calib": {
+		"description": "Grant access to PON BOSA/RI calibration page",
 		"read": {
 			"ubus": ["*"],
 			"uci": ["pon"]

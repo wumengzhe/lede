@@ -1,7 +1,7 @@
 <%+header%>
 
-<h2><%:BOSA / RI 校准数据上传%></h2>
-<p><%:上传原厂备份的 BOSA 校准 / RI 序列号数据，写入对应 UBI 卷。写入后重启 PON 服务生效（在“PON / XGSPON”页保存即会重启）。%></p>
+<h2><%:PON 校准数据上传 (BOSA / RI)%></h2>
+<p><%:上传原厂备份的 BOSA 校准 / RI 序列号数据，写入对应 UBI 卷。写入后重启 PON 服务生效（在“PON”页保存即会重启）。%></p>
 
 <div class="cbi-section">
 	<div class="cbi-value">
@@ -28,13 +28,13 @@ function uploadVol(vol) {
 	var fd = new FormData();
 	fd.append('vol', vol);
 	fd.append('file', f);
-	fetch('<%=url("admin/network/pon/upload")%>', {method: 'POST', body: fd})
+	fetch('<%=url("admin/network/pon_calib/upload")%>', {method: 'POST', body: fd})
 		.then(function (r) { return r.json(); })
 		.then(function (d) { document.getElementById('status').textContent += vol + ': ' + (d.msg || d.ok) + '\n'; });
 }
 
 function refreshStatus() {
-	fetch('<%=url("admin/network/pon/status")%>')
+	fetch('<%=url("admin/network/pon_calib/status")%>')
 		.then(function (r) { return r.json(); })
 		.then(function (d) {
 			var out = 'omcid: ' + d.omcid + '\nponmgr: ' + d.ponmgr + '\n';
