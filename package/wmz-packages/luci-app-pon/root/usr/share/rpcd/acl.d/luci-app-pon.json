@@ -1,0 +1,13 @@
+{
+	"luci-app-pon": {
+		"description": "Grant access to PON management (config 'pon')",
+		"read": {
+			"ubus": ["*"],
+			"uci": ["pon"]
+		},
+		"write": {
+			"ubus": ["*"],
+			"uci": ["pon"]
+		}
+	}
+}

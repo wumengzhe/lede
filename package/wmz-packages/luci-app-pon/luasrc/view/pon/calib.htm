@@ -1,0 +1,51 @@
+<%+header%>
+
+<h2><%:BOSA / RI 校准数据上传%></h2>
+<p><%:上传原厂备份的 BOSA 校准 / RI 序列号数据，写入对应 UBI 卷。写入后重启 PON 服务生效（在“PON / XGSPON”页保存即会重启）。%></p>
+
+<div class="cbi-section">
+	<div class="cbi-value">
+		<label class="cbi-value-title"><%:BOSA 校准%></label>
+		<div class="cbi-value-field"><input type="file" id="bosa"></div>
+	</div>
+	<div class="cbi-value">
+		<label class="cbi-value-title"><%:RI 序列号%></label>
+		<div class="cbi-value-field"><input type="file" id="ri"></div>
+	</div>
+	<div class="cbi-value">
+		<button class="cbi-button cbi-button-apply" onclick="uploadVol('bosa')"><%:上传 BOSA%></button>
+		<button class="cbi-button cbi-button-apply" onclick="uploadVol('ri')"><%:上传 RI%></button>
+		<button class="cbi-button cbi-button-apply" onclick="refreshStatus()"><%:刷新状态%></button>
+	</div>
+</div>
+
+<pre id="status" style="white-space:pre-wrap"></pre>
+
+<script>
+function uploadVol(vol) {
+	var f = document.getElementById(vol).files[0];
+	if (!f) { alert('<%:请先选择文件%>'); return; }
+	var fd = new FormData();
+	fd.append('vol', vol);
+	fd.append('file', f);
+	fetch('<%=url("admin/network/pon/upload")%>', {method: 'POST', body: fd})
+		.then(function (r) { return r.json(); })
+		.then(function (d) { document.getElementById('status').textContent += vol + ': ' + (d.msg || d.ok) + '\n'; });
+}
+
+function refreshStatus() {
+	fetch('<%=url("admin/network/pon/status")%>')
+		.then(function (r) { return r.json(); })
+		.then(function (d) {
+			var out = 'omcid: ' + d.omcid + '\nponmgr: ' + d.ponmgr + '\n';
+			out += 'pon0: ' + (d.pon0 || '(none)') + '\n';
+			out += 'volumes:\n' + (d.pon_vol || '') + '\n';
+			out += 'dmesg:\n' + (d.dmesg || '') + '\n';
+			document.getElementById('status').textContent = out;
+		});
+}
+
+refreshStatus();
+</script>
+
+<%+footer%>
