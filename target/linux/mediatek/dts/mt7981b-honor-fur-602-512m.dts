@@ -191,11 +191,6 @@
 				};
 			};
 
-			partition@360000 {
-					label = "Trace";
-					reg = <0x360000 0x20000>;
-			};
-
 			partition@380000 {
 				label = "FIP";
 				reg = <0x380000 0x200000>;

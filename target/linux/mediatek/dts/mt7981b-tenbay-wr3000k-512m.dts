@@ -158,20 +158,6 @@
 				reg = <0x580000 0x1da80000>;
 			};
 
-			partition@3580000 {
-				label = "ubi1";
-				reg = <0x3580000 0x3000000>;
-			};
-
-			partition@6580000 {
-				label = "Product";
-				reg = <0x6580000 0x0020000>;
-			};
-
-			partition@65a0000 {
-				label = "Custom";
-				reg = <0x65a0000 0x1000000>;
-			};
 		};
 	};
 };

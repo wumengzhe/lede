@@ -197,14 +197,9 @@
 				read-only;
 			};
 
-			partition@580000 {
-				label = "log";
-				reg = <0x580000 0x0040000>;
-			};
-
 			partition@5c0000 {
 				label = "ubi";
-				reg = <0x5c0000 0xea40000>;
+				reg = <0x580000 0xea80000>;
 				compatible = "linux,ubi";
 			};
 		};

@@ -182,12 +182,6 @@
 				};
 			};
 
-			partition@280000 {
-				label = "config";
-				reg = <0x280000 0x100000>;
-				read-only;
-			};
-
 			partition@380000 {
 				label = "fip";
 				reg = <0x380000 0x200000>;
@@ -196,7 +190,7 @@
 
 			partition@580000 {
 				label = "ubi";
-				reg = <0x580000 0x1DA80000>;
+				reg = <0x580000 0x1da80000>;
 			};
 		};
 	};

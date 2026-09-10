@@ -119,17 +119,6 @@
 				reg = <0xd80000 0x1f280000>;
 			};
 
-			partition@6780000 {
-				label = "CFG";
-				reg = <0x6780000 0x400000>;
-				read-only;
-			};
-
-			partition@6b80000 {
-				label = "MISC2";
-				reg = <0x6b80000 0x400000>;
-				read-only;
-			};
 		};
 	};
 };

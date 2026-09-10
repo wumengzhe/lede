@@ -159,15 +159,6 @@
 				reg = <0x580000 0x1fa80000>;
 			};
 
-			partition@2580000 {
-				label = "ubi_backup";
-				reg = <0x2580000 0x2000000>;
-			};
-
-			partition@4580000 {
-				label = "Config_backup";
-				reg = <0x4580000 0x0400000>;
-			};
 		};
 	};
 };

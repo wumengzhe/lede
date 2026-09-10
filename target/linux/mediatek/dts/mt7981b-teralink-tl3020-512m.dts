@@ -270,11 +270,6 @@
 				reg = <0x0380000 0x0200000>;
 			};
 
-			partition@580000 {
-				label = "config2";
-				reg = <0x0580000 0x0100000>;
-			};
-
 			/*
 			 * Sized for the largest SPI-NAND this board is
 			 * reflashed with; the MTD core truncates the
@@ -282,7 +277,7 @@
 			 */
 			ubi: partition@680000 {
 				label = "ubi";
-				reg = <0x680000 0x1d980000>;
+				reg = <0x580000 0x1da80000>;
 				compatible = "linux,ubi";
 
 				volumes {

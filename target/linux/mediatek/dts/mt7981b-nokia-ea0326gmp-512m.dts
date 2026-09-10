@@ -168,33 +168,9 @@
 				read-only;
 			};
 
-			partition@580000 {
-				label = "Config";
-				reg = <0x0580000 0x0200000>;
-				read-only;
-			};
-
-			partition@780000 {
-				label = "Config2";
-				reg = <0x0780000 0x0200000>;
-				read-only;
-			};
-
-			partition@980000 {
-				label = "Aos-net";
-				reg = <0x0980000 0x0c00000>;
-				read-only;
-			};
-
-			partition@1580000 {
-				label = "bvasPlugin";
-				reg = <0x1580000 0x0c00000>;
-				read-only;
-			};
-
 			partition@2180000 {
 				label = "ubi";
-				reg = <0x2180000 0x1be80000>;
+				reg = <0x580000 0x1da80000>;
 			};
 		};
 	};

@@ -189,24 +189,9 @@
 				reg = <0x380000 0x200000>;
 			};
 
-			partition@580000 {
-				label = "FIP2";
-				reg = <0x580000 0x200000>;
-			};
-
-			partition@780000 {
-				label = "product_info";
-				reg = <0x780000 0x80000>;
-			};
-
-			partition@800000 {
-				label = "kdump";
-				reg = <0x800000 0x80000>;
-			};
-
 			partition@880000 {
 				label = "ubi";
-				reg = <0x880000 0x1f780000>;
+				reg = <0x580000 0x1fa80000>;
 			};
 		};
 	};

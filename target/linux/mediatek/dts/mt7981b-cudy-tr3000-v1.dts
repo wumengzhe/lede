@@ -172,21 +172,6 @@
 				};
 			};
 
-			partition@380000 {
-				label = "bdinfo";
-				reg = <0x380000 0x0040000>;
-				read-only;
-
-				nvmem-layout {
-					compatible = "fixed-layout";
-					#address-cells = <1>;
-					#size-cells = <1>;
-
-					macaddr_bdinfo_de00: macaddr@de00 {
-						compatible = "mac-base";
-						reg = <0xde00 0x6>;
-						#nvmem-cell-cells = <1>;
-					};
 				};
 			};
 

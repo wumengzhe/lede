@@ -9,18 +9,14 @@
 };
 
 &partitions {
-	partition@780000 {
-		label = "firmware_backup";
-		reg = <0x780000 0x2000000>;
-	};
 
 	/*
 	 * ubi 为末尾分区，声明到 512MiB 边界；
 	 * 小容量颗粒上由内核 mtdpart 自动截断，UBI 自动撑满剩余空间。
 	 */
-	partition@2780000 {
+	partition@780000 {
 		label = "ubi";
-		reg = <0x2780000 0xc880000>;
+		reg = <0x780000 0xc880000>;
 	};
 };
 

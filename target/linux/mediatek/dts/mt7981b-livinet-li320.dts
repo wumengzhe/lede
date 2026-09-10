@@ -217,19 +217,10 @@
 			 * 由内核 mtdpart 自动截断、UBI 自动撑满。
 			 * 注意：本布局需配合自制 U-Boot 使用。
 			 */
-			partition@580000 {
-				label = "zrsave";
-				reg = <0x580000 0x100000>;
-			};
-
-			partition@680000 {
-				label = "config2";
-				reg = <0x680000 0x100000>;
-			};
 
 			ubi: partition@780000 {
 				label = "ubi";
-				reg = <0x780000 0x1f880000>;
+				reg = <0x580000 0x1fa80000>;
 			};
 		};
 	};

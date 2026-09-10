@@ -254,30 +254,16 @@
 				reg = <0x380000 0x0200000>;
 			};
 
-			partition@580000 {
-				label = "woem";
-				reg = <0x580000 0x0a0000>;
-			};
-
 			/*
 			 * 厂商保留区（wtinfo/nvram）前移到 ubi 之前，
 			 * 让 ubi 成为末尾分区并声明到 512MiB 边界：
 			 * 128M/256M/512M 颗粒上由内核 mtdpart 自动截断，
 			 * UBI 再把剩余 PEB 全部划给 rootfs_data。
 			 */
-			partition@620000 {
-				label = "wtinfo";
-				reg = <0x620000 0x060000>;
-			};
-
-			partition@680000 {
-				label = "nvram";
-				reg = <0x680000 0x060000>;
-			};
 
 			partition@6E0000 {
 				label = "ubi";
-				reg = <0x6e0000 0xe920000>;
+				reg = <0x580000 0xea80000>;
 				compatible = "linux,ubi";
 
 				volumes {

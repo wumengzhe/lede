@@ -255,21 +255,9 @@
 				read-only;
 			};
 
-			partition@780000 {
-				label = "log";
-				reg = <0x780000 0x40000>;
-				read-only;
-			};
-
-			partition@7c0000 {
-				label = "CFG";
-				reg = <0x7c0000 0x40000>;
-				read-only;
-			};
-
 			partition@800000 {
 				label = "ubi";
-				reg = <0x800000 0xe800000>;
+				reg = <0x780000 0xe880000>;
 				compatible = "linux,ubi";
 			};
 		};

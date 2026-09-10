@@ -202,21 +202,6 @@
 				reg = <0x380000 0x200000>;
 			};
 
-			partition@580000 {
-				label = "FIP2";
-				reg = <0x580000 0x200000>;
-			};
-
-			partition@780000 {
-				label = "product_info";
-				reg = <0x780000 0x80000>;
-			};
-
-			partition@800000 {
-				label = "kdump";
-				reg = <0x800000 0x80000>;
-			};
-
 			/*
 			 * Sized for the largest SPI-NAND this board ships with
 			 * (512 MiB). The kernel truncates the partition to the
@@ -225,7 +210,7 @@
 			 */
 			partition@880000 {
 				label = "ubi";
-				reg = <0x880000 0xe780000>;
+				reg = <0x580000 0xea80000>;
 			};
 		};
 	};

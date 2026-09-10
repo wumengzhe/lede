@@ -124,21 +124,9 @@
 				read-only;
 			};
 
-			config: partition@100000 {
-				label = "config";
-				reg = <0x100000 0x0040000>;
-				read-only;
-			};
-
 			factory: partition@140000 {
 				label = "factory";
 				reg = <0x140000 0x0040000>;
-				read-only;
-			};
-
-			partition@180000 {
-				label = "reserved";
-				reg = <0x180000 0x0180000>;
 				read-only;
 			};
 
@@ -155,7 +143,7 @@
 
 			partition@580000 {
 				label = "ubi";
-				reg = <0x580000 0x1DA80000>;
+				reg = <0x580000 0x1da80000>;
 			};
 		};
 	};
