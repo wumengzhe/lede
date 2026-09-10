@@ -12,7 +12,7 @@
 		partitions {
 			partition@5c0000 {
 				label = "ubi";
-				reg = <0x5c0000 0xe600000>;
+				reg = <0x580000 0xe640000>;
 			};
 		};
 	};

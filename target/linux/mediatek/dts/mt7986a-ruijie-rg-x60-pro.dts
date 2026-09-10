@@ -191,21 +191,9 @@
 				read-only;
 			};
 
-			partition@580000 {
-				label = "product_info";
-				reg = <0x580000 0x80000>;
-				read-only;
-			};
-
-			partition@600000 {
-				label = "kdump";
-				reg = <0x600000 0x80000>;
-				read-only;
-			};
-
 			partition@680000 {
 				label = "ubi";
-				reg = <0x680000 0x1f980000>;
+				reg = <0x580000 0x1fa80000>;
 			};
 		};
 	};

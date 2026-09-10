@@ -191,13 +191,9 @@
 
 			partition@580000 {
 				label = "ubi";
-				reg = <0x580000 0x6e00000>;
+				reg = <0x580000 0x6e80000>;
 			};
 
-			partition@7380000 {
-				label = "config";
-				reg = <0x7380000 0x80000>;
-			};
 		};
 	};
 };

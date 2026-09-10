@@ -254,11 +254,6 @@
 				reg = <0x380000 0x0200000>;
 			};
 
-			partition@580000 {
-				label = "woem";
-				reg = <0x580000 0xa0000>;
-			};
-
 			/*
 			 * 厂商保留区（wtinfo/nvram）与备份槽 ubi2 前移到 ubi 之前，
 			 * 让 ubi 成为末尾分区并声明到 512MiB 边界：
@@ -266,24 +261,10 @@
 			 * UBI 再把剩余 PEB 全部划给 rootfs_data。
 			 * 注意：本布局需配合自制 U-Boot 使用。
 			 */
-			partition@620000 {
-				label = "wtinfo";
-				reg = <0x620000 0x60000>;
-			};
-
-			partition@680000 {
-				label = "nvram";
-				reg = <0x680000 0x60000>;
-			};
-
-			partition@6E0000 {
-				label = "ubi2";
-				reg = <0x6E0000 0x3800000>;
-			};
 
 			partition@3EE0000 {
 				label = "ubi";
-				reg = <0x3EE0000 0x1c120000>;
+				reg = <0x580000 0x1fa80000>;
 			};
 		};
 	};
