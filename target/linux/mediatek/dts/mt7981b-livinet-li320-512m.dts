@@ -218,7 +218,7 @@
 			 * 注意：本布局需配合自制 U-Boot 使用。
 			 */
 
-			ubi: partition@780000 {
+			ubi: partition@580000 {
 				label = "ubi";
 				reg = <0x580000 0x1da80000>;
 			};
