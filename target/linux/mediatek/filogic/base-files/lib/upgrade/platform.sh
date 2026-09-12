@@ -50,6 +50,7 @@ platform_do_upgrade() {
 	bt,r320|\
 	clx,s20p|\
 	cmcc,rax3000m-emmc|\
+	cmcc,rax3000me-emmc|\
 	cmcc,xr30-emmc|\
 	glinet,gl-mt2500|\
 	glinet,gl-mt6000|\
@@ -121,6 +122,7 @@ platform_copy_config() {
 	bt,r320|\
 	clx,s20p|\
 	cmcc,rax3000m-emmc|\
+	cmcc,rax3000me-emmc|\
 	cmcc,xr30-emmc|\
 	glinet,gl-mt2500|\
 	glinet,gl-mt6000|\
