@@ -544,7 +544,7 @@ TARGET_DEVICES += cmcc_rax3000me-emmc
 define Device/cmcc_rax3000me-nand
   DEVICE_VENDOR := CMCC
   DEVICE_MODEL := RAX3000Me (NAND version)
-  DEVICE_DTS := mt7981b-cmcc-rax3000me
+  DEVICE_DTS := mt7981b-cmcc-rax3000me-nand
   DEVICE_DTS_DIR := ../dts
   DEVICE_DTS_OVERLAY := mt7981b-cmcc-rax3000me-nousb
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
@@ -561,6 +561,28 @@ define Device/cmcc_rax3000me-nand
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += cmcc_rax3000me-nand
+
+define Device/cmcc_rax3000me-nand-an8855
+  DEVICE_VENDOR := CMCC
+  DEVICE_MODEL := RAX3000Me (NAND version)
+  DEVICE_VARIANT := AN8855 switch
+  DEVICE_DTS := mt7981b-cmcc-rax3000me-nand-an8855
+  DEVICE_DTS_DIR := ../dts
+  SUPPORTED_DEVICES += cmcc,rax3000me-nand
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  IMAGE_SIZE := 116736k
+  KERNEL_IN_UBI := 1
+  ARTIFACTS := nand-ddr3-preloader.bin nand-ddr3-bl31-uboot.fip nand-ddr4-preloader.bin nand-ddr4-bl31-uboot.fip
+  ARTIFACT/nand-ddr3-preloader.bin := mt7981-bl2 spim-nand-ddr3-1866
+  ARTIFACT/nand-ddr3-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr3
+  ARTIFACT/nand-ddr4-preloader.bin := mt7981-bl2 spim-nand-ddr4
+  ARTIFACT/nand-ddr4-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr4
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += cmcc_rax3000me-nand-an8855
 
 define Device/cmcc_xr30-emmc
   DEVICE_VENDOR := CMCC
