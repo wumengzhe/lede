@@ -1056,11 +1056,6 @@ define Device/cmcc_rax3000me-nand
   PAGESIZE := 2048
   IMAGE_SIZE := 116736k
   KERNEL_IN_UBI := 1
-  ARTIFACTS := nand-ddr3-preloader.bin nand-ddr3-bl31-uboot.fip nand-ddr4-preloader.bin nand-ddr4-bl31-uboot.fip
-  ARTIFACT/nand-ddr3-preloader.bin := mt7981-bl2 spim-nand-ddr3-1866
-  ARTIFACT/nand-ddr3-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr3
-  ARTIFACT/nand-ddr4-preloader.bin := mt7981-bl2 spim-nand-ddr4
-  ARTIFACT/nand-ddr4-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr4
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += cmcc_rax3000me-nand
@@ -1078,11 +1073,6 @@ define Device/cmcc_rax3000me-nand-an8855
   PAGESIZE := 2048
   IMAGE_SIZE := 116736k
   KERNEL_IN_UBI := 1
-  ARTIFACTS := nand-ddr3-preloader.bin nand-ddr3-bl31-uboot.fip nand-ddr4-preloader.bin nand-ddr4-bl31-uboot.fip
-  ARTIFACT/nand-ddr3-preloader.bin := mt7981-bl2 spim-nand-ddr3-1866
-  ARTIFACT/nand-ddr3-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr3
-  ARTIFACT/nand-ddr4-preloader.bin := mt7981-bl2 spim-nand-ddr4
-  ARTIFACT/nand-ddr4-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr4
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += cmcc_rax3000me-nand-an8855
@@ -1100,11 +1090,6 @@ define Device/cmcc_rax3000me-nand-256m
   PAGESIZE := 2048
   IMAGE_SIZE := 240128k
   KERNEL_IN_UBI := 1
-  ARTIFACTS := nand-ddr3-preloader.bin nand-ddr3-bl31-uboot.fip nand-ddr4-preloader.bin nand-ddr4-bl31-uboot.fip
-  ARTIFACT/nand-ddr3-preloader.bin := mt7981-bl2 spim-nand-ddr3-1866
-  ARTIFACT/nand-ddr3-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr3
-  ARTIFACT/nand-ddr4-preloader.bin := mt7981-bl2 spim-nand-ddr4
-  ARTIFACT/nand-ddr4-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr4
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += cmcc_rax3000me-nand-256m
@@ -1122,11 +1107,6 @@ define Device/cmcc_rax3000me-nand-an8855-256m
   PAGESIZE := 2048
   IMAGE_SIZE := 240128k
   KERNEL_IN_UBI := 1
-  ARTIFACTS := nand-ddr3-preloader.bin nand-ddr3-bl31-uboot.fip nand-ddr4-preloader.bin nand-ddr4-bl31-uboot.fip
-  ARTIFACT/nand-ddr3-preloader.bin := mt7981-bl2 spim-nand-ddr3-1866
-  ARTIFACT/nand-ddr3-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr3
-  ARTIFACT/nand-ddr4-preloader.bin := mt7981-bl2 spim-nand-ddr4
-  ARTIFACT/nand-ddr4-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr4
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += cmcc_rax3000me-nand-an8855-256m
@@ -1144,11 +1124,6 @@ define Device/cmcc_rax3000me-nand-512m
   PAGESIZE := 2048
   IMAGE_SIZE := 485888k
   KERNEL_IN_UBI := 1
-  ARTIFACTS := nand-ddr3-preloader.bin nand-ddr3-bl31-uboot.fip nand-ddr4-preloader.bin nand-ddr4-bl31-uboot.fip
-  ARTIFACT/nand-ddr3-preloader.bin := mt7981-bl2 spim-nand-ddr3-1866
-  ARTIFACT/nand-ddr3-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr3
-  ARTIFACT/nand-ddr4-preloader.bin := mt7981-bl2 spim-nand-ddr4
-  ARTIFACT/nand-ddr4-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr4
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += cmcc_rax3000me-nand-512m
@@ -1166,11 +1141,6 @@ define Device/cmcc_rax3000me-nand-an8855-512m
   PAGESIZE := 2048
   IMAGE_SIZE := 485888k
   KERNEL_IN_UBI := 1
-  ARTIFACTS := nand-ddr3-preloader.bin nand-ddr3-bl31-uboot.fip nand-ddr4-preloader.bin nand-ddr4-bl31-uboot.fip
-  ARTIFACT/nand-ddr3-preloader.bin := mt7981-bl2 spim-nand-ddr3-1866
-  ARTIFACT/nand-ddr3-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr3
-  ARTIFACT/nand-ddr4-preloader.bin := mt7981-bl2 spim-nand-ddr4
-  ARTIFACT/nand-ddr4-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr4
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += cmcc_rax3000me-nand-an8855-512m
@@ -1188,11 +1158,6 @@ define Device/cmcc_rax3000me-nand-auto
   PAGESIZE := 2048
   IMAGE_SIZE := 518656k
   KERNEL_IN_UBI := 1
-  ARTIFACTS := nand-ddr3-preloader.bin nand-ddr3-bl31-uboot.fip nand-ddr4-preloader.bin nand-ddr4-bl31-uboot.fip
-  ARTIFACT/nand-ddr3-preloader.bin := mt7981-bl2 spim-nand-ddr3-1866
-  ARTIFACT/nand-ddr3-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr3
-  ARTIFACT/nand-ddr4-preloader.bin := mt7981-bl2 spim-nand-ddr4
-  ARTIFACT/nand-ddr4-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr4
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += cmcc_rax3000me-nand-auto
@@ -1210,11 +1175,6 @@ define Device/cmcc_rax3000me-nand-an8855-auto
   PAGESIZE := 2048
   IMAGE_SIZE := 518656k
   KERNEL_IN_UBI := 1
-  ARTIFACTS := nand-ddr3-preloader.bin nand-ddr3-bl31-uboot.fip nand-ddr4-preloader.bin nand-ddr4-bl31-uboot.fip
-  ARTIFACT/nand-ddr3-preloader.bin := mt7981-bl2 spim-nand-ddr3-1866
-  ARTIFACT/nand-ddr3-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr3
-  ARTIFACT/nand-ddr4-preloader.bin := mt7981-bl2 spim-nand-ddr4
-  ARTIFACT/nand-ddr4-bl31-uboot.fip := mt7981-bl31-uboot cmcc_rax3000me-nand-ddr4
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += cmcc_rax3000me-nand-an8855-auto
