@@ -545,6 +545,7 @@ define Device/cmcc_rax3000me-nand
   DEVICE_VENDOR := CMCC
   DEVICE_MODEL := RAX3000Me (NAND version)
   DEVICE_DTS := mt7981b-cmcc-rax3000me-nand
+  SUPPORTED_DEVICES += cmcc,rax3000me-nand-an8855
   DEVICE_DTS_DIR := ../dts
   DEVICE_DTS_OVERLAY := mt7981b-cmcc-rax3000me-nousb
   DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
@@ -557,22 +558,6 @@ define Device/cmcc_rax3000me-nand
 endef
 TARGET_DEVICES += cmcc_rax3000me-nand
 
-define Device/cmcc_rax3000me-nand-an8855
-  DEVICE_VENDOR := CMCC
-  DEVICE_MODEL := RAX3000Me (NAND version)
-  DEVICE_VARIANT := AN8855 switch
-  DEVICE_DTS := mt7981b-cmcc-rax3000me-nand-an8855
-  DEVICE_DTS_DIR := ../dts
-  SUPPORTED_DEVICES += cmcc,rax3000me-nand
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3
-  UBINIZE_OPTS := -E 5
-  BLOCKSIZE := 128k
-  PAGESIZE := 2048
-  IMAGE_SIZE := 116736k
-  KERNEL_IN_UBI := 1
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-endef
-TARGET_DEVICES += cmcc_rax3000me-nand-an8855
 
 define Device/cmcc_xr30-emmc
   DEVICE_VENDOR := CMCC
