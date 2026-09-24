@@ -1,3 +1,7 @@
+# PON/USB storage packages shared by Airoha boards (ported from ponwrt)
+AIROHA_USB_STORAGE_PACKAGES := block-mount kmod-usb-storage kmod-usb-storage-uas \
+	kmod-fs-ext4 kmod-fs-vfat kmod-fs-exfat
+
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/image.mk
 
