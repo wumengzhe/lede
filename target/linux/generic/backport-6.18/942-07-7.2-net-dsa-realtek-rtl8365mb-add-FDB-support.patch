@@ -99,7 +99,7 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  	int	(*phy_read)(struct realtek_priv *priv, int phy, int regnum);
  	int	(*phy_write)(struct realtek_priv *priv, int phy, int regnum,
  			     u16 val);
---- a/drivers/net/dsa/realtek/rtl8365mb_l2.c
+--- /dev/null
 +++ b/drivers/net/dsa/realtek/rtl8365mb_l2.c
 @@ -0,0 +1,576 @@
 +// SPDX-License-Identifier: GPL-2.0
@@ -678,7 +678,7 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
 +				    data, RTL8365MB_L2_ENTRY_SIZE);
 +	return ret;
 +}
---- a/drivers/net/dsa/realtek/rtl8365mb_l2.h
+--- /dev/null
 +++ b/drivers/net/dsa/realtek/rtl8365mb_l2.h
 @@ -0,0 +1,32 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
