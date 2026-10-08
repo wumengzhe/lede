@@ -52,6 +52,7 @@ platform_do_upgrade() {
 	cmcc,rax3000m-emmc|\
 	cmcc,rax3000me-emmc|\
 	cmcc,xr30-emmc|\
+	clx,s20l|\
 	glinet,gl-mt2500|\
 	glinet,gl-mt6000|\
 	glinet,gl-x3000|\
@@ -124,6 +125,7 @@ platform_copy_config() {
 	cmcc,rax3000m-emmc|\
 	cmcc,rax3000me-emmc|\
 	cmcc,xr30-emmc|\
+	clx,s20l|\
 	glinet,gl-mt2500|\
 	glinet,gl-mt6000|\
 	glinet,gl-x3000|\
