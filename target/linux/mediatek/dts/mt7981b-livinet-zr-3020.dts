@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+
+/dts-v1/;
+#include "mt7981b-livinet-zr-3020.dtsi"
+
+/ {
+	model = "Livinet ZR-3020 (stock layout)";
+	compatible = "livinet,zr-3020", "mediatek,mt7981";
+};
+
+&partitions {
+	partition@780000 {
+		label = "firmware_backup";
+		reg = <0x780000 0x2000000>;
+	};
+
+	/*
+	 * ubi 为末尾分区，声明到 512MiB 边界；
+	 * 小容量颗粒上由内核 mtdpart 自动截断，UBI 自动撑满剩余空间。
+	 */
+	partition@2780000 {
+		label = "ubi";
+		reg = <0x2780000 0x1d880000>;
+	};
+};
+
+&spi_nand {
+	mediatek,nmbm;
+	mediatek,bmt-max-ratio = <1>;
+	mediatek,bmt-max-reserved-blocks = <64>;
+};

@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+
+/dts-v1/;
+#include "mt7981b-tenbay-wr3000k.dts"
+
+/ {
+	model = "Tenbay WR3000K (Large Flash)";
+	compatible = "tenbay,wr3000k-large", "tenbay,wr3000k", "mediatek,mt7981";
+};
+
+&spi0 {
+	flash@0 {
+		partitions {
+			/*
+			 * Large-flash layout (256M / 512M retrofit chips).
+			 *
+			 * The ubi START offset is deliberately KEPT at 0x580000: this board
+			 * boots its stock u-boot, which locates the ubi volume at a
+			 * hard-coded offset -- moving it would brick the device.
+			 *
+			 * Dropped trailing partitions: ubi1 (48M dual-boot slot), Product, Custom.
+			 * ubi then spans to the 512MiB boundary; UBI truncates itself to
+			 * the real chip size, so one image covers both 256M and 512M.
+			 */
+			partition@580000 {
+				label = "ubi";
+				reg = <0x580000 0x1fa80000>;
+			};
+
+			/delete-node/ partition@3580000;
+			/delete-node/ partition@6580000;
+			/delete-node/ partition@65a0000;
+		};
+	};
+};

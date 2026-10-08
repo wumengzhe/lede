@@ -289,25 +289,21 @@
 			partition@0 {
 				label = "BL2";
 				reg = <0x0000000 0x0100000>;
-				read-only;
 			};
 
 			partition@100000 {
 				label = "Nvram";
 				reg = <0x0100000 0x0040000>;
-				read-only;
 			};
 
 			partition@140000 {
 				label = "Bdata";
 				reg = <0x0140000 0x0040000>;
-				read-only;
 			};
 
 			factory: partition@180000 {
 				label = "Factory";
 				reg = <0x0180000 0x0200000>;
-				read-only;
 
 				nvmem-layout {
 					compatible = "fixed-layout";
@@ -325,30 +321,32 @@
 			partition@380000 {
 				label = "FIP";
 				reg = <0x0380000 0x0200000>;
-				read-only;
 			};
 
 			partition@580000 {
 				label = "crash";
 				reg = <0x0580000 0x0040000>;
-				read-only;
 			};
 
 			partition@5c0000 {
 				label = "crash_log";
 				reg = <0x05c0000 0x0040000>;
-				read-only;
 			};
 
 			partition@600000 {
-				label = "ubi";
-				reg = <0x0600000 0x7000000>;
+				label = "KF";
+				reg = <0x0600000 0x0040000>;
 			};
 
-			partition@7600000 {
-				label = "KF";
-				reg = <0x7600000 0x0040000>;
-				read-only;
+			/*
+			 * Sized for the largest SPI-NAND these routers ship
+			 * with (512 MiB); the MTD core truncates it to the
+			 * real chip size, so the 128 MiB units keep working
+			 * and bigger ones get every remaining PEB.
+			 */
+			partition@640000 {
+				label = "ubi";
+				reg = <0x0640000 0x1f9c0000>;
 			};
 		};
 	};

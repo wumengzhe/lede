@@ -333,7 +333,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  	if (iptunnel_handle_offloads(skb, SKB_GSO_IPXIP6))
  		return -1;
  
-@@ -1566,6 +1727,14 @@ ip6_tnl_change(struct ip6_tnl *t, const
+@@ -1574,6 +1735,14 @@ ip6_tnl_change(struct ip6_tnl *t, const
  	t->parms.link = p->link;
  	t->parms.proto = p->proto;
  	t->parms.fwmark = p->fwmark;
@@ -348,7 +348,7 @@ Signed-off-by: Steven Barth <cyrus@openwrt.org>
  	dst_cache_reset(&t->dst_cache);
  	ip6_tnl_link_config(t);
  	return 0;
-@@ -1604,6 +1773,7 @@ ip6_tnl_parm_from_user(struct __ip6_tnl_
+@@ -1612,6 +1781,7 @@ ip6_tnl_parm_from_user(struct __ip6_tnl_
  	p->flowinfo = u->flowinfo;
  	p->link = u->link;
  	p->proto = u->proto;

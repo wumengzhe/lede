@@ -45,6 +45,10 @@ platform_do_upgrade() {
 			;;
 		esac
 		;;
+	Airpi,emmc-16g|\
+	aigo,s21|\
+	bt,r320|\
+	clx,s20p|\
 	cmcc,rax3000m-emmc|\
 	cmcc,rax3000me-emmc|\
 	cmcc,xr30-emmc|\
@@ -56,7 +60,12 @@ platform_do_upgrade() {
 	hf,m7986r1-emmc|\
 	huasifei,wh3000-emmc|\
 	huasifei,wh3000-pro|\
-	jdcloud,re-cs-05)
+	jdcloud,re-cp-03|\
+	jdcloud,re-cs-05|\
+	philips,hy3000|\
+	sl,3000-emmc|\
+	sn,r1|\
+	sn,r1-longlife)
 		CI_KERNPART="kernel"
 		CI_ROOTPART="rootfs"
 		emmc_do_upgrade "$1"
@@ -109,6 +118,10 @@ platform_copy_config() {
 			;;
 		esac
 		;;
+	Airpi,emmc-16g|\
+	aigo,s21|\
+	bt,r320|\
+	clx,s20p|\
 	cmcc,rax3000m-emmc|\
 	cmcc,rax3000me-emmc|\
 	cmcc,xr30-emmc|\
@@ -120,7 +133,12 @@ platform_copy_config() {
 	hf,m7986r1-emmc|\
 	huasifei,wh3000-emmc|\
 	huasifei,wh3000-pro|\
-	jdcloud,re-cs-05)
+	jdcloud,re-cp-03|\
+	jdcloud,re-cs-05|\
+	philips,hy3000|\
+	sl,3000-emmc|\
+	sn,r1|\
+	sn,r1-longlife)
 		emmc_copy_config
 		;;
 	esac

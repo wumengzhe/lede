@@ -1,0 +1,27 @@
+config xpon 'line0'
+	# device 是 PLOAM 身份和数据面配置的实例键。
+	option device 'pon0'
+	option mode 'xgpon'
+
+	# 空 serial_number 使用板上 RI/NVMEM 身份。也可填写 16 位 raw hex，
+	# 或常见的 VEND12345678（4 字节 ASCII Vendor ID + 8 位 hex serial）。
+	option serial_number ''
+
+	# XG-PON PLOAM 的 36 字节 Registration-ID。支持 text:内容 或
+	# hex:72位十六进制；空值使用标准规定的 36 字节全零默认值。
+	option registration_id ''
+
+config omci 'line0_omci'
+	# line 引用提供 PLOAM 身份的 xpon section。
+	option line 'line0'
+	# device 显式指定该线路的 OMCI netdev。
+	option device 'omci0'
+
+	# 以下字段由该 section 对应的 OMCI agent 锁存。
+	option vendor_id ''
+	option equipment_id ''
+	option hardware_version ''
+	option software_version ''
+	option operator_id ''
+	option loid ''
+	option loid_password ''

@@ -11,9 +11,14 @@
 &spi0 {
 	flash@0 {
 		partitions {
+			/*
+			 * 自制 U-Boot：ubi 自 0x5c0000 一路声明到 512MiB 边界。
+			 * 内核 mtdpart 会把越界部分自动截断到真实闪存末尾，
+			 * UBI 再用剩余 PEB 建卷，因此同一份固件可通吃 128/256/512MB。
+			 */
 			partition@5c0000 {
 				label = "ubi";
-				reg = <0x5c0000 0x7000000>;
+				reg = <0x5c0000 0x1fa40000>;
 			};
 		};
 	};

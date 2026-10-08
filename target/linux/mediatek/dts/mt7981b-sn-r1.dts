@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/*
+ * Copyright (C) 2026 Yuzhii0718 <admin@yuzhii0718.eu.org>
+ */
+
+#include "mt7981b-sn-r1-common.dtsi"
+
+/ {
+	model = "SN-R1";
+	compatible = "sn,r1", "mediatek,mt7981";
+};
+
+&mmc0 {
+	cap-mmc-highspeed;
+	max-frequency = <52000000>;
+};

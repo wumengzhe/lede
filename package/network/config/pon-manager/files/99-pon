@@ -1,0 +1,20 @@
+#!/bin/sh
+# uci-defaults for the Nokia Bell XG-040G-MD PON ONT.
+# Wires the PON data plane (gdm2/pon_pcs surfaced as `pon0`) as WAN and
+# starts ponmgr, then hands off to netifd's `pon` protocol.
+
+. /lib/functions/uci.sh
+
+# If a newer, more specific board.d hook is present (99-airoha-pon in
+# target/linux/airoha/base-files), it already did this; only fill the gaps.
+uci -q get network.pon >/dev/null || {
+	uci -q batch <<'EOF'
+	set network.pon=interface
+	set network.pon.proto=pon
+	set network.pon.device=pon0
+	set network.pon.metric=1
+EOF
+	uci -q commit network
+}
+
+exit 0
