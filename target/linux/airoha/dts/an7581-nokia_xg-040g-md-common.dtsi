@@ -8,6 +8,10 @@
 #include "an758x-nokia_xg-040g-common.dtsi"
 
 / {
+	aliases {
+		pon-calibration = &pon_calibration_storage;
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 
@@ -97,6 +101,14 @@
 &en7581_pinctrl {
 	gpio-ranges = <&en7581_pinctrl 0 13 50>;
 
+	/* Select the PON mux while leaving GPIO38 under optical frontend control. */
+	pon_pins: pon-pins {
+		mux {
+			function = "pon";
+			groups = "pon_tx_disable_gpio";
+		};
+	};
+
 	mdio_pins: mdio-pins {
 		mux {
 			function = "mdio";
@@ -153,6 +165,21 @@
 				default-state = "keep";
 			};
 		};
+	};
+};
+
+&i2c0 {
+	/* The 0x50 window loads MD32 while the frontend owns runtime window 0x51. */
+	en7572: optical-front-end@50 {
+		compatible = "airoha,en7572";
+		reg = <0x50>;
+
+		/* GPIO38 is the active-high PHY_TX_POWER_DISABLE signal. */
+		tx-disable-gpios = <&en7581_pinctrl 38 GPIO_ACTIVE_HIGH>;
+
+		/* The 512 bytes after the bosa header contain per-device optical data. */
+		nvmem-cells = <&pon_calibration>;
+		nvmem-cell-names = "calibration";
 	};
 };
 
