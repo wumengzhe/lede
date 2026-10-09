@@ -152,7 +152,8 @@ define Device/nokia_xg-040g-md-common
   UBINIZE_OPTS := -E 5
   DEVICE_PACKAGES := kmod-gpio-button-hotplug kmod-leds-gpio \
 	kmod-phy-airoha-en8811h kmod-regulator-userspace-consumer \
-	kmod-usb-ledtrig-usbport kmod-usb3
+	kmod-usb-ledtrig-usbport kmod-usb3 \
+	kmod-airoha-xpon kmod-airoha-en7572 airoha-ponctl airoha-pond
 endef
 
 define Device/nokia_xg-040g-md
@@ -208,82 +209,18 @@ define Device/nokia_xg-040g-md-3rdparty
 endef
 TARGET_DEVICES += nokia_xg-040g-md-3rdparty
 
-define Device/nokia_xg-040g-md-3rdparty
-  $(call Device/nokia_xg-040g-md-common)
-  DEVICE_VARIANT := (3rdparty tcboot UBI)
-  DEVICE_DTS := an7581-nokia_xg-040g-md-3rdparty
-  UBOOTENV_IN_UBI := 1
-  KERNEL_IN_UBI := 1
-  IMAGES := sysupgrade.bin
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES += fitblk
-  SUPPORTED_DEVICES += nokia,xg-040g-md-ubi nokia,xg-040g-md
-  ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot nokia_xg-040g-md
-  ARTIFACT/preloader.bin := an7581-preloader nokia_xg-040g-md
-  ARTIFACTS := bl31-uboot.fip preloader.bin
-endef
-TARGET_DEVICES += nokia_xg-040g-md-3rdparty
-
-define Device/nokia_xg-040g-md-3rdparty
-  $(call Device/nokia_xg-040g-md-common)
-  DEVICE_VARIANT := (3rdparty tcboot UBI)
-  DEVICE_DTS := an7581-nokia_xg-040g-md-3rdparty
-  UBOOTENV_IN_UBI := 1
-  KERNEL_IN_UBI := 1
-  IMAGES := sysupgrade.bin
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES += fitblk
-  SUPPORTED_DEVICES += nokia,xg-040g-md-ubi nokia,xg-040g-md
-  ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot nokia_xg-040g-md
-  ARTIFACT/preloader.bin := an7581-preloader nokia_xg-040g-md
-  ARTIFACTS := bl31-uboot.fip preloader.bin
-endef
-TARGET_DEVICES += nokia_xg-040g-md-3rdparty
-
-define Device/nokia_xg-040g-md-3rdparty
-  $(call Device/nokia_xg-040g-md-common)
-  DEVICE_VARIANT := (3rdparty tcboot UBI)
-  DEVICE_DTS := an7581-nokia_xg-040g-md-3rdparty
-  UBOOTENV_IN_UBI := 1
-  KERNEL_IN_UBI := 1
-  IMAGES := sysupgrade.bin
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES += fitblk
-  SUPPORTED_DEVICES += nokia,xg-040g-md-ubi nokia,xg-040g-md
-  ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot nokia_xg-040g-md
-  ARTIFACT/preloader.bin := an7581-preloader nokia_xg-040g-md
-  ARTIFACTS := bl31-uboot.fip preloader.bin
-endef
-TARGET_DEVICES += nokia_xg-040g-md-3rdparty
-
-define Device/nokia_xg-040g-md-3rdparty
-  $(call Device/nokia_xg-040g-md-common)
-  DEVICE_VARIANT := (3rdparty tcboot UBI)
-  DEVICE_DTS := an7581-nokia_xg-040g-md-3rdparty
-  UBOOTENV_IN_UBI := 1
-  KERNEL_IN_UBI := 1
-  IMAGES := sysupgrade.bin
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-  DEVICE_PACKAGES += fitblk
-  SUPPORTED_DEVICES += nokia,xg-040g-md-ubi nokia,xg-040g-md
-  ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot nokia_xg-040g-md
-  ARTIFACT/preloader.bin := an7581-preloader nokia_xg-040g-md
-  ARTIFACTS := bl31-uboot.fip preloader.bin
-endef
-TARGET_DEVICES += nokia_xg-040g-md-3rdparty
 #
 # === pbs05/ponwrt device port (AN7581) ===
 # Source: https://github.com/pbs05/ponwrt (master) — 13 PON/ONT devices.
-# Ported into wmz-test-pon on $(date +%F).
+# Ported into wmz-test-pon (PON stack ported from pbs05/ponwrt).
 #
-# Package-name adaptations for wmz's PON stack (different from pbs05):
-#   pbs05 kmod-airoha-xpon        -> wmz kmod-airoha-xpon-en757x
-#   pbs05 kmod-airoha-en7572      -> wmz kmod-airoha-xpon-en757x (an7581 v2 driver covers EN7572 PHY)
-#   pbs05 airoha-ponctl airoha-pond -> wmz pon-manager (provides /usr/sbin/ponctl + ponmgr daemon)
-# OMITTED (not present in wmz tree, flag for later port if required):
-#   kmod-airoha-paged-bosa, znxt-zn515-mt7916-eeprom
-# NOTE: wmz's an7581/target.mk DEFAULT_PACKAGES does NOT pull pon-manager/xpon, so PON
-#       packages are listed explicitly here for the PON ONTs (q1000k is non-PON, left as pbs05).
+# PON stack is faithful to pbs05/ponwrt (feeds pon_drivers + pon_userspace):
+#   kmod-airoha-xpon + (kmod-airoha-en7572 for EN7572 optics | kmod-airoha-paged-bosa for Fiberhome BOSA)
+#   + airoha-ponctl + airoha-pond (userspace bring-up).
+#   - Nokia common injects the EN7572 variant for all Nokia XG-040G-MD/TF builds.
+#   - Fiberhome HG5382A / HG5585F-* use kmod-airoha-paged-bosa.
+#   - ZNXT ZN515XG-D additionally pulls znxt-zn515-mt7916-eeprom firmware.
+#   - q1000k is non-PON (Ethernet only); it carries no PON packages.
 #
 
 # HG5585F variants share parallel NAND, PON, MT7916D, and dual USB.
@@ -301,7 +238,7 @@ define Device/fiberhome_hg5585f-common
   IMAGES := sysupgrade.itb
   # PON and MT7916D read per-device calibration from factory UBI NVMEM cells.
   DEVICE_PACKAGES := kmod-gpio-button-hotplug kmod-leds-gpio kmod-usb3 \
-    kmod-airoha-xpon-en757x pon-manager \
+    kmod-airoha-xpon kmod-airoha-paged-bosa airoha-ponctl airoha-pond \
 	 kmod-mt7915e kmod-mt7916-firmware wpad-openssl \
 	 fitblk nand-utils ubi-utils $(AIROHA_USB_STORAGE_PACKAGES)
 endef
@@ -384,7 +321,8 @@ define Device/znxt_zn515xg-d
   DEVICE_DTS := an7581-znxt-zn515xg-d
   DEVICE_PACKAGES := kmod-gpio-button-hotplug kmod-leds-gpio \
     kmod-usb3 kmod-usb-ledtrig-usbport kmod-phy-airoha-en8811h \
-    kmod-airoha-xpon-en757x pon-manager \
+    kmod-airoha-xpon kmod-airoha-en7572 airoha-ponctl airoha-pond \
+    znxt-zn515-mt7916-eeprom \
     kmod-mt7915e kmod-mt7916-firmware wpad-openssl \
     nand-utils ubi-utils $(AIROHA_USB_STORAGE_PACKAGES)
   DEVICE_PACKAGES += fitblk
@@ -396,7 +334,7 @@ define Device/znxt_zn504xg-d
   DEVICE_MODEL := ZN504XG-D
   DEVICE_DTS := an7581-znxt-zn504xg-d
   DEVICE_PACKAGES := kmod-gpio-button-hotplug kmod-leds-gpio \
-    kmod-phy-airoha-en8811h kmod-airoha-xpon-en757x pon-manager \
+    kmod-phy-airoha-en8811h kmod-airoha-xpon kmod-airoha-en7572 airoha-ponctl airoha-pond \
     nand-utils ubi-utils
   DEVICE_PACKAGES += fitblk
 endef
@@ -423,7 +361,7 @@ define Device/unionman_ung00a
 	fit gzip $$(KDIR)/image-$$(DEVICE_DTS).dtb external-static-with-rootfs | \
 	append-metadata
   DEVICE_PACKAGES := kmod-gpio-button-hotplug kmod-leds-gpio \
-	 kmod-phy-airoha-en8811h kmod-airoha-xpon-en757x pon-manager \
+	 kmod-phy-airoha-en8811h kmod-airoha-xpon kmod-airoha-en7572 airoha-ponctl airoha-pond \
 	 fitblk nand-utils ubi-utils
 endef
 TARGET_DEVICES += unionman_ung00a
@@ -449,7 +387,7 @@ define Device/h3c_hm2004-du
 	append-metadata
   DEVICE_PACKAGES := kmod-gpio-button-hotplug kmod-leds-gpio \
 	 kmod-usb3 kmod-usb-ledtrig-usbport \
-	 kmod-phy-airoha-en8811h kmod-airoha-xpon-en757x pon-manager \
+	 kmod-phy-airoha-en8811h kmod-airoha-xpon kmod-airoha-en7572 airoha-ponctl airoha-pond \
 	 kmod-mt7915e kmod-mt7916-firmware wpad-openssl \
 	 fitblk nand-utils ubi-utils $(AIROHA_USB_STORAGE_PACKAGES)
 endef
@@ -475,7 +413,7 @@ define Device/gemtek_xg2010g
 	append-metadata
   DEVICE_PACKAGES := kmod-gpio-button-hotplug kmod-leds-gpio \
 	kmod-phy-airoha-en8811h kmod-phy-realtek rtl826x-firmware \
-	kmod-airoha-xpon-en757x pon-manager \
+	kmod-airoha-xpon kmod-airoha-en7572 airoha-ponctl airoha-pond \
 	fitblk nand-utils ubi-utils
 endef
 TARGET_DEVICES += gemtek_xg2010g
@@ -501,7 +439,7 @@ define Device/fiberhome_hg5382a
 	append-metadata
   # The external 2.5G copper port uses MaxLinear GPY211.
   DEVICE_PACKAGES := kmod-gpio-button-hotplug kmod-leds-gpio kmod-phy-maxlinear \
-    kmod-airoha-xpon-en757x pon-manager \
+    kmod-airoha-xpon kmod-airoha-paged-bosa airoha-ponctl airoha-pond \
     fitblk nand-utils ubi-utils
 endef
 TARGET_DEVICES += fiberhome_hg5382a
@@ -528,7 +466,6 @@ define Device/nokia_xg-040g-md-ubi-usb-sfp
   DEVICE_DTS := an7581-nokia_xg-040g-md-ubi-usb-sfp
   SUPPORTED_DEVICES += nokia,xg-040g-md-ubi
   $(call Device/nokia_xg-040g-md-ubi-images)
-  DEVICE_PACKAGES += pon-manager kmod-airoha-xpon-en757x
 endef
 TARGET_DEVICES += nokia_xg-040g-md-ubi-usb-sfp
 
@@ -555,7 +492,7 @@ define Device/nokia_xg-040g-tf-ubi
   IMAGE/sysupgrade.itb := append-kernel | \
 	fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | \
 	append-metadata
-  DEVICE_PACKAGES += fitblk pon-manager kmod-airoha-xpon-en757x
+  DEVICE_PACKAGES += fitblk
 endef
 TARGET_DEVICES += nokia_xg-040g-tf-ubi
 
