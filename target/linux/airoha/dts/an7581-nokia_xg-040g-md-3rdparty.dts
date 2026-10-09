@@ -54,5 +54,10 @@
 };
 
 &gdm2 {
+	/* GDM2 carries the PON GEM data plane on AN7581; airoha_eth (pbs05 922)
+	 * names this netdevice "pon%d" and the kmod-airoha-xpon data-path links here. */
+	airoha,pon-data-path;
+	nvmem-cell-names = "mac-address";
+	nvmem-cells = <&macaddr_factory_3e 0>;
 	status = "okay";
 };

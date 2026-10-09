@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# Auto-configure the WAN interface over the PON data-path (pon0) on
+# Airoha AN7581 / AN7583 PON/ONT boards.
+#
+# pbs05/ponwrt deliberately leaves WAN unconfigured so the operator can
+# pick the bearer in luci-app-pon. The wmz user wants WAN up on boot, so
+# we point the logical 'wan' interface at the pon0 netdevice created by
+# the airoha-pond init script (START=19) and let netifd bring it up.
+#
+# Runs once at first boot; the change persists in /etc/config/network, so
+# WAN is raised automatically on every subsequent boot.
+#
+# Default bearer is IPoE (proto 'dhcp'). Switch to 'pppoe' (or a
+# VLAN-tagged IPoE) in LuCI / UCI to match your ISP.
+
+# Only act on boards that really expose a PON MAC in the device tree.
+if ! find /sys/firmware/devicetree/base -name compatible -exec cat {} + 2>/dev/null \
+		| grep -q "airoha,an7581-xpon-mac"; then
+	exit 0
+fi
+
+# Already wired to pon0? Leave as-is.
+if uci -q get network.wan.device 2>/dev/null | grep -q "pon0"; then
+	exit 0
+fi
+
+uci -q batch <<EOF
+set network.wan=interface
+set network.wan.device='pon0'
+set network.wan.proto='dhcp'
+EOF
+uci commit network
+
+exit 0
