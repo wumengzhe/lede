@@ -70,15 +70,14 @@
 	pon_calibration_storage: partition@51c0000 {
 		label = "bosa";
 		reg = <0x51c0000 0x40000>;
-		read-only;
 
+		/* The 512-byte A0/A2 optical table follows the backup header. */
 		nvmem-layout {
 			compatible = "fixed-layout";
 
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			/* The 512 bytes after the bosa header contain per-device optical data. */
 			pon_calibration: calibration@2 {
 				reg = <0x2 0x200>;
 			};
@@ -88,7 +87,6 @@
 	partition@5200000 {
 		label = "ri";
 		reg = <0x5200000 0x40000>;
-		read-only;
 
 		nvmem-layout {
 			compatible = "fixed-layout";

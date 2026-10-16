@@ -58,7 +58,6 @@ define Device/airoha_an7581-evb
   DEVICE_MODEL := AN7581 Evaluation Board (SNAND)
   DEVICE_PACKAGES := kmod-leds-pwm kmod-pwm-airoha kmod-input-gpio-keys-polled
   DEVICE_DTS := an7581-evb
-  DEVICE_DTS_CONFIG := config@1
   IMAGE/sysupgrade.bin := append-kernel | pad-to 128k | append-rootfs | pad-rootfs | append-metadata
   ARTIFACT/preloader.bin := an7581-preloader rfb
   ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot rfb
@@ -71,7 +70,7 @@ define Device/airoha_an7581-evb-emmc-eagle
   DEVICE_MODEL := AN7581 Evaluation Board (eMMC + Eagle)
   DEVICE_DTS := an7581-evb-emmc-eagle
   DEVICE_PACKAGES := airoha-en7581-mt7996-npu-firmware \
-		    kmod-mt7996-firmware wpad-basic-mbedtls
+		    kmod-mt7996-firmware wpad-openssl
   ARTIFACT/preloader.bin := an7581-preloader rfb
   ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot rfb
   ARTIFACTS := preloader.bin bl31-uboot.fip
@@ -83,7 +82,7 @@ define Device/airoha_an7581-evb-emmc-kite
   DEVICE_MODEL := AN7581 Evaluation Board (eMMC + Kite)
   DEVICE_DTS := an7581-evb-emmc-kite
   DEVICE_PACKAGES := airoha-en7581-npu-firmware \
-		    kmod-mt7992-firmware wpad-basic-mbedtls
+		    kmod-mt7992-firmware wpad-openssl
   ARTIFACT/preloader.bin := an7581-preloader rfb
   ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot rfb
   ARTIFACTS := preloader.bin bl31-uboot.fip
@@ -109,7 +108,7 @@ define Device/gemtek_w1700k-ubi
        with the vendor bootloader with regard to the BMT/BBT partition at \
        the end of flash. A reinstall including corrected chainloader is needed.
   DEVICE_PACKAGES := airoha-en7581-mt7996-npu-firmware fitblk \
-		    kmod-hwmon-nct7802 kmod-mt7996-firmware wpad-basic-mbedtls \
+		    kmod-hwmon-nct7802 kmod-mt7996-firmware wpad-openssl \
 		    rtl826x-firmware
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
@@ -134,9 +133,9 @@ define Device/nokia_valyrian
   DEVICE_DTS := an7581-nokia-valyrian
   DEVICE_PACKAGES := kmod-spi-gpio kmod-gpio-nxp-74hc164 kmod-leds-gpio \
     kmod-i2c-gpio kmod-iio-richtek-rtq6056 \
-    kmod-sfp kmod-phy-aeonsemi-as21xxx \
+    kmod-sfp aeonsemi-as21xxx-firmware \
     kmod-mt7996-firmware airoha-en7581-mt7996-npu-firmware \
-    kmod-usb3
+    kmod-usb3 $(AIROHA_USB_STORAGE_PACKAGES)
   ARTIFACT/preloader.bin := an7581-preloader nokia_valyrian
   ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot nokia_valyrian
   ARTIFACTS := preloader.bin bl31-uboot.fip
@@ -152,19 +151,19 @@ define Device/nokia_xg-040g-md-common
   UBINIZE_OPTS := -E 5
   DEVICE_PACKAGES := kmod-gpio-button-hotplug kmod-leds-gpio \
 	kmod-phy-airoha-en8811h kmod-regulator-userspace-consumer \
-	kmod-usb-ledtrig-usbport kmod-usb3 \
-	kmod-airoha-xpon kmod-airoha-en7572 airoha-ponctl airoha-pond
+	kmod-usb-ledtrig-usbport kmod-usb3 kmod-airoha-en7572 \
+	kmod-airoha-xpon airoha-ponctl airoha-pond \
+	$(AIROHA_USB_STORAGE_PACKAGES)
 endef
 
 define Device/nokia_xg-040g-md
   $(call Device/nokia_xg-040g-md-common)
   DEVICE_DTS := an7581-nokia_xg-040g-md
-  DEVICE_DTS_CONFIG := config@1
   IMAGE_SIZE := 131968k
   KERNEL_SIZE := 8192k
   IMAGES += factory-kernel.bin factory-rootfs.bin
   IMAGE/factory-kernel.bin := append-kernel
-  IMAGE/factory-rootfs.bin := append-ubi | check-size
+  IMAGE/factory-rootfs.bin := append-ubi
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += nokia_xg-040g-md
@@ -208,7 +207,6 @@ TARGET_DEVICES += nokia_xg-040g-md-ubi
 define Device/fiberhome_hg5585f-common
   $(call Device/FitImageLzma)
   DEVICE_VENDOR := FiberHome
-  DEVICE_DTS_CONFIG := config@1
   KERNEL_LOADADDR := 0x8a000000
   BLOCKSIZE := 128k
   PAGESIZE := 2048
@@ -279,7 +277,6 @@ TARGET_DEVICES += fiberhome_hg5585f-cu-usb-sfp
 define Device/znxt_zn50xg-d-common
   DEVICE_VENDOR := ZNXT
   DEVICE_VARIANT := (UBI)
-  DEVICE_DTS_CONFIG := config-1
   # 0x8a000000 follows NPU/QDMA reserved memory and holds recovery decompression.
   KERNEL_LOADADDR := 0x8a000000
   BLOCKSIZE := 128k
@@ -327,7 +324,6 @@ define Device/unionman_ung00a
   DEVICE_VENDOR := Unionman
   DEVICE_MODEL := UNG00A
   DEVICE_DTS := an7581-unionman-ung00a
-  DEVICE_DTS_CONFIG := config@1
   KERNEL_LOADADDR := 0x8a000000
   BLOCKSIZE := 128k
   PAGESIZE := 2048
@@ -352,7 +348,6 @@ define Device/h3c_hm2004-du
   DEVICE_VENDOR := H3C
   DEVICE_MODEL := HM2004-DU
   DEVICE_DTS := an7581-h3c-hm2004-du
-  DEVICE_DTS_CONFIG := config@1
   KERNEL_LOADADDR := 0x8a000000
   BLOCKSIZE := 128k
   PAGESIZE := 2048
@@ -404,7 +399,6 @@ define Device/fiberhome_hg5382a
   DEVICE_VENDOR := FiberHome
   DEVICE_MODEL := HG5382A
   DEVICE_DTS := an7581-fiberhome-hg5382a
-  DEVICE_DTS_CONFIG := config@1
   KERNEL_LOADADDR := 0x8c000000
   BLOCKSIZE := 128k
   PAGESIZE := 2048

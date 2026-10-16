@@ -15,8 +15,6 @@
 	chosen {
 		bootargs = "console=ttyS0,115200 earlycon";
 		stdout-path = "serial0:115200n8";
-		linux,usable-memory-range =
-			<0x0 0x80200000 0x0 0x1fe00000>;
 	};
 
 	memory@80000000 {
@@ -71,8 +69,8 @@
 
 &spi_nand {
 	/*
-	 *  ECC must be aligned with bootloader to prevent read errors.
-	 *  Stock fw also uses NAND_ECC_NONE.
+	 * Bootloader stores pages without host ECC, so Linux uses
+	 * NAND_ECC_NONE for the same page layout.
 	 */
 	nand-ecc-mode = "none";
 	nand-ecc-step-size = <2048>;
@@ -89,5 +87,5 @@
 	status = "okay";
 
 	nvmem-cell-names = "mac-address";
-	nvmem-cells = <&macaddr_factory_3e (0)>;
+	nvmem-cells = <&macaddr_factory_3e 1>;
 };

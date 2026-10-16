@@ -9,6 +9,7 @@
 
 / {
 	aliases {
+		/* Expose optical calibration through a stable NVMEM node. */
 		pon-calibration = &pon_calibration_storage;
 	};
 
@@ -26,16 +27,20 @@
 	leds {
 		compatible = "gpio-leds";
 
-		led-0 {
+		led_pon_registration: led-0 {
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_WAN;
 			gpios = <&an7583_pinctrl 6 GPIO_ACTIVE_LOW>;
+			/* Registration maps O1-O3 to fast blink, O4 to slow blink, and O5 on. */
+			linux,default-trigger = "pon0-registration";
 		};
 
-		led-1 {
+		led_internet: led-1 {
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_WAN_ONLINE;
 			gpios = <&an7583_pinctrl 7 GPIO_ACTIVE_LOW>;
+			/* pon0 service-ready state drives the Internet LED. */
+			linux,default-trigger = "pon0-online";
 		};
 
 		led_power_green: led-2 {
@@ -54,10 +59,12 @@
 			trigger-sources = <&usb_port1>;
 		};
 
-		led-4 {
+		led_pon_los: led-4 {
 			color = <LED_COLOR_ID_RED>;
 			function = LED_FUNCTION_WAN;
 			gpios = <&an7583_pinctrl 27 GPIO_ACTIVE_LOW>;
+			/* The LOS LED follows optical signal loss. */
+			linux,default-trigger = "pon0-los";
 		};
 
 		led-5 {
@@ -112,17 +119,6 @@
 		};
 	};
 
-	/*
-	 * AN7583 multiplexes I2C0 SCL and SDA with GPIO. Selecting this pin group
-	 * routes the dedicated I2C0 pins to optical frontend windows 0x50 and 0x51.
-	 */
-	i2c0_pins: i2c0-pins {
-		mux {
-			function = "i2c";
-			groups = "i2c0";
-		};
-	};
-
 	mdio0_pins: mdio0-pins {
 		mux {
 			function = "mdio";
@@ -131,6 +127,17 @@
 		conf {
 			pins = "mdio_0";
 			output-high;
+		};
+	};
+
+	/*
+	 * AN7583 multiplexes I2C0 SCL and SDA with GPIO. Selecting this pin group
+	 * routes the dedicated I2C0 pins to optical frontend windows 0x50 and 0x51.
+	 */
+	i2c0_pins: i2c0-pins {
+		mux {
+			function = "i2c";
+			groups = "i2c0";
 		};
 	};
 
