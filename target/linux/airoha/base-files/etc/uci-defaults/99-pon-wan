@@ -15,8 +15,9 @@
 # VLAN-tagged IPoE) in LuCI / UCI to match your ISP.
 
 # Only act on boards that really expose a PON MAC in the device tree.
+# Covers both AN7581 (nokia,xg-040g-md/tf) and AN7583 (nokia,xg-040g-mf) SoCs.
 if ! find /sys/firmware/devicetree/base -name compatible -exec cat {} + 2>/dev/null \
-		| grep -q "airoha,an7581-xpon-mac"; then
+		| grep -Eq "airoha,an758[13]-xpon-mac"; then
 	exit 0
 fi
 
