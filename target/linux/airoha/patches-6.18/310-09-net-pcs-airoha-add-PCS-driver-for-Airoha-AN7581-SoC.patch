@@ -1215,6 +1215,11 @@ index 000000000000..d9ec0e97b746
 +	return &priv->ports[index].pcs;
 +}
 +
++static void airoha_pcs_provider_release(void *res)
++{
++	fwnode_pcs_remove_provider(res);
++}
++
 +static int airoha_pcs_probe(struct platform_device *pdev)
 +{
 +	const struct airoha_pcs_match_data *data;
@@ -1339,9 +1344,8 @@ index 000000000000..d9ec0e97b746
 +	if (IS_ERR(pcs_provider))
 +		return PTR_ERR(pcs_provider);
 +
-+	priv->pcs_provider = pcs_provider;
-+
-+	return 0;
++	return devm_add_action_or_reset(dev, airoha_pcs_provider_release,
++					pcs_provider);
 +}
 +
 +static const struct airoha_pcs_match_data an7581_pcs_eth = {
@@ -1384,20 +1388,12 @@ index 000000000000..d9ec0e97b746
 +};
 +MODULE_DEVICE_TABLE(of, airoha_pcs_of_table);
 +
-+static void airoha_pcs_remove(struct platform_device *pdev)
-+{
-+	struct airoha_pcs_priv *priv = platform_get_drvdata(pdev);
-+
-+	fwnode_pcs_remove_provider(priv->pcs_provider);
-+}
-+
 +static struct platform_driver airoha_pcs_driver = {
 +	.driver = {
 +		.name	 = "airoha-pcs",
 +		.of_match_table = airoha_pcs_of_table,
 +	},
 +	.probe = airoha_pcs_probe,
-+	.remove = airoha_pcs_remove,
 +};
 +module_platform_driver(airoha_pcs_driver);
 +
@@ -2655,8 +2651,6 @@ index 000000000000..8a76d51b5d2c
 +	struct reset_control_bulk_data rsts[AIROHA_PCS_MAX_NUM_RSTS];
 +
 +	struct phy *phy;
-+
-+	struct fwnode_pcs_provider *pcs_provider;
 +
 +	bool manual_rx_calib;
 +};
