@@ -1215,15 +1215,15 @@ index 000000000000..d9ec0e97b746
 +	return &priv->ports[index].pcs;
 +}
 +
-+static void airoha_pcs_provider_release(void *res)
++static void airoha_pcs_provider_release(void *data)
 +{
-+	fwnode_pcs_remove_provider(res);
++	fwnode_pcs_del_provider(dev_fwnode((struct device *)data));
 +}
 +
 +static int airoha_pcs_probe(struct platform_device *pdev)
 +{
 +	const struct airoha_pcs_match_data *data;
-+	struct fwnode_pcs_provider *pcs_provider;
++	/* PCS provider registered via fwnode_pcs_add_provider(); released by devm action */
 +	struct device *dev = &pdev->dev;
 +	struct airoha_pcs_priv *priv;
 +	int index, ret;
@@ -1339,13 +1339,13 @@ index 000000000000..d9ec0e97b746
 +
 +	platform_set_drvdata(pdev, priv);
 +
-+	pcs_provider = fwnode_pcs_add_provider(dev_fwnode(dev),
++	ret = fwnode_pcs_add_provider(dev_fwnode(dev),
 +					       airoha_pcs_xlate, priv);
-+	if (IS_ERR(pcs_provider))
-+		return PTR_ERR(pcs_provider);
++	if (ret)
++		return ret;
 +
 +	return devm_add_action_or_reset(dev, airoha_pcs_provider_release,
-+					pcs_provider);
++					dev);
 +}
 +
 +static const struct airoha_pcs_match_data an7581_pcs_eth = {
