@@ -365,5 +365,3 @@ index 442b48c9b991..4ea89057b560 100644
  #define REG_MC_VLAN_EN			0x2100
  #define MC_VLAN_EN_MASK			BIT(0)
  
--- 
-2.53.0

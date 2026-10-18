@@ -84,7 +84,7 @@ new file mode 100644
 index 000000000000..d9ec0e97b746
 --- /dev/null
 +++ b/drivers/net/pcs/airoha/pcs-airoha-common.c
-@@ -0,0 +1,1309 @@
+@@ -0,0 +1,1315 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (c) 2024 AIROHA Inc
@@ -1405,7 +1405,7 @@ new file mode 100644
 index 000000000000..8a76d51b5d2c
 --- /dev/null
 +++ b/drivers/net/pcs/airoha/pcs-airoha.h
-@@ -0,0 +1,1313 @@
+@@ -0,0 +1,1314 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +/*
 + * Copyright (c) 2024 AIROHA Inc
@@ -4826,5 +4826,3 @@ index 000000000000..a98e004a5cae
 +	 */
 +	return -EINVAL;
 +}
--- 
-2.53.0
