@@ -188,6 +188,7 @@
 
 			ubi: partition@2580000 {
 				label = "ubi";
+				reg = <2580000 0x0>;
 			};
 		};
 	};

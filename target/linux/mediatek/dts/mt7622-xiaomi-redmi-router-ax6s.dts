@@ -319,7 +319,7 @@
 			 */
 			partition@8c0000 {
 				label = "ubi";
-				reg = <0x8c0000 0x6d00000>;
+				reg = <0x8c0000 0x0>;
 			};
 		};
 	};

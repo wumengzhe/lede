@@ -49,7 +49,7 @@
 
 			partition@6c0000 {
 				label = "ubi";
-				reg = <0x6c0000 0x6f00000>;
+				reg = <0x6c0000 0x0>;
 			};
 
 			/delete-node/ partition@2200000;
