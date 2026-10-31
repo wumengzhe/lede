@@ -5269,4 +5269,74 @@ define Device/zyxel_ex5700-telenor-auto
   IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
-TARGET_DEVICES += zyxel_ex5700-telenor-auto
+TARGET_DEVICES += zyxel_ex5700-telenor-auto# ============================================================================
+# 龙物超级网关 S20 系列 板型定义 —— 适配 wumengzhe/lede (wmz-lede-multisize, 25.12/6.12 opkg)
+# 来源: VIKINGYFY/immortalwrt @ owrt 分支 target/linux/mediatek/image/filogic.mk
+# 适配点: DEVICE_DTS_DIR 由 VIKINGYFY 的 "../dts" 改为上游惯例 "$(DTS_DIR)/"
+#         （两者都解析到 target/linux/mediatek/dts/，用上游写法避免相对路径歧义）
+# 用法: 把下面整段追加到 target/linux/mediatek/image/filogic.mk 末尾
+# ============================================================================
+define Device/supergateway_s20-common
+  DEVICE_VENDOR := Super Gateway
+  DEVICE_DTS_DIR := $(DTS_DIR)/
+  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7916-firmware kmod-mt7986-firmware mt7986-wo-firmware \
+    kmod-usb3 kmod-mmc kmod-nvme kmod-fs-f2fs kmod-fs-ext4 kmod-fs-vfat \
+    mkf2fs f2fsck e2fsprogs blkid blockdev losetup automount
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+define Device/supergateway_s20l
+  $(call Device/supergateway_s20-common)
+  DEVICE_MODEL := S20L
+  DEVICE_DTS := mt7986a-supergateway-s20l
+endef
+TARGET_DEVICES += supergateway_s20l
+define Device/supergateway_s20m
+  $(call Device/supergateway_s20-common)
+  DEVICE_MODEL := S20M
+  DEVICE_DTS := mt7986a-supergateway-s20m
+  DEVICE_PACKAGES += -kmod-mt76 -kmod-mt76-connac -kmod-mt76-core -kmod-mt7915e \
+    -kmod-mt7915-firmware -kmod-mt7916-firmware -kmod-mt7986-firmware -mt7986-wo-firmware
+endef
+TARGET_DEVICES += supergateway_s20m
+define Device/supergateway_s20p
+  $(call Device/supergateway_s20-common)
+  DEVICE_MODEL := S20P
+  DEVICE_DTS := mt7986a-supergateway-s20p
+endef
+TARGET_DEVICES += supergateway_s20p
+define Device/keenetic_kn-3411-common
+  DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_IN_UBI := 1
+  IMAGE_SIZE := 108544k
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+define Device/keenetic_kn-4410
+  DEVICE_VENDOR := Keenetic
+  DEVICE_MODEL := Buddy 6 SE
+  DEVICE_VARIANT := KN-4410
+  DEVICE_DTS := mt7981b-keenetic-kn-4410
+  $(call Device/keenetic_kn-3411-common)
+endef
+TARGET_DEVICES += keenetic_kn-4410
+define Device/netcraze_nc-3411
+  DEVICE_VENDOR := Netcraze
+  DEVICE_MODEL := Buddy 6
+  DEVICE_VARIANT := NC-3411
+  DEVICE_DTS := mt7981b-netcraze-nc-3411
+  $(call Device/keenetic_kn-3411-common)
+endef
+TARGET_DEVICES += netcraze_nc-3411
+define Device/netcraze_nc-4410
+  DEVICE_VENDOR := Netcraze
+  DEVICE_MODEL := Buddy 6 SE
+  DEVICE_VARIANT := NC-4410
+  DEVICE_DTS := mt7981b-netcraze-nc-4410
+  $(call Device/keenetic_kn-3411-common)
+endef
+TARGET_DEVICES += netcraze_nc-4410
