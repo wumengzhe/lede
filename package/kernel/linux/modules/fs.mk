@@ -518,6 +518,7 @@ define KernelPackage/fs-nfs-common-rpcsec
 	+kmod-crypto-ecb \
 	+kmod-crypto-arc4 \
 	+kmod-oid-registry
+  DEPENDS+=@!LINUX_6_18
   KCONFIG:= \
 	CONFIG_SUNRPC_GSS \
 	CONFIG_RPCSEC_GSS_KRB5
@@ -600,7 +601,7 @@ define KernelPackage/fs-ntfs
   KCONFIG:=CONFIG_NTFS_FS
   FILES:=$(LINUX_DIR)/fs/ntfs/ntfs.ko
   AUTOLOAD:=$(call AutoLoad,30,ntfs)
-  DEPENDS+=@!LINUX_6_12
+  DEPENDS+=@!LINUX_6_18
   $(call AddDepends/nls)
 endef
 
